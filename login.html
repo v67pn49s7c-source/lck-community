@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>로그인 — LCK 라운지</title>
+  <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <main class="page">
+    <div class="container" style="max-width:440px">
+      <div class="page-title-row">
+        <h1 class="page-title" id="auth-title">로그인</h1>
+      </div>
+
+      <section class="card">
+        <div class="board-toolbar">
+          <div class="filter-tabs">
+            <button id="tab-login" class="active">로그인</button>
+            <button id="tab-signup">회원가입</button>
+          </div>
+        </div>
+
+        <form class="write-form" id="auth-form">
+          <div id="nick-field" style="display:none">
+            <div class="form-label">닉네임 (2~12자 · 가입 후 글·댓글·채팅에 고정 표시)</div>
+            <input id="auth-nick" minlength="2" maxlength="12" placeholder="예: 협곡의봄" style="width:100%">
+          </div>
+          <div>
+            <div class="form-label">이메일</div>
+            <input id="auth-email" type="email" required autocomplete="username" style="width:100%">
+          </div>
+          <div>
+            <div class="form-label">비밀번호 (6자 이상)</div>
+            <input id="auth-pw" type="password" required minlength="6" autocomplete="current-password" style="width:100%">
+          </div>
+          <button class="btn-primary" type="submit" id="auth-submit">로그인</button>
+          <div class="admin-note" style="border:none; background:none; padding:4px 0 0">
+            회원이 되면 닉네임이 고정되어 사칭을 막을 수 있고,
+            예측·평점 기록이 계정에 저장되어 다른 기기에서도 이어집니다.<br>
+            로그인 없이도 눈팅·글쓰기·예측은 모두 가능합니다.
+          </div>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <script src="assets/data.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+  <script src="assets/store.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+  storeReady.then(async () => {
+    renderHeader(null, null);
+    renderFooter();
+
+    if (Auth.session) { location.href = "index.html"; return; }
+
+    let mode = "login";
+    const tabL = document.getElementById("tab-login"), tabS = document.getElementById("tab-signup");
+    function setMode(m) {
+      mode = m;
+      tabL.classList.toggle("active", m === "login");
+      tabS.classList.toggle("active", m === "signup");
+      document.getElementById("nick-field").style.display = m === "signup" ? "" : "none";
+      document.getElementById("auth-nick").required = m === "signup";
+      document.getElementById("auth-title").textContent = m === "login" ? "로그인" : "회원가입";
+      document.getElementById("auth-submit").textContent = m === "login" ? "로그인" : "가입하기";
+    }
+    tabL.addEventListener("click", () => setMode("login"));
+    tabS.addEventListener("click", () => setMode("signup"));
+
+    document.getElementById("auth-form").addEventListener("submit", async e => {
+      e.preventDefault();
+      const email = document.getElementById("auth-email").value.trim();
+      const pw = document.getElementById("auth-pw").value;
+      const btn = document.getElementById("auth-submit");
+      btn.disabled = true;
+
+      if (mode === "login") {
+        const { error } = await sbSignIn(email, pw);
+        btn.disabled = false;
+        if (error) { alert("로그인 실패: " + error.message); return; }
+        location.href = "index.html";
+      } else {
+        const nick = document.getElementById("auth-nick").value.trim();
+        const res = await sbSignUp(email, pw, nick);
+        btn.disabled = false;
+        if (res.error) { alert("가입 실패: " + res.error.message); return; }
+        if (res.needConfirm) { alert("가입 확인 이메일이 발송되었습니다. 메일함을 확인해 주세요."); return; }
+        alert(`환영합니다, ${nick}님!`);
+        location.href = "index.html";
+      }
+    });
+  });
+  </script>
+</body>
+</html>

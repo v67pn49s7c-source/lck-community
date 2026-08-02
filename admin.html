@@ -177,7 +177,17 @@
     renderHeader(null, null);
 
     // ── 관리자 로그인 게이트 ──
-    const session = await sbGetSession();
+    const session = Auth.session;
+    if (session && !Auth.profile?.is_admin) {
+      document.querySelector("main .container").innerHTML = `
+        <div class="page-title-row"><h1 class="page-title">관리자 전용</h1></div>
+        <section class="card"><div class="admin-note" style="border-top:none">
+          이 계정(${esc(Auth.profile ? Auth.profile.nick : session.user.email)})은 관리자 권한이 없습니다.<br>
+          <a href="index.html" style="text-decoration:underline">홈으로 돌아가기</a>
+        </div></section>`;
+      renderFooter();
+      return;
+    }
     if (!session) {
       document.querySelector("main .container").innerHTML = `
         <div class="page-title-row"><h1 class="page-title">관리자 로그인</h1></div>

@@ -95,7 +95,10 @@ function renderHeader(activeMenu, activeTeamId) {
       </nav>
       <div class="header-actions">
         <button class="btn-icon" id="theme-toggle"></button>
-        <button class="btn-login">로그인</button>
+        ${Auth.session
+          ? `<span class="user-chip" title="${esc(Auth.session.user.email || "")}">${esc(Auth.profile ? Auth.profile.nick : "회원")}</span>
+             <button class="btn-login" id="btn-signout">로그아웃</button>`
+          : `<a class="btn-login" href="login.html">로그인</a>`}
       </div>
     </div>
   </header>
@@ -114,6 +117,11 @@ function renderHeader(activeMenu, activeTeamId) {
     applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
   });
   applyTheme(document.documentElement.dataset.theme || "dark");
+
+  header.querySelector("#btn-signout")?.addEventListener("click", async () => {
+    await sbSignOut();
+    location.reload();
+  });
 }
 
 function renderFooter() {

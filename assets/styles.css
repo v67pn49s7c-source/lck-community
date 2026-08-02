@@ -133,6 +133,14 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
   transition: color .15s, border-color .15s;
 }
 .btn-icon:hover { color: var(--text); border-color: var(--text-dim); }
+.user-chip {
+  display: inline-flex; align-items: center;
+  padding: 5px 12px; font-size: var(--fs-sm); font-weight: 700;
+  color: var(--accent); background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
+  max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 /* ── 팀 스트립 ── */
 .team-strip { background: var(--bg-soft); border-bottom: 1px solid var(--line); }

@@ -8,8 +8,12 @@ const SB_URL = "https://ckbxvhdvhczpxtgkpbsv.supabase.co";
 const SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrYnh2aGR2aGN6cHh0Z2twYnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2NzQ5NzUsImV4cCI6MjEwMTI1MDk3NX0.TbCe1ybebiLNsUegL4s1ZbGa-TZsyPPWj9xzxMAPssU";
 const sb = window.supabase.createClient(SB_URL, SB_ANON);
 
-// 익명 방문자 id (예측·평점 1인 1표 식별용)
+// 로그인 상태 (storeInit에서 채움)
+const Auth = { session: null, profile: null };
+
+// 방문자 id (예측·평점 1인 1표 식별용) — 로그인 시 계정 id, 아니면 브라우저 익명 id
 function voterId() {
+  if (Auth.session) return Auth.session.user.id;
   let v = localStorage.getItem("lckdb_voter");
   if (!v) {
     v = "v" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -27,6 +31,16 @@ function sbErr(e, what) { if (e) console.error("[supabase]", what, e.message); }
 
 // ── 초기 로드 ──
 async function storeInit() {
+  // 로그인 세션 + 프로필
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    Auth.session = session;
+    if (session) {
+      const { data: prof } = await sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
+      Auth.profile = prof || null;
+    }
+  } catch (e) { console.error("[supabase] auth", e); }
+
   const [t, m, r, pl, po, co, pr, ra, de] = await Promise.all([
     sb.from("tournaments").select("*"),
     sb.from("matches").select("*").order("at"),
@@ -158,6 +172,7 @@ function deletePlayer(id) {
 function getPosts() { return Cache.posts; }
 function getPost(id) { return Cache.posts.find(p => p.id === id); }
 function addPost(p) {
+  if (Auth.profile) p.nick = Auth.profile.nick; // 회원은 고정 닉네임 사용
   p.id = "p" + Date.now();
   p.ts = Date.now(); p.views = 0; p.up = 0; p.comments = [];
   Cache.posts.unshift(p);
@@ -176,6 +191,7 @@ function deletePost(id) {
   sb.from("posts").delete().eq("id", id).then(r => sbErr(r.error, "deletePost"));
 }
 function addComment(postId, nick, body) {
+  if (Auth.profile) nick = Auth.profile.nick;
   const p = Cache.posts.find(x => x.id === postId);
   if (p) p.comments.push({ nick, body, ts: Date.now() });
   sb.from("comments").insert({ post_id: postId, nick, body }).then(r => sbErr(r.error, "addComment"));
@@ -264,6 +280,7 @@ async function loadChat(room) {
 }
 function getChat(room) { return Cache.chat[room] || []; }
 function addChat(room, nick, body) {
+  if (Auth.profile) nick = Auth.profile.nick;
   (Cache.chat[room] = Cache.chat[room] || []).push({ nick, body, ts: Date.now(), mine: true });
   sb.from("chat_messages").insert({ room, nick, body }).then(r => sbErr(r.error, "addChat"));
 }
@@ -306,11 +323,14 @@ function deleteDetailSet(matchId, pos) {
     .then(r => sbErr(r.error, "deleteDetailSet"));
 }
 
-// ── 닉네임 (내 브라우저 저장) ──
-function getNick() { return localStorage.getItem("lckdb_nick") || ""; }
-function setNick(n) { localStorage.setItem("lckdb_nick", n); }
+// ── 닉네임 ──
+function getNick() {
+  if (Auth.profile) return Auth.profile.nick;
+  return localStorage.getItem("lckdb_nick") || "";
+}
+function setNick(n) { if (!Auth.profile) localStorage.setItem("lckdb_nick", n); }
 
-// ── 관리자 인증 ──
+// ── 인증 (회원 + 관리자 공용, 이메일/비밀번호) ──
 async function sbGetSession() {
   const { data } = await sb.auth.getSession();
   return data.session;
@@ -318,6 +338,18 @@ async function sbGetSession() {
 async function sbSignIn(email, password) {
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   return { session: data.session, error };
+}
+async function sbSignUp(email, password, nick) {
+  const { data, error } = await sb.auth.signUp({ email, password });
+  if (error) return { error };
+  if (!data.session) return { needConfirm: true }; // 이메일 확인이 켜져 있는 경우
+  const { error: pErr } = await sb.from("profiles").insert({ id: data.session.user.id, nick });
+  if (pErr) {
+    if (pErr.message.includes("duplicate") || pErr.code === "23505")
+      return { error: { message: "이미 사용 중인 닉네임입니다." } };
+    return { error: pErr };
+  }
+  return { session: data.session };
 }
 async function sbSignOut() { await sb.auth.signOut(); }
 
