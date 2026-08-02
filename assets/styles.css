@@ -1,0 +1,387 @@
+/* ── LCK 라운지 공통 스타일 (앵귤러 디자인 · 라이트/다크) ── */
+:root {
+  --bg: #0f1015;
+  --bg-soft: #14161d;
+  --card: #191c24;
+  --card-hover: #1f232e;
+  --line: #282c38;
+  --text: #e9ebf1;
+  --text-sub: #9aa1b0;
+  --text-dim: #667080;
+  --accent: #ff4655;
+  --accent-soft: rgba(255, 70, 85, .12);
+  --blue: #4a8cff;
+  --logo-tile: #101218;
+  --logo-line: #2a2f3c;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-base: 14px;
+  --fs-md: 15px;
+  --fs-lg: 18px;
+  --fs-xl: 22px;
+  --container: 1140px;
+  --cut: 12px; /* 카드 모서리 컷 크기 */
+}
+
+:root[data-theme="light"] {
+  --bg: #f4f5f8;
+  --bg-soft: #eceef3;
+  --card: #ffffff;
+  --card-hover: #f6f7fa;
+  --line: #dfe2ea;
+  --text: #171a22;
+  --text-sub: #565f6e;
+  --text-dim: #99a1af;
+  --accent: #e8323f;
+  --accent-soft: rgba(232, 50, 63, .08);
+  --blue: #2b6fe0;
+  /* 라이트 모드 로고 타일: 회색+붉은 톤 (흰색 로고 대비 유지) */
+  --logo-tile: #5b4a50;
+  --logo-line: #76626a;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Pretendard", "Pretendard Variable", -apple-system, BlinkMacSystemFont,
+    "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  font-size: var(--fs-base);
+  line-height: 1.55;
+  letter-spacing: -0.01em;
+}
+
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+ul, ol { list-style: none; }
+
+.container { max-width: var(--container); margin: 0 auto; padding: 0 20px; }
+
+/* ── 팀 로고 타일 (항상 어두운 배경 → 흰색 로고도 선명) ── */
+.team-logo {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(150deg,
+    color-mix(in srgb, var(--logo-tile) 82%, #b0888f),
+    var(--logo-tile) 60%);
+  border: 1px solid var(--logo-line);
+  flex-shrink: 0;
+}
+.team-logo img { width: 74%; height: 74%; object-fit: contain; display: block; }
+
+/* ── 상단 헤더 ── */
+.site-header {
+  position: sticky; top: 0; z-index: 50;
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.header-inner {
+  display: flex; align-items: center; gap: 28px;
+  height: 60px;
+}
+.brand {
+  display: flex; align-items: center; gap: 9px;
+  font-size: var(--fs-lg); font-weight: 800; letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.brand .brand-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px;
+  background: var(--accent); color: #fff;
+  font-size: 13px; font-weight: 900;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
+}
+.brand em { font-style: normal; color: var(--accent); }
+
+.main-nav { display: flex; align-items: center; gap: 2px; flex: 1; }
+.main-nav a {
+  position: relative;
+  padding: 18px 14px;
+  font-size: var(--fs-md); font-weight: 600; color: var(--text-sub);
+  transition: color .15s;
+}
+.main-nav a:hover { color: var(--text); }
+.main-nav a.active { color: var(--accent); }
+.main-nav a.active::after {
+  content: ""; position: absolute; left: 12px; right: 12px; bottom: 0;
+  height: 2px; background: var(--accent);
+  transform: skewX(-20deg);
+}
+
+.header-actions { display: flex; align-items: center; gap: 8px; }
+.btn-login {
+  padding: 7px 16px;
+  background: var(--card); border: 1px solid var(--line);
+  font-size: var(--fs-sm); font-weight: 600; color: var(--text-sub);
+  transition: color .15s, border-color .15s;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+}
+.btn-login:hover { color: var(--text); border-color: var(--text-dim); }
+.btn-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  background: var(--card); border: 1px solid var(--line);
+  font-size: 15px; color: var(--text-sub);
+  transition: color .15s, border-color .15s;
+}
+.btn-icon:hover { color: var(--text); border-color: var(--text-dim); }
+
+/* ── 팀 스트립 ── */
+.team-strip {
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--line);
+}
+.team-strip-inner {
+  display: flex; align-items: stretch; justify-content: space-between;
+  overflow-x: auto; scrollbar-width: none;
+}
+.team-strip-inner::-webkit-scrollbar { display: none; }
+.team-link {
+  flex: 1 0 auto;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 12px 14px 10px;
+  border-bottom: 2px solid transparent;
+  transition: background .15s, border-color .15s;
+  min-width: 86px;
+}
+.team-link:hover, .team-link.active {
+  background: var(--card);
+  border-bottom-color: var(--team-color, var(--accent));
+}
+.team-link .team-abbr { font-size: var(--fs-xs); font-weight: 700; color: var(--text-sub); letter-spacing: .04em; }
+.team-link:hover .team-abbr, .team-link.active .team-abbr { color: var(--text); }
+
+/* ── 본문 레이아웃 ── */
+.page { padding: 24px 0 60px; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 336px; gap: 20px; align-items: start; }
+/* 사이드바(순위·다음 경기)는 스크롤해도 화면에 고정 */
+.layout > aside { position: sticky; top: 76px; }
+
+.card {
+  background: var(--card); border: 1px solid var(--line);
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+  overflow: hidden;
+}
+.card + .card, .stack > * + * { margin-top: 20px; }
+
+.card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--line);
+}
+.card-title {
+  display: flex; align-items: center; gap: 10px;
+  font-size: var(--fs-lg); font-weight: 800; letter-spacing: -0.02em;
+}
+.card-title::before {
+  content: ""; display: inline-block;
+  width: 4px; height: 16px; background: var(--accent);
+  transform: skewX(-14deg);
+}
+.card-title .sub { font-size: var(--fs-sm); font-weight: 500; color: var(--text-sub); }
+.card-more { font-size: var(--fs-sm); color: var(--text-sub); font-weight: 600; }
+.card-more:hover { color: var(--accent); }
+
+/* ── 경기 일정 ── */
+.day-label {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 18px 6px;
+  font-size: var(--fs-sm); font-weight: 700; color: var(--text-sub);
+  letter-spacing: .02em;
+}
+.chip-today {
+  font-size: 11px; font-weight: 700; color: #fff;
+  background: var(--accent); padding: 1px 8px;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%);
+}
+.match-row {
+  display: grid;
+  grid-template-columns: 52px 64px 1fr 20px;
+  align-items: center; gap: 12px;
+  padding: 11px 18px;
+  border-top: 1px solid var(--line);
+  transition: background .15s;
+}
+.match-row:hover { background: var(--card-hover); }
+.match-time { font-size: var(--fs-sm); font-weight: 700; color: var(--text-sub); font-variant-numeric: tabular-nums; }
+.match-status { font-size: 11px; font-weight: 700; text-align: center; padding: 3px 0; }
+.match-status.done { color: var(--text-sub); background: var(--bg-soft); border: 1px solid var(--line); }
+.match-status.live { color: #fff; background: var(--accent); }
+.match-status.upcoming { color: var(--text-dim); }
+.match-teams {
+  display: grid; grid-template-columns: 1fr 96px 1fr; align-items: center; gap: 10px;
+}
+.match-side { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: var(--fs-md); }
+.match-side.right { justify-content: flex-end; }
+.match-score {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-weight: 800; font-size: var(--fs-md);
+  background: var(--bg-soft); border: 1px solid var(--line);
+  padding: 4px 0;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
+}
+.match-score .win { color: var(--text); }
+.match-score .lose { color: var(--text-dim); }
+.match-score.vs { color: var(--text-sub); font-size: var(--fs-sm); letter-spacing: .05em; }
+.match-arrow { color: var(--text-dim); font-size: var(--fs-md); text-align: right; }
+
+.odds { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+.odds-pill {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--bg-soft); border: 1px solid var(--line);
+  padding: 3px 10px; font-size: var(--fs-sm); font-weight: 700; color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
+}
+.odds-pill b { color: var(--text); font-weight: 800; }
+
+/* ── 인기 글 ── */
+.post-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 18px; border-top: 1px solid var(--line);
+  transition: background .15s;
+}
+.post-row:hover { background: var(--card-hover); }
+.post-row:first-of-type { border-top: none; }
+.tag-team {
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 800; letter-spacing: .03em;
+  padding: 2px 8px 2px 3px;
+  color: var(--tag-color, var(--text-sub));
+  background: color-mix(in srgb, var(--tag-color, #888) 12%, transparent);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
+}
+.tag-team.no-logo { padding: 2px 8px; }
+.tag-cat { flex-shrink: 0; font-size: var(--fs-xs); color: var(--text-dim); font-weight: 600; }
+.post-title {
+  flex: 1; min-width: 0;
+  font-size: var(--fs-base); font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.post-row:hover .post-title { color: var(--accent); }
+.post-meta { flex-shrink: 0; display: flex; gap: 10px; font-size: var(--fs-xs); color: var(--text-dim); }
+.post-meta .up { color: var(--accent); font-weight: 700; }
+.post-meta .cmt { color: var(--blue); font-weight: 700; }
+
+/* ── 사이드바 위젯 ── */
+.predict-widget { text-align: center; padding: 18px; }
+.predict-widget .countdown {
+  display: flex; justify-content: center; gap: 6px;
+  font-size: 26px; font-weight: 800; letter-spacing: .02em; font-variant-numeric: tabular-nums;
+}
+.predict-widget .countdown .unit { color: var(--text-dim); font-size: var(--fs-xs); font-weight: 600; margin-top: 2px; }
+.count-cell { display: flex; flex-direction: column; align-items: center; min-width: 44px; }
+.predict-vs {
+  margin-top: 14px;
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px;
+}
+.predict-team { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.predict-team .pct { font-size: var(--fs-md); font-weight: 800; }
+.predict-team button {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 10px 16px; border: 1px solid var(--line);
+  background: var(--bg-soft);
+  transition: border-color .15s, background .15s;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
+}
+.predict-team button:hover { border-color: var(--team-color, var(--accent)); }
+.predict-team button.voted { border-color: var(--team-color, var(--accent)); background: var(--accent-soft); }
+.predict-vs .vs-label { font-size: var(--fs-sm); font-weight: 800; color: var(--text-sub); letter-spacing: .06em; }
+.predict-bar {
+  margin-top: 12px; height: 6px; overflow: hidden;
+  display: flex; background: var(--bg-soft);
+  transform: skewX(-16deg);
+}
+.predict-bar .a { background: var(--blue); }
+.predict-bar .b { background: var(--accent); }
+.predict-note { margin-top: 12px; font-size: var(--fs-sm); color: var(--text-sub); }
+.predict-note em { font-style: normal; color: var(--accent); font-weight: 700; }
+
+/* 순위 테이블 */
+.standing-tabs { display: flex; gap: 6px; padding: 12px 14px 0; }
+.standing-tabs button {
+  flex: 1; padding: 8px 0;
+  font-size: var(--fs-sm); font-weight: 700; color: var(--text-sub);
+  background: var(--bg-soft); border: 1px solid var(--line);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+}
+.standing-tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+table.standings { width: 100%; border-collapse: collapse; }
+table.standings th {
+  font-size: var(--fs-xs); font-weight: 600; color: var(--text-dim);
+  text-align: left; padding: 10px 8px 6px;
+}
+table.standings td { padding: 9px 8px; border-top: 1px solid var(--line); font-size: var(--fs-sm); }
+table.standings tr td:first-child, table.standings tr th:first-child { padding-left: 18px; }
+table.standings tr td:last-child, table.standings tr th:last-child { padding-right: 18px; text-align: right; }
+table.standings .rank { color: var(--text-sub); font-weight: 700; width: 28px; }
+table.standings .team-cell { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+table.standings .wl { color: var(--text-sub); font-variant-numeric: tabular-nums; }
+table.standings .wl b { color: var(--text); }
+table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* 예측 랭킹 */
+.rank-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 18px; border-top: 1px solid var(--line);
+  font-size: var(--fs-sm);
+}
+.rank-row:first-of-type { border-top: none; }
+.rank-row .no { width: 18px; font-weight: 800; color: var(--text-sub); font-variant-numeric: tabular-nums; }
+.rank-row .no.top { color: var(--accent); }
+.rank-row .nick { flex: 1; font-weight: 700; }
+.rank-row .rate { font-weight: 800; color: var(--blue); font-variant-numeric: tabular-nums; }
+.rank-row .detail { color: var(--text-dim); font-size: var(--fs-xs); }
+
+/* ── 팀 게시판 페이지 (배너는 항상 다크 톤 유지) ── */
+.team-hero { border-bottom: 1px solid var(--line); }
+.team-hero-inner {
+  display: flex; align-items: center; gap: 18px;
+  padding: 28px 20px;
+}
+.team-hero-info h1 { font-size: var(--fs-xl); font-weight: 800; letter-spacing: -0.02em; color: #fff; }
+.team-hero-info .desc { margin-top: 4px; font-size: var(--fs-sm); color: rgba(255, 255, 255, .72); }
+.team-hero-info .desc b { color: #fff; }
+
+.board-tabs { display: flex; gap: 4px; padding: 12px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.board-tabs button {
+  padding: 6px 14px;
+  font-size: var(--fs-sm); font-weight: 700; color: var(--text-sub);
+  background: var(--bg-soft); border: 1px solid var(--line);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
+}
+.board-tabs button.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+.composer { padding: 14px 18px; border-bottom: 1px solid var(--line); background: var(--bg-soft); }
+.composer input, .composer textarea {
+  width: 100%; background: var(--card); border: 1px solid var(--line);
+  color: var(--text); font: inherit; font-size: var(--fs-base);
+  padding: 9px 12px;
+}
+.composer textarea { margin-top: 8px; resize: vertical; min-height: 64px; }
+.composer input::placeholder, .composer textarea::placeholder { color: var(--text-dim); }
+.composer input:focus, .composer textarea:focus { outline: none; border-color: var(--text-dim); }
+.composer-foot { display: flex; justify-content: flex-end; margin-top: 8px; }
+.btn-primary {
+  padding: 8px 20px;
+  background: var(--accent); color: #fff; font-weight: 700; font-size: var(--fs-sm);
+  transition: opacity .15s;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%);
+}
+.btn-primary:hover { opacity: .85; }
+
+.empty-note { padding: 32px; text-align: center; color: var(--text-dim); font-size: var(--fs-sm); }
+
+/* ── 푸터 ── */
+.site-footer { border-top: 1px solid var(--line); padding: 24px 0 40px; margin-top: 40px; }
+.site-footer .container { font-size: var(--fs-xs); color: var(--text-dim); line-height: 1.8; }
+.site-footer b { color: var(--text-sub); }
+
+/* ── 반응형 ── */
+@media (max-width: 960px) {
+  .layout { grid-template-columns: 1fr; }
+  .main-nav { display: none; }
+}

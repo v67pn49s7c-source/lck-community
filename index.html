@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LCK 라운지 — LCK 팬 커뮤니티</title>
+  <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <main class="page">
+    <div class="container layout">
+      <!-- 메인 컬럼 -->
+      <div class="stack">
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">경기 일정 <span class="sub">2026 스플릿 3</span></h2>
+            <a class="card-more" href="#">더보기 ›</a>
+          </div>
+          <div id="schedule-body"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">실시간 인기 글</h2>
+            <a class="card-more" href="#">전체 글 ›</a>
+          </div>
+          <div id="hot-posts"></div>
+        </section>
+      </div>
+
+      <!-- 사이드바 -->
+      <aside class="stack">
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">다음 경기 예측</h2>
+            <span class="card-more" id="predict-when"></span>
+          </div>
+          <div class="predict-widget" id="predict-widget"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">LCK 순위 <span class="sub">라운드 3-4</span></h2>
+          </div>
+          <div class="standing-tabs">
+            <button data-group="legend" class="active">레전드 그룹</button>
+            <button data-group="rise">라이즈 그룹</button>
+          </div>
+          <div id="standings-body"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">주간 예측 랭킹</h2>
+            <a class="card-more" href="#">전체 ›</a>
+          </div>
+          <div id="predict-ranking"></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <script src="assets/data.js"></script>
+  <script src="assets/app.js"></script>
+  <script>initHome();</script>
+</body>
+</html>

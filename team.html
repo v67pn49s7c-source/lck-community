@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>팀 게시판 — LCK 라운지</title>
+  <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <div class="team-hero" id="team-hero"></div>
+
+  <main class="page">
+    <div class="container layout">
+      <div class="stack">
+        <section class="card">
+          <div class="board-tabs" id="board-tabs"></div>
+          <div class="composer">
+            <input id="composer-title" type="text" placeholder="제목을 입력하세요 (자유 게시판에 등록됩니다)">
+            <textarea id="composer-body" placeholder="응원, 분석, 자유롭게 남겨 주세요. 비방·혐오 표현은 제재됩니다."></textarea>
+            <div class="composer-foot">
+              <button class="btn-primary" id="composer-submit">글 등록</button>
+            </div>
+          </div>
+          <div id="board-body"></div>
+        </section>
+      </div>
+
+      <aside class="stack">
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">다음 경기 예측</h2>
+            <span class="card-more" id="predict-when"></span>
+          </div>
+          <div class="predict-widget" id="predict-widget"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">LCK 순위 <span class="sub">라운드 3-4</span></h2>
+          </div>
+          <div class="standing-tabs">
+            <button data-group="legend" class="active">레전드 그룹</button>
+            <button data-group="rise">라이즈 그룹</button>
+          </div>
+          <div id="standings-body"></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <script src="assets/data.js"></script>
+  <script src="assets/app.js"></script>
+  <script src="assets/team.js"></script>
+  <script>initTeamPage();</script>
+</body>
+</html>
