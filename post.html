@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LCK 라운지 — LCK 팬 커뮤니티</title>
+  <title>글 보기 — LCK 라운지</title>
   <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
   <link rel="stylesheet" href="assets/styles.css">
 </head>
@@ -11,21 +11,7 @@
   <main class="page">
     <div class="container layout">
       <div class="stack">
-        <section class="card">
-          <div class="card-head">
-            <h2 class="card-title">경기 일정 <span class="sub">2026 스플릿 3</span></h2>
-            <a class="card-more" href="matches.html">전체 일정 ›</a>
-          </div>
-          <div id="schedule-body"></div>
-        </section>
-
-        <section class="card">
-          <div class="card-head">
-            <h2 class="card-title">실시간 인기 글</h2>
-            <a class="card-more" href="community.html">전체 글 ›</a>
-          </div>
-          <div id="hot-posts"></div>
-        </section>
+        <section class="card" id="post-view"></section>
       </div>
 
       <aside class="stack">
@@ -47,14 +33,6 @@
           </div>
           <div id="standings-body"></div>
         </section>
-
-        <section class="card">
-          <div class="card-head">
-            <h2 class="card-title">주간 예측 랭킹</h2>
-            <a class="card-more" href="ranking.html">전체 ›</a>
-          </div>
-          <div id="predict-ranking"></div>
-        </section>
       </aside>
     </div>
   </main>
@@ -62,6 +40,7 @@
   <script src="assets/data.js"></script>
   <script src="assets/store.js"></script>
   <script src="assets/app.js"></script>
-  <script>initHome();</script>
+  <script src="assets/board.js"></script>
+  <script>initPostPage();</script>
 </body>
 </html>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>랭킹 — LCK 라운지</title>
+  <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <main class="page">
+    <div class="container layout">
+      <div class="stack">
+        <div class="page-title-row">
+          <h1 class="page-title">랭킹 <span class="sub">예측 적중 랭킹 · 적중 1건당 10P</span></h1>
+        </div>
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">시즌 예측 랭킹 <span class="sub">2026 스플릿 3</span></h2>
+          </div>
+          <div id="ranking-body"></div>
+        </section>
+      </div>
+
+      <aside class="stack">
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">다음 경기 예측</h2>
+            <span class="card-more" id="predict-when"></span>
+          </div>
+          <div class="predict-widget" id="predict-widget"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head"><h2 class="card-title">포인트 안내</h2></div>
+          <div class="admin-note" style="border-top:none">
+            · 승부 적중 1건당 <b>10P</b><br>
+            · 포인트는 등급·배지 표시에만 사용됩니다.<br>
+            · 구매·판매·양도·환전은 불가능합니다.
+          </div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <script src="assets/data.js"></script>
+  <script src="assets/store.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    renderHeader("랭킹", null);
+
+    function renderRanking() {
+      const me = myPredictionStats();
+      const rows = PREDICT_RANKING.map(r => ({
+        nick: r.nick, hit: r.hit, total: r.total, points: r.hit * 10, me: false,
+      }));
+      if (me.total + me.pending > 0) {
+        rows.push({ nick: (getNick() || "나") + " (나)", hit: me.hit, total: me.total, points: me.points, me: true });
+      }
+      rows.sort((a, b) => b.points - a.points || (b.hit / (b.total || 1)) - (a.hit / (a.total || 1)));
+
+      document.getElementById("ranking-body").innerHTML = rows.map((r, i) => `
+        <div class="rank-row ${r.me ? "me" : ""}">
+          <span class="no ${i < 3 ? "top" : ""}">${i + 1}</span>
+          <span class="nick">${esc(r.nick)}</span>
+          <span class="detail">${r.hit}/${r.total} 적중</span>
+          <span class="detail">${r.total ? Math.round((r.hit / r.total) * 100) : 0}%</span>
+          <span class="rate">${r.points}P</span>
+        </div>`).join("");
+    }
+
+    renderRanking();
+    initSidebar();
+    renderFooter();
+  </script>
+</body>
+</html>

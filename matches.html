@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>경기 일정 — LCK 라운지</title>
+  <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <main class="page">
+    <div class="container layout">
+      <div class="stack">
+        <div class="page-title-row">
+          <h1 class="page-title">경기 <span class="sub">일정 · 결과</span></h1>
+          <select id="tournament-select" style="min-width:200px"></select>
+        </div>
+        <section class="card">
+          <div class="board-toolbar">
+            <div class="filter-tabs" id="stage-tabs"></div>
+          </div>
+          <div id="matches-body"></div>
+        </section>
+      </div>
+
+      <aside class="stack">
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">다음 경기 예측</h2>
+            <span class="card-more" id="predict-when"></span>
+          </div>
+          <div class="predict-widget" id="predict-widget"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">LCK 순위 <span class="sub">라운드 3-4</span></h2>
+          </div>
+          <div class="standing-tabs">
+            <button data-group="legend" class="active">레전드 그룹</button>
+            <button data-group="rise">라이즈 그룹</button>
+          </div>
+          <div id="standings-body"></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <script src="assets/data.js"></script>
+  <script src="assets/store.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    renderHeader("경기", null);
+
+    const state = { tid: null, stage: "전체" };
+
+    function renderTournamentSelect() {
+      const ts = getTournaments();
+      const sel = document.getElementById("tournament-select");
+      if (!ts.length) {
+        sel.innerHTML = `<option>등록된 대회 없음</option>`;
+        return;
+      }
+      state.tid = state.tid || ts[0].id;
+      sel.innerHTML = ts.map(t => `<option value="${t.id}" ${t.id === state.tid ? "selected" : ""}>${esc(t.name)}</option>`).join("");
+      sel.onchange = () => { state.tid = sel.value; state.stage = "전체"; renderStageTabs(); renderMatches(); };
+    }
+
+    function renderStageTabs() {
+      const t = getTournaments().find(x => x.id === state.tid);
+      const el = document.getElementById("stage-tabs");
+      const stages = ["전체", ...(t ? t.stages : [])];
+      el.innerHTML = stages.map(s =>
+        `<button data-stage="${esc(s)}" class="${state.stage === s ? "active" : ""}">${esc(s)}</button>`).join("");
+      el.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+        state.stage = b.dataset.stage; renderStageTabs(); renderMatches();
+      }));
+    }
+
+    function renderMatches() {
+      let ms = sortedMatches().filter(m => m.tid === state.tid);
+      if (state.stage !== "전체") ms = ms.filter(m => m.stage === state.stage);
+      document.getElementById("matches-body").innerHTML = scheduleHTML(ms, { showStage: true });
+    }
+
+    renderTournamentSelect();
+    renderStageTabs();
+    renderMatches();
+    initSidebar();
+    renderFooter();
+  </script>
+</body>
+</html>

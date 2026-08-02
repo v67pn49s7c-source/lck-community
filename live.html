@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>라이브 — LCK 라운지</title>
+  <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <main class="page">
+    <div class="container layout">
+      <div class="stack">
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title" id="live-title">라이브</h2>
+            <span class="card-more" id="live-when"></span>
+          </div>
+          <div class="live-banner" id="live-banner"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">응원방 <span class="sub" id="chat-sub"></span></h2>
+            <span class="card-more">도배·비방 시 제재됩니다</span>
+          </div>
+          <div class="chat-box">
+            <div class="chat-messages" id="chat-messages"></div>
+            <form class="chat-form" id="chat-form">
+              <input class="nick" placeholder="닉네임" maxlength="12" required>
+              <input class="body" placeholder="응원 메시지를 입력하세요" maxlength="200" required autocomplete="off">
+              <button class="btn-primary" type="submit">전송</button>
+            </form>
+          </div>
+        </section>
+      </div>
+
+      <aside class="stack">
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">오늘·다음 경기</h2>
+          </div>
+          <div id="upcoming-list"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">LCK 순위 <span class="sub">라운드 3-4</span></h2>
+          </div>
+          <div class="standing-tabs">
+            <button data-group="legend" class="active">레전드 그룹</button>
+            <button data-group="rise">라이즈 그룹</button>
+          </div>
+          <div id="standings-body"></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <script src="assets/data.js"></script>
+  <script src="assets/store.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    renderHeader("라이브", null);
+
+    // 대상 경기: URL 지정 > LIVE 중 > 다음 경기
+    const qid = new URLSearchParams(location.search).get("match");
+    const match = getMatches().find(m => m.id === qid) || liveMatch() || nextMatch();
+
+    function renderBanner() {
+      const el = document.getElementById("live-banner");
+      if (!match) {
+        el.innerHTML = `<div class="empty-note">예정된 경기가 없습니다. 관리자 메뉴에서 경기를 추가하세요.</div>`;
+        return;
+      }
+      const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
+      const live = match.status === "live", done = match.status === "done";
+      document.getElementById("live-title").textContent =
+        live ? "라이브" : done ? "경기 종료" : "경기 예정";
+      document.getElementById("live-when").textContent = fmtWhen(match.at);
+      el.innerHTML = `
+        <div class="lb-team">${teamLogoHTML(A, 52)}<span>${A.abbr}</span></div>
+        <div style="text-align:center">
+          ${live ? `<div class="live-badge" style="margin-bottom:6px">● LIVE</div>` : ""}
+          <div class="lb-score">${(live || done) ? `${match.scoreA ?? 0} : ${match.scoreB ?? 0}` : "VS"}</div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:4px">${esc(match.stage || "")}</div>
+        </div>
+        <div class="lb-team">${teamLogoHTML(B, 52)}<span>${B.abbr}</span></div>`;
+      document.getElementById("chat-sub").textContent = `${A.abbr} vs ${B.abbr}`;
+    }
+
+    // 응원 채팅
+    const SEED_CHAT = [
+      { nick: "협곡의봄", body: "오늘 경기 가즈아!!" },
+      { nick: "한타의신", body: "밴픽부터 재밌겠다" },
+      { nick: "바텀차이", body: "양팀 바텀 매치업 주목" },
+    ];
+    function renderChat() {
+      if (!match) return;
+      const el = document.getElementById("chat-messages");
+      const msgs = getChat(match.id);
+      const list = msgs.length ? msgs : SEED_CHAT.map(m => ({ ...m, ts: Date.now() }));
+      el.innerHTML =
+        `<div class="chat-msg sys">응원방에 입장했습니다. 매너 있는 응원 부탁드려요!</div>` +
+        list.map(m => `<div class="chat-msg"><b>${esc(m.nick)}</b>${esc(m.body)}</div>`).join("");
+      el.scrollTop = el.scrollHeight;
+    }
+
+    document.getElementById("chat-form").addEventListener("submit", e => {
+      e.preventDefault();
+      if (!match) return;
+      const nick = e.target.querySelector(".nick").value.trim();
+      const body = e.target.querySelector(".body").value.trim();
+      if (!nick || !body) return;
+      setNick(nick);
+      addChat(match.id, nick, body);
+      e.target.querySelector(".body").value = "";
+      renderChat();
+    });
+    document.querySelector("#chat-form .nick").value = getNick();
+
+    // 사이드: 다가오는 경기 목록
+    function renderUpcoming() {
+      const ms = sortedMatches().filter(m => m.status !== "done").slice(0, 6);
+      document.getElementById("upcoming-list").innerHTML =
+        ms.map(m => {
+          const A = TEAM_MAP[m.a], B = TEAM_MAP[m.b];
+          return `
+          <a class="post-row" href="live.html?match=${m.id}">
+            <span style="display:flex;align-items:center;gap:5px;font-weight:700">${teamLogoHTML(A, 18)} ${A.abbr}</span>
+            <span style="color:var(--text-dim);font-size:11px">vs</span>
+            <span style="display:flex;align-items:center;gap:5px;font-weight:700">${teamLogoHTML(B, 18)} ${B.abbr}</span>
+            <span class="post-meta" style="margin-left:auto">${m.status === "live" ? "LIVE" : fmtWhen(m.at)}</span>
+          </a>`;
+        }).join("") || `<div class="empty-note">예정된 경기가 없습니다</div>`;
+    }
+
+    renderBanner();
+    renderChat();
+    renderUpcoming();
+    renderStandings("legend");
+    document.querySelectorAll(".standing-tabs button").forEach(b =>
+      b.addEventListener("click", () => renderStandings(b.dataset.group)));
+    renderFooter();
+  </script>
+</body>
+</html>

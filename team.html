@@ -13,17 +13,7 @@
   <main class="page">
     <div class="container layout">
       <div class="stack">
-        <section class="card">
-          <div class="board-tabs" id="board-tabs"></div>
-          <div class="composer">
-            <input id="composer-title" type="text" placeholder="제목을 입력하세요 (자유 게시판에 등록됩니다)">
-            <textarea id="composer-body" placeholder="응원, 분석, 자유롭게 남겨 주세요. 비방·혐오 표현은 제재됩니다."></textarea>
-            <div class="composer-foot">
-              <button class="btn-primary" id="composer-submit">글 등록</button>
-            </div>
-          </div>
-          <div id="board-body"></div>
-        </section>
+        <section class="card" id="board-root"></section>
       </div>
 
       <aside class="stack">
@@ -50,8 +40,9 @@
   </main>
 
   <script src="assets/data.js"></script>
+  <script src="assets/store.js"></script>
   <script src="assets/app.js"></script>
-  <script src="assets/team.js"></script>
+  <script src="assets/board.js"></script>
   <script>initTeamPage();</script>
 </body>
 </html>

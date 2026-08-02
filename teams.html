@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>팀 — LCK 라운지</title>
+  <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <main class="page">
+    <div class="container">
+      <div class="page-title-row">
+        <h1 class="page-title">팀 <span class="sub">2026 LCK 10개 팀 · 카드를 누르면 팀 게시판으로</span></h1>
+      </div>
+
+      <section class="card" style="margin-bottom:14px">
+        <div class="card-head"><h2 class="card-title">레전드 그룹</h2></div>
+        <div class="team-grid" style="padding:14px" id="legend-grid"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2 class="card-title">라이즈 그룹</h2></div>
+        <div class="team-grid" style="padding:14px" id="rise-grid"></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="assets/data.js"></script>
+  <script src="assets/store.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    renderHeader("팀", null);
+
+    function teamCard(row, rank) {
+      const t = TEAM_MAP[row.team];
+      return `
+      <a class="team-card" style="--team-color:${t.color}" href="team.html?team=${t.id}">
+        ${teamLogoHTML(t, 52)}
+        <div style="text-align:center">
+          <div class="tc-abbr">${t.abbr}</div>
+          <div class="tc-name">${t.name}</div>
+          <div class="tc-record">${rank}위 · ${row.w}승 ${row.l}패 · ${row.pt}P</div>
+        </div>
+      </a>`;
+    }
+    document.getElementById("legend-grid").innerHTML =
+      STANDINGS.legend.map((r, i) => teamCard(r, i + 1)).join("");
+    document.getElementById("rise-grid").innerHTML =
+      STANDINGS.rise.map((r, i) => teamCard(r, i + 1)).join("");
+
+    renderFooter();
+  </script>
+</body>
+</html>

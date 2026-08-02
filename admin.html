@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>관리자 — LCK 라운지</title>
+  <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <main class="page">
+    <div class="container">
+      <div class="page-title-row">
+        <h1 class="page-title">관리자 <span class="sub">대회·경기 관리</span></h1>
+        <button class="btn-danger" id="btn-reset">전체 데이터 초기화</button>
+      </div>
+
+      <!-- 대회 관리 -->
+      <section class="card" style="margin-bottom:14px">
+        <div class="card-head">
+          <h2 class="card-title">대회 관리 <span class="sub">라운드 1~4 · 로드 투 MSI · 플레이-인 · 플레이오프 등 자유롭게 구성</span></h2>
+        </div>
+        <form class="admin-form" id="tournament-form">
+          <div class="row">
+            <label>대회 이름
+              <input id="t-name" placeholder="예: 2026 LCK 스플릿 3" required>
+            </label>
+            <label>형식
+              <select id="t-type">
+                <option>리그</option>
+                <option>토너먼트</option>
+                <option>더블 엘리미네이션</option>
+                <option>그룹 + 토너먼트</option>
+              </select>
+            </label>
+            <label>비고
+              <input id="t-note" placeholder="예: 7월~9월 · 지역 대회 (선택)">
+            </label>
+          </div>
+          <div class="row">
+            <label style="flex:3">스테이지 목록 <span style="font-weight:400">(쉼표로 구분 — 매년 형식이 바뀌면 여기만 바꾸면 됩니다)</span>
+              <input id="t-stages" placeholder="예: 라운드 1, 라운드 2, 플레이-인, 플레이오프, 결승전" required>
+            </label>
+          </div>
+          <div class="row actions">
+            <button class="btn-primary" type="submit">대회 추가</button>
+          </div>
+        </form>
+        <div class="admin-list" id="tournament-list"></div>
+      </section>
+
+      <!-- 경기 관리 -->
+      <section class="card" style="margin-bottom:14px">
+        <div class="card-head">
+          <h2 class="card-title">경기 관리 <span class="sub">일정 등록 · 결과 입력 (추후 API 연동 자리)</span></h2>
+        </div>
+        <form class="admin-form" id="match-form">
+          <div class="row">
+            <label>대회
+              <select id="m-tid"></select>
+            </label>
+            <label>스테이지
+              <select id="m-stage"></select>
+            </label>
+            <label>일시 (KST)
+              <input id="m-at" type="datetime-local" required>
+            </label>
+          </div>
+          <div class="row">
+            <label>팀 1 (블루)
+              <select id="m-a"></select>
+            </label>
+            <label>팀 2 (레드)
+              <select id="m-b"></select>
+            </label>
+            <label>배당 1
+              <input id="m-oddsa" type="number" step="0.01" min="1" value="2.00">
+            </label>
+            <label>배당 2
+              <input id="m-oddsb" type="number" step="0.01" min="1" value="2.00">
+            </label>
+          </div>
+          <div class="row actions">
+            <button class="btn-primary" type="submit">경기 추가</button>
+          </div>
+        </form>
+        <div class="admin-list" id="match-list"></div>
+        <div class="admin-note">
+          상태를 <b>LIVE</b>로 바꾸면 라이브 페이지와 홈에 실시간 경기로 표시됩니다.
+          <b>종료</b>로 바꾸고 스코어를 입력하면 예측이 자동 채점되고 지난 결과에 반영됩니다.<br>
+          지금은 이 화면에서 직접 입력하는 방식이며, 나중에 Riot API 등 외부 데이터 연동 시 이 자리에 "자동 불러오기" 버튼이 추가됩니다.
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2 class="card-title">안내</h2></div>
+        <div class="admin-note" style="border-top:none">
+          이 프로토타입의 데이터는 <b>보고 있는 브라우저에만</b> 저장됩니다 (localStorage).
+          즉, 관리자 화면에서 바꾼 내용은 내 브라우저에서만 보이고 다른 방문자에게는 보이지 않습니다.<br>
+          실서비스 단계에서 서버(데이터베이스)를 붙이면 모든 방문자가 같은 데이터를 보게 되며,
+          그때 이 페이지에 로그인(관리자 인증)도 함께 추가됩니다.
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="assets/data.js"></script>
+  <script src="assets/store.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    renderHeader(null, null);
+
+    // ── 대회 관리 ──
+    function renderTournamentList() {
+      const el = document.getElementById("tournament-list");
+      const ts = getTournaments();
+      el.innerHTML = ts.map(t => `
+        <div class="admin-item">
+          <span class="grow"><b>${esc(t.name)}</b> <span class="muted">· ${esc(t.type)}${t.note ? " · " + esc(t.note) : ""}</span><br>
+            <span class="muted">스테이지: ${t.stages.map(esc).join(" → ")}</span></span>
+          <span class="muted">경기 ${getMatches().filter(m => m.tid === t.id).length}개</span>
+          <button class="btn-danger" data-del-t="${t.id}">삭제</button>
+        </div>`).join("") || `<div class="empty-note">등록된 대회가 없습니다</div>`;
+
+      el.querySelectorAll("[data-del-t]").forEach(b => b.addEventListener("click", () => {
+        const t = getTournaments().find(x => x.id === b.dataset.delT);
+        if (!confirm(`"${t.name}" 대회와 소속 경기를 모두 삭제할까요?`)) return;
+        deleteTournament(b.dataset.delT);
+        renderAll();
+      }));
+    }
+
+    document.getElementById("tournament-form").addEventListener("submit", e => {
+      e.preventDefault();
+      const name = document.getElementById("t-name").value.trim();
+      const stages = document.getElementById("t-stages").value.split(",").map(s => s.trim()).filter(Boolean);
+      if (!name || !stages.length) return;
+      addTournament({
+        id: "t" + Date.now(),
+        name,
+        type: document.getElementById("t-type").value,
+        stages,
+        note: document.getElementById("t-note").value.trim(),
+      });
+      e.target.reset();
+      renderAll();
+    });
+
+    // ── 경기 관리 ──
+    function fillMatchForm() {
+      const ts = getTournaments();
+      const tidSel = document.getElementById("m-tid");
+      tidSel.innerHTML = ts.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join("");
+      const fillStages = () => {
+        const t = ts.find(x => x.id === tidSel.value);
+        document.getElementById("m-stage").innerHTML =
+          (t ? t.stages : []).map(s => `<option>${esc(s)}</option>`).join("");
+      };
+      tidSel.onchange = fillStages;
+      fillStages();
+
+      const teamOpts = TEAMS.map(t => `<option value="${t.id}">${t.name} (${t.abbr})</option>`).join("");
+      document.getElementById("m-a").innerHTML = teamOpts;
+      document.getElementById("m-b").innerHTML = teamOpts;
+    }
+
+    function renderMatchList() {
+      const el = document.getElementById("match-list");
+      const ms = sortedMatches();
+      el.innerHTML = ms.map(m => {
+        const A = TEAM_MAP[m.a], B = TEAM_MAP[m.b];
+        const t = getTournaments().find(x => x.id === m.tid);
+        return `
+        <div class="admin-item" data-mid="${m.id}">
+          <span class="badge-status ${m.status}">${m.status === "upcoming" ? "예정" : m.status === "live" ? "LIVE" : "종료"}</span>
+          <span class="grow">
+            <b>${A ? A.abbr : m.a} vs ${B ? B.abbr : m.b}</b>
+            <span class="muted">· ${fmtWhen(m.at)} · ${esc(t ? t.name : "?")} / ${esc(m.stage || "-")}</span>
+          </span>
+          <select class="st">
+            <option value="upcoming" ${m.status === "upcoming" ? "selected" : ""}>예정</option>
+            <option value="live" ${m.status === "live" ? "selected" : ""}>LIVE</option>
+            <option value="done" ${m.status === "done" ? "selected" : ""}>종료</option>
+          </select>
+          <input class="score sa" type="number" min="0" max="3" value="${m.scoreA ?? ""}" placeholder="0">
+          <span class="muted">:</span>
+          <input class="score sb" type="number" min="0" max="3" value="${m.scoreB ?? ""}" placeholder="0">
+          <button class="btn-secondary save">저장</button>
+          <button class="btn-danger del">삭제</button>
+        </div>`;
+      }).join("") || `<div class="empty-note">등록된 경기가 없습니다</div>`;
+
+      el.querySelectorAll(".admin-item").forEach(row => {
+        const mid = row.dataset.mid;
+        row.querySelector(".save").addEventListener("click", () => {
+          const status = row.querySelector(".st").value;
+          const sa = row.querySelector(".sa").value, sb = row.querySelector(".sb").value;
+          updateMatch(mid, {
+            status,
+            scoreA: sa === "" ? null : Number(sa),
+            scoreB: sb === "" ? null : Number(sb),
+          });
+          renderAll();
+        });
+        row.querySelector(".del").addEventListener("click", () => {
+          if (!confirm("이 경기를 삭제할까요?")) return;
+          deleteMatch(mid);
+          renderAll();
+        });
+      });
+    }
+
+    document.getElementById("match-form").addEventListener("submit", e => {
+      e.preventDefault();
+      const at = document.getElementById("m-at").value;
+      const a = document.getElementById("m-a").value, b = document.getElementById("m-b").value;
+      if (!at) return;
+      if (a === b) { alert("같은 팀끼리는 경기할 수 없습니다."); return; }
+      if (!document.getElementById("m-tid").value) { alert("먼저 대회를 추가하세요."); return; }
+      addMatch({
+        id: "m" + Date.now(),
+        tid: document.getElementById("m-tid").value,
+        stage: document.getElementById("m-stage").value,
+        at: at + ":00+09:00",
+        a, b,
+        oddsA: Number(document.getElementById("m-oddsa").value) || 2,
+        oddsB: Number(document.getElementById("m-oddsb").value) || 2,
+        status: "upcoming", scoreA: null, scoreB: null,
+      });
+      renderAll();
+    });
+
+    // ── 초기화 ──
+    document.getElementById("btn-reset").addEventListener("click", () => {
+      if (!confirm("대회·경기·게시글·예측 데이터를 모두 초기 상태로 되돌릴까요?")) return;
+      resetAllData();
+      renderAll();
+    });
+
+    function renderAll() {
+      renderTournamentList();
+      fillMatchForm();
+      renderMatchList();
+    }
+    renderAll();
+    renderFooter();
+  </script>
+</body>
+</html>

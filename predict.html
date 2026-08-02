@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>승부예측 — LCK 라운지</title>
+  <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <main class="page">
+    <div class="container">
+      <div class="page-title-row">
+        <h1 class="page-title">승부예측 <span class="sub">무료 참여 · 적중 1건당 10포인트</span></h1>
+      </div>
+
+      <div class="stat-cards" id="stat-cards"></div>
+
+      <div class="layout">
+        <div class="stack">
+          <section class="card">
+            <div class="card-head">
+              <h2 class="card-title">예측 가능한 경기</h2>
+              <span class="card-more">마감: 경기 시작 5분 전</span>
+            </div>
+            <div id="open-matches"></div>
+          </section>
+
+          <section class="card">
+            <div class="card-head">
+              <h2 class="card-title">지난 예측 결과</h2>
+            </div>
+            <div id="done-matches"></div>
+          </section>
+        </div>
+
+        <aside class="stack">
+          <section class="card">
+            <div class="card-head">
+              <h2 class="card-title">주간 예측 랭킹</h2>
+              <a class="card-more" href="ranking.html">전체 ›</a>
+            </div>
+            <div id="predict-ranking"></div>
+          </section>
+
+          <section class="card">
+            <div class="card-head"><h2 class="card-title">예측 규칙</h2></div>
+            <div class="admin-note" style="border-top:none">
+              · 모든 예측은 무료입니다.<br>
+              · 예측은 경기 시작 5분 전 마감됩니다.<br>
+              · 포인트는 환전·양도할 수 없습니다.<br>
+              · 마감 후 변경된 예측은 인정되지 않습니다.
+            </div>
+          </section>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <script src="assets/data.js"></script>
+  <script src="assets/store.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    renderHeader("승부예측", null);
+
+    function renderStats() {
+      const s = myPredictionStats();
+      const rate = s.total ? Math.round((s.hit / s.total) * 100) : 0;
+      document.getElementById("stat-cards").innerHTML = `
+        <div class="stat-card"><div class="k">참여한 예측</div><div class="v">${s.total + s.pending}<span style="font-size:13px;color:var(--text-dim)"> 건</span></div></div>
+        <div class="stat-card"><div class="k">적중</div><div class="v"><em>${s.hit}</em><span style="font-size:13px;color:var(--text-dim)"> 건</span></div></div>
+        <div class="stat-card"><div class="k">적중률</div><div class="v">${rate}%</div></div>
+        <div class="stat-card"><div class="k">내 포인트</div><div class="v">${s.points}<span style="font-size:13px;color:var(--text-dim)"> P</span></div></div>`;
+    }
+
+    function matchRowHTML(m, done) {
+      const A = TEAM_MAP[m.a], B = TEAM_MAP[m.b];
+      if (!A || !B) return "";
+      const votes = getVotes();
+      const my = votes[m.id];
+      const pct = impliedPct(m);
+
+      if (done) {
+        const winner = m.scoreA > m.scoreB ? "a" : "b";
+        const result = my
+          ? (my === winner
+            ? `<span class="hit">적중! +10P</span>`
+            : `<span class="miss">빗나감</span>`)
+          : `<span style="color:var(--text-dim)">미참여</span>`;
+        return `
+        <div class="predict-match">
+          <div class="pm-result">${result}</div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:10px;font-weight:800">
+            <span style="display:flex;align-items:center;gap:7px">${teamLogoHTML(A, 24)} ${A.abbr}</span>
+            <span class="match-score" style="padding:3px 12px">${m.scoreA} : ${m.scoreB}</span>
+            <span style="display:flex;align-items:center;gap:7px">${B.abbr} ${teamLogoHTML(B, 24)}</span>
+          </div>
+          <div class="pm-info" style="text-align:right">${fmtWhen(m.at)}</div>
+        </div>`;
+      }
+
+      return `
+      <div class="predict-match">
+        <button class="pm-btn ${my === "a" ? "voted" : ""}" style="--team-color:${A.color}" data-match="${m.id}" data-side="a">
+          ${teamLogoHTML(A, 24)} ${A.abbr} <span style="margin-left:auto;color:var(--text-sub)">${pct.a}%</span>
+        </button>
+        <div class="pm-info" style="text-align:center">
+          <b>${fmtWhen(m.at)}</b><br>${esc(shortStage(m.stage))} · 배당 ${m.oddsA?.toFixed(2)} : ${m.oddsB?.toFixed(2)}
+          ${my ? `<br><span style="color:var(--accent);font-weight:700">${my === "a" ? A.abbr : B.abbr} 승리 예측 중</span>` : ""}
+        </div>
+        <button class="pm-btn right ${my === "b" ? "voted" : ""}" style="--team-color:${B.color}" data-match="${m.id}" data-side="b">
+          ${teamLogoHTML(B, 24)} ${B.abbr} <span style="margin-right:auto;color:var(--text-sub)">${pct.b}%</span>
+        </button>
+      </div>`;
+    }
+
+    function renderMatches() {
+      const ms = sortedMatches();
+      const open = ms.filter(m => m.status === "upcoming" || m.status === "live");
+      const done = ms.filter(m => m.status === "done").reverse();
+
+      document.getElementById("open-matches").innerHTML =
+        open.map(m => matchRowHTML(m, false)).join("") || `<div class="empty-note">예측 가능한 경기가 없습니다</div>`;
+      document.getElementById("done-matches").innerHTML =
+        done.map(m => matchRowHTML(m, true)).join("") || `<div class="empty-note">종료된 경기가 없습니다</div>`;
+
+      document.querySelectorAll("[data-match]").forEach(b => b.addEventListener("click", () => {
+        setVote(b.dataset.match, b.dataset.side);
+        renderStats(); renderMatches();
+      }));
+    }
+
+    renderStats();
+    renderMatches();
+    renderPredictRanking();
+    renderFooter();
+  </script>
+</body>
+</html>
