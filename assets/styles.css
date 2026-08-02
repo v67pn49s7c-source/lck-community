@@ -429,7 +429,7 @@ table.board-table tr.notice .col-title { font-weight: 700; }
 }
 .standing-tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 table.standings { width: 100%; border-collapse: collapse; }
-table.standings th { font-size: var(--fs-xs); font-weight: 600; color: var(--text-dim); text-align: left; padding: 8px 6px 4px; }
+table.standings th { font-size: var(--fs-xs); font-weight: 600; color: var(--text-dim); text-align: left; padding: 8px 6px 4px; white-space: nowrap; }
 table.standings td { padding: 6px; border-top: 1px solid var(--line); font-size: var(--fs-sm); }
 table.standings tr td:first-child, table.standings tr th:first-child { padding-left: 14px; }
 table.standings tr td:last-child, table.standings tr th:last-child { padding-right: 14px; text-align: right; }
