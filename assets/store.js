@@ -24,7 +24,7 @@ function voterId() {
 
 const Cache = {
   tournaments: [], matches: [], records: [], players: [],
-  posts: [], predictions: [], ratings: [], details: {}, chat: {},
+  posts: [], predictions: [], ratings: [], details: {}, chat: {}, settings: {},
 };
 
 function sbErr(e, what) { if (e) console.error("[supabase]", what, e.message); }
@@ -41,7 +41,7 @@ async function storeInit() {
     }
   } catch (e) { console.error("[supabase] auth", e); }
 
-  const [t, m, r, pl, po, co, pr, ra, de] = await Promise.all([
+  const [t, m, r, pl, po, co, pr, ra, de, st] = await Promise.all([
     sb.from("tournaments").select("*"),
     sb.from("matches").select("*").order("at"),
     sb.from("stage_records").select("*").order("ord"),
@@ -51,8 +51,10 @@ async function storeInit() {
     sb.from("predictions").select("*"),
     sb.from("ratings").select("*"),
     sb.from("match_details").select("*").order("set_index"),
+    sb.from("site_settings").select("*"),
   ]);
   [t, m, r, pl, po, co, pr, ra, de].forEach((res, i) => sbErr(res.error, "load#" + i));
+  Cache.settings = Object.fromEntries((st.data || []).map(x => [x.key, x.value]));
 
   Cache.tournaments = (t.data || []).map(x => ({ id: x.id, name: x.name, type: x.type, stages: x.stages || [], note: x.note || "" }));
   Cache.matches = (m.data || []).map(x => ({
@@ -383,6 +385,28 @@ function deleteDetailSet(matchId, pos) {
   sb.from("match_details").delete().eq("match_id", matchId).eq("set_index", dbIdx)
     .then(r => sbErr(r.error, "deleteDetailSet"));
 }
+
+// ── 사이트 설정 · 로고 ──
+function getSetting(key) { return Cache.settings[key] || ""; }
+function setSetting(key, value) {
+  Cache.settings[key] = value;
+  sb.from("site_settings").upsert({ key, value }).then(r => sbErr(r.error, "setSetting"));
+}
+// slot: "desktop-light" | "desktop-dark" | "mobile"
+// 업로드된 로고가 있으면 저장소 URL, 없으면 기본 파일
+function brandLogoURL(slot, fallback) {
+  const v = getSetting("logo_" + slot);
+  if (!v) return fallback;
+  return `${SB_URL}/storage/v1/object/public/brand/logo-${slot}.png?v=${v}`;
+}
+async function uploadBrandLogo(slot, file) {
+  const { error } = await sb.storage.from("brand")
+    .upload(`logo-${slot}.png`, file, { upsert: true, contentType: file.type || "image/png" });
+  if (error) return { error };
+  setSetting("logo_" + slot, String(Date.now()));
+  return { ok: true };
+}
+function resetBrandLogo(slot) { setSetting("logo_" + slot, ""); }
 
 // ── 닉네임 ──
 function getNick() {

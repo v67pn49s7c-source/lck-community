@@ -159,6 +159,20 @@
         </div>
       </section>
 
+      <!-- 로고 관리 -->
+      <section class="card" style="margin-bottom:14px">
+        <div class="card-head">
+          <h2 class="card-title">로고 관리 <span class="sub">업로드 즉시 모든 방문자에게 반영 · PNG 권장(투명 배경)</span></h2>
+        </div>
+        <div class="admin-list" id="logo-list"></div>
+        <div class="admin-note">
+          <b>데스크탑 라이트</b>: 밝은 배경용 (검정 글자 로고) ·
+          <b>데스크탑 다크</b>: 어두운 배경용 (밝은 글자 로고) ·
+          <b>모바일</b>: 정사각 아이콘 — 모바일 헤더와 브라우저 탭 아이콘(파비콘)에 함께 쓰입니다.<br>
+          "기본으로" 버튼을 누르면 업로드를 무시하고 사이트에 내장된 기본 로고로 돌아갑니다.
+        </div>
+      </section>
+
       <section class="card">
         <div class="card-head"><h2 class="card-title">안내</h2></div>
         <div class="admin-note" style="border-top:none">
@@ -570,6 +584,44 @@
       });
     }
 
+    // ── 로고 관리 ──
+    const LOGO_SLOTS = [
+      { slot: "desktop-light", name: "데스크탑 로고 (라이트 모드)", fallback: "assets/brand/nexus-desktop.png", bg: "#f4f5f8" },
+      { slot: "desktop-dark", name: "데스크탑 로고 (다크 모드)", fallback: "assets/brand/nexus-desktop-dark.png", bg: "#14161d" },
+      { slot: "mobile", name: "모바일 로고 · 파비콘 (정사각)", fallback: "assets/brand/nexus-mobile.png", bg: "#14161d" },
+    ];
+    function renderLogoAdmin() {
+      const el = document.getElementById("logo-list");
+      el.innerHTML = LOGO_SLOTS.map(s => `
+        <div class="admin-item" data-slot="${s.slot}">
+          <span style="width:210px; font-weight:700">${s.name}<br>
+            <span class="muted">${getSetting("logo_" + s.slot) ? "업로드된 로고 사용 중" : "기본 로고 사용 중"}</span></span>
+          <span style="display:inline-flex; align-items:center; justify-content:center; padding:6px 10px; background:${s.bg}; border:1px solid var(--line)">
+            <img src="${brandLogoURL(s.slot, s.fallback)}" alt="" style="height:30px; max-width:180px; object-fit:contain">
+          </span>
+          <input type="file" accept="image/png,image/webp,image/jpeg" class="logo-file" style="flex:1; min-width:160px">
+          <button class="btn-secondary logo-upload">업로드</button>
+          ${getSetting("logo_" + s.slot) ? `<button class="btn-danger logo-reset">기본으로</button>` : ""}
+        </div>`).join("");
+
+      el.querySelectorAll(".admin-item").forEach(row => {
+        const slot = row.dataset.slot;
+        row.querySelector(".logo-upload").addEventListener("click", async () => {
+          const file = row.querySelector(".logo-file").files[0];
+          if (!file) { alert("먼저 이미지 파일을 선택하세요."); return; }
+          if (file.size > 2 * 1024 * 1024) { alert("2MB 이하 이미지를 사용해 주세요."); return; }
+          const res = await uploadBrandLogo(slot, file);
+          if (res.error) { alert("업로드 실패: " + res.error.message); return; }
+          alert("업로드 완료! 모든 방문자에게 즉시 반영됩니다.");
+          renderLogoAdmin();
+        });
+        row.querySelector(".logo-reset")?.addEventListener("click", () => {
+          resetBrandLogo(slot);
+          renderLogoAdmin();
+        });
+      });
+    }
+
     function renderAll() {
       renderTournamentList();
       fillMatchForm();
@@ -577,6 +629,7 @@
       renderRecords();
       renderPlayers();
       renderDetailEditor();
+      renderLogoAdmin();
     }
     renderAll();
     renderFooter();
