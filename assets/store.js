@@ -451,6 +451,19 @@ async function sbSignUp(email, password, nick, favTeam) {
   return { session: data.session };
 }
 async function sbSignOut() { await sb.auth.signOut(); }
+// 로그인은 됐지만 프로필이 없는 회원용 (이메일 확인을 거친 가입 등)
+async function completeProfile(nick, favTeam) {
+  if (!Auth.session) return { error: { message: "로그인이 필요합니다." } };
+  const row = { id: Auth.session.user.id, nick, fav_team: favTeam || null };
+  const { error } = await sb.from("profiles").insert(row);
+  if (error) {
+    if (error.message.includes("duplicate") || error.code === "23505")
+      return { error: { message: "이미 사용 중인 닉네임입니다." } };
+    return { error };
+  }
+  Auth.profile = { ...row, is_admin: false };
+  return { ok: true };
+}
 
 // 페이지들은 storeReady를 기다린 뒤 렌더링한다
 const storeReady = storeInit();

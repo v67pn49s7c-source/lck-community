@@ -100,8 +100,10 @@ function renderHeader(activeMenu, activeTeamId) {
       <div class="header-actions">
         <button class="btn-icon" id="theme-toggle"></button>
         ${Auth.session
-          ? `<span class="user-chip" title="${esc(Auth.session.user.email || "")}">${esc(Auth.profile ? Auth.profile.nick : "회원")}</span>
-             <button class="btn-login" id="btn-signout">로그아웃</button>`
+          ? (Auth.profile
+            ? `<span class="user-chip" title="${esc(Auth.session.user.email || "")}">${esc(Auth.profile.nick)}</span>`
+            : `<a class="user-chip" href="login.html" title="닉네임·응원팀을 설정해 주세요">프로필 설정 필요</a>`)
+            + `<button class="btn-login" id="btn-signout">로그아웃</button>`
           : `<a class="btn-login" href="login.html">로그인</a>`}
       </div>
     </div>

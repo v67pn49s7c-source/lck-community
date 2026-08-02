@@ -60,7 +60,35 @@
     renderHeader(null, null);
     renderFooter();
 
-    if (Auth.session) { location.href = "index.html"; return; }
+    if (Auth.session && Auth.profile) { location.href = "index.html"; return; }
+
+    // 로그인은 됐지만 프로필(닉네임·응원팀)이 없는 회원 → 프로필 완성 모드
+    const completing = !!Auth.session && !Auth.profile;
+    if (completing) {
+      document.getElementById("auth-team").innerHTML =
+        `<option value="">선택 안 함 (전체 게시판만 작성 가능)</option>` +
+        TEAMS.map(t => `<option value="${t.id}">${t.name} (${t.abbr})</option>`).join("");
+      document.querySelector(".board-toolbar").style.display = "none";
+      document.getElementById("auth-email").closest("div").style.display = "none";
+      document.getElementById("auth-pw").closest("div").style.display = "none";
+      document.getElementById("auth-email").required = false;
+      document.getElementById("auth-pw").required = false;
+      document.getElementById("nick-field").style.display = "";
+      document.getElementById("team-field").style.display = "";
+      document.getElementById("auth-nick").required = true;
+      document.getElementById("auth-title").textContent = "프로필 완성";
+      document.getElementById("auth-submit").textContent = "저장하고 시작하기";
+      document.getElementById("auth-form").addEventListener("submit", async e => {
+        e.preventDefault();
+        const nick = document.getElementById("auth-nick").value.trim();
+        if (!nick) return;
+        const res = await completeProfile(nick, document.getElementById("auth-team").value);
+        if (res.error) { alert("저장 실패: " + res.error.message); return; }
+        alert(`환영합니다, ${nick}님!`);
+        location.href = "index.html";
+      });
+      return; // 아래 로그인/가입 로직은 사용하지 않음
+    }
 
     document.getElementById("auth-team").innerHTML =
       `<option value="">선택 안 함 (전체 게시판만 작성 가능)</option>` +
