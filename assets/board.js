@@ -4,9 +4,10 @@ const PAGE_SIZE = 15;
 
 function boardPosts(teamId) {
   const all = getPosts();
-  // 팀 게시판: 해당 팀 태그 글 + 공지 / 통합 게시판: 전체
+  // 팀 게시판: 해당 팀 글 + 운영 공지만 (다른 팀·전체 글과 섞이지 않음)
   if (teamId) return all.filter(p => p.team === teamId || p.cat === "공지");
-  return all;
+  // 전체 게시판: 팀 소속이 아닌 글만 (팀 게시판과 독립)
+  return all.filter(p => !p.team);
 }
 
 function fmtBoardDate(ts) {
@@ -80,8 +81,18 @@ function renderBoardList(el, state) {
         ${Array.from({ length: totalPages }, (_, i) => i + 1).map(n =>
           `<button data-page="${n}" class="${n === state.page ? "active" : ""}">${n}</button>`).join("")}
       </div>
-      <a class="btn-primary" href="write.html${state.teamId ? "?team=" + state.teamId : ""}">글쓰기</a>
+      ${state.teamId && !canPostToTeam(state.teamId)
+        ? `<button class="btn-primary" id="btn-write-blocked" style="opacity:.6">글쓰기</button>`
+        : `<a class="btn-primary" href="write.html${state.teamId ? "?team=" + state.teamId : ""}">글쓰기</a>`}
     </div>`;
+
+  el.querySelector("#btn-write-blocked")?.addEventListener("click", () => {
+    const t = TEAM_MAP[state.teamId];
+    alert(Auth.session
+      ? `${t.name} 게시판은 응원팀이 ${t.abbr}인 팬 회원만 글을 쓸 수 있습니다.\n(내 응원팀: ${Auth.profile?.fav_team ? (TEAM_MAP[Auth.profile.fav_team]?.name || "-") : "미설정"})`
+      : `${t.name} 게시판은 ${t.abbr} 팬 회원 전용입니다.\n회원가입 시 응원팀을 ${t.abbr}로 설정하면 글을 쓸 수 있어요.`);
+    if (!Auth.session) location.href = "login.html";
+  });
 
   el.querySelectorAll("[data-cat]").forEach(b => b.addEventListener("click", () => {
     state.cat = b.dataset.cat; state.page = 1;
@@ -188,9 +199,16 @@ async function initWritePage() {
   const preTeam = new URLSearchParams(location.search).get("team") || "";
   const form = document.getElementById("write-form");
 
+  // 게시판 선택: 전체 게시판 + (내가 글 쓸 수 있는 팀 게시판만)
+  const writableTeams = TEAMS.filter(t => canPostToTeam(t.id));
+  const validPre = writableTeams.some(t => t.id === preTeam) ? preTeam : "";
   document.getElementById("write-team").innerHTML = `
-    <option value="">전체 게시판 (팀 태그 없음)</option>
-    ${TEAMS.map(t => `<option value="${t.id}" ${t.id === preTeam ? "selected" : ""}>${t.name} (${t.abbr})</option>`).join("")}`;
+    <option value="">전체 게시판</option>
+    ${writableTeams.map(t => `<option value="${t.id}" ${t.id === validPre ? "selected" : ""}>${t.name} (${t.abbr}) 팬 게시판</option>`).join("")}`;
+  if (preTeam && !validPre) {
+    const t = TEAM_MAP[preTeam];
+    if (t) alert(`${t.name} 게시판은 ${t.abbr} 팬 회원 전용이라 전체 게시판으로 작성됩니다.\n응원팀은 회원가입 시 설정할 수 있어요.`);
+  }
   document.getElementById("write-cat").innerHTML =
     BOARD_CATS.filter(c => c !== "전체" && c !== "공지").map(c => `<option>${c}</option>`).join("");
   document.getElementById("write-nick").value = getNick();

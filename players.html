@@ -36,7 +36,7 @@
         </div>
         <div class="team-grid" style="padding:14px">
           ${players.map(p => {
-            const c = communityAvgForPlayer(p.id);
+            const c = latestMatchRating(p.id);
             return `
             <a class="team-card" style="--team-color:${t.color}" href="player.html?id=${p.id}">
               <span class="player-avatar" style="--team-color:${t.color}">${esc(p.nick.slice(0, 2))}</span>
@@ -44,7 +44,7 @@
                 <div class="tc-abbr">${esc(p.pos)}</div>
                 <div class="tc-name">${esc(p.nick)}</div>
                 <div class="tc-record">${esc(p.name)}</div>
-                <div class="tc-record">${c ? "평균 " + c.avg + " · " + c.n + "명" : "평점 없음"}</div>
+                <div class="tc-record">${c ? "최근 경기 " + c.avg + "점 (" + c.n + "명)" : "평점 없음"}</div>
               </div>
             </a>`;
           }).join("")}

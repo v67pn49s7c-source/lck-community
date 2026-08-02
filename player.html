@@ -15,7 +15,7 @@
       <div class="stack">
         <section class="card">
           <div class="card-head">
-            <h2 class="card-title">내 평점 이력</h2>
+            <h2 class="card-title">경기별 평점 <span class="sub">경기 단위 팬 평균</span></h2>
             <span class="card-more" id="avg-label"></span>
           </div>
           <div id="rating-history"></div>
@@ -83,24 +83,23 @@
         return r ? `팀 시즌 누적 <b>${r.rank}위</b> (${r.w}승 ${r.l}패)` : "";
       }
 
-      // 평점 이력
-      const history = myRatingsForPlayer(player.id);
-      const comm = communityAvgForPlayer(player.id);
-      const myAvg = myAvgForPlayer(player.id);
+      // 경기별 평점 (경기 단위 팬 평균 + 내 점수)
+      const history = matchRatingsForPlayer(player.id);
+      const latest = history[0];
       document.getElementById("avg-label").textContent =
-        [comm ? `전체 평균 ${comm.avg} (${comm.n}명)` : null, myAvg != null ? `내 평균 ${myAvg}` : null]
-          .filter(Boolean).join(" · ");
+        latest ? `최근 경기 ${latest.avg}점 (${latest.n}명)` : "";
       document.getElementById("rating-history").innerHTML = history.length
         ? history.map(h => {
-            const m = getMatches().find(x => x.id === h.matchId);
-            const label = m ? `${slotName(m.a)} vs ${slotName(m.b)} (${fmtWhen(m.at)})` : h.matchId;
+            const m = h.match;
+            const label = m ? `${slotName(m.a)} vs ${slotName(m.b)} · ${fmtWhen(m.at)}` : h.matchId;
             return `
             <a class="post-row" href="live.html?match=${h.matchId}">
               <span class="post-title">${label}</span>
-              <span class="rate" style="font-weight:800;color:var(--blue)">${h.score}점</span>
+              ${h.mine != null ? `<span class="detail" style="color:var(--text-dim);font-size:11px">내 점수 ${h.mine}</span>` : ""}
+              <span class="rate" style="font-weight:800;color:var(--blue)">평균 ${h.avg} (${h.n}명)</span>
             </a>`;
           }).join("")
-        : `<div class="empty-note">아직 준 평점이 없습니다. 경기 종료 후 라이브 페이지에서 평가할 수 있어요.</div>`;
+        : `<div class="empty-note">아직 평점이 없습니다. 경기 종료 후 해당 경기 페이지에서 평가할 수 있어요.</div>`;
 
       // 응원 한마디 (선수별 채팅 저장소 재사용)
       const cheerKey = "player_" + player.id;
@@ -135,7 +134,7 @@
           <a class="post-row ${p.id === player.id ? "active" : ""}" href="player.html?id=${p.id}">
             <span class="tag-cat">${esc(p.pos)}</span>
             <span class="post-title" style="${p.id === player.id ? "color:var(--accent)" : ""}">${esc(p.nick)} <span style="color:var(--text-dim);font-weight:400">${esc(p.name)}</span></span>
-            <span class="post-meta">${myAvgForPlayer(p.id) != null ? "내 평점 " + myAvgForPlayer(p.id) : ""}</span>
+            <span class="post-meta">${latestMatchRating(p.id) ? "최근 " + latestMatchRating(p.id).avg + "점" : ""}</span>
           </a>`).join("");
     }
 

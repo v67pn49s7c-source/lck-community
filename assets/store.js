@@ -296,13 +296,40 @@ function myAvgForPlayer(playerId) {
   if (!list.length) return null;
   return Math.round(list.reduce((s, x) => s + x.score, 0) / list.length * 10) / 10;
 }
-// 전체 팬 평균
+// 전체 팬 평균 (matchId를 주면 해당 경기 한정)
 function communityAvgForPlayer(playerId, matchId) {
   let list = Cache.ratings.filter(r => r.player_id === playerId);
   if (matchId) list = list.filter(r => r.match_id === matchId);
   if (!list.length) return null;
   const voters = new Set(list.map(r => r.voter)).size;
   return { avg: Math.round(list.reduce((s, x) => s + x.score, 0) / list.length * 10) / 10, n: voters };
+}
+// 선수의 경기별 평점 목록 (최신 경기 순)
+function matchRatingsForPlayer(playerId) {
+  const me = voterId();
+  const byMatch = {};
+  Cache.ratings.filter(r => r.player_id === playerId).forEach(r => {
+    const g = byMatch[r.match_id] = byMatch[r.match_id] || { sum: 0, n: 0, mine: null };
+    g.sum += r.score; g.n++;
+    if (r.voter === me) g.mine = r.score;
+  });
+  return Object.keys(byMatch).map(mid => {
+    const m = Cache.matches.find(x => x.id === mid);
+    const g = byMatch[mid];
+    return { matchId: mid, match: m, at: m ? m.at : 0,
+      avg: Math.round(g.sum / g.n * 10) / 10, n: g.n, mine: g.mine };
+  }).sort((a, b) => new Date(b.at) - new Date(a.at));
+}
+// 가장 최근 경기의 평점 (선수 카드용)
+function latestMatchRating(playerId) {
+  return matchRatingsForPlayer(playerId)[0] || null;
+}
+
+// 이 팀 게시판에 글을 쓸 수 있는가 (응원팀 회원 또는 관리자)
+function canPostToTeam(teamId) {
+  if (!teamId) return true; // 전체 게시판은 누구나
+  if (Auth.profile?.is_admin) return true;
+  return Auth.profile?.fav_team === teamId;
 }
 
 // ── 응원 채팅 (실시간) ──
@@ -373,11 +400,11 @@ async function sbSignIn(email, password) {
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   return { session: data.session, error };
 }
-async function sbSignUp(email, password, nick) {
+async function sbSignUp(email, password, nick, favTeam) {
   const { data, error } = await sb.auth.signUp({ email, password });
   if (error) return { error };
   if (!data.session) return { needConfirm: true }; // 이메일 확인이 켜져 있는 경우
-  const { error: pErr } = await sb.from("profiles").insert({ id: data.session.user.id, nick });
+  const { error: pErr } = await sb.from("profiles").insert({ id: data.session.user.id, nick, fav_team: favTeam || null });
   if (pErr) {
     if (pErr.message.includes("duplicate") || pErr.code === "23505")
       return { error: { message: "이미 사용 중인 닉네임입니다." } };

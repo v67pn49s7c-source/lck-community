@@ -27,6 +27,10 @@
             <div class="form-label">닉네임 (2~12자 · 가입 후 글·댓글·채팅에 고정 표시)</div>
             <input id="auth-nick" minlength="2" maxlength="12" placeholder="예: 협곡의봄" style="width:100%">
           </div>
+          <div id="team-field" style="display:none">
+            <div class="form-label">응원팀 (해당 팀 팬 게시판에 글을 쓸 수 있어요)</div>
+            <select id="auth-team" style="width:100%"></select>
+          </div>
           <div>
             <div class="form-label">이메일</div>
             <input id="auth-email" type="email" required autocomplete="username" style="width:100%">
@@ -57,6 +61,10 @@
 
     if (Auth.session) { location.href = "index.html"; return; }
 
+    document.getElementById("auth-team").innerHTML =
+      `<option value="">선택 안 함 (전체 게시판만 작성 가능)</option>` +
+      TEAMS.map(t => `<option value="${t.id}">${t.name} (${t.abbr})</option>`).join("");
+
     let mode = "login";
     const tabL = document.getElementById("tab-login"), tabS = document.getElementById("tab-signup");
     function setMode(m) {
@@ -64,6 +72,7 @@
       tabL.classList.toggle("active", m === "login");
       tabS.classList.toggle("active", m === "signup");
       document.getElementById("nick-field").style.display = m === "signup" ? "" : "none";
+      document.getElementById("team-field").style.display = m === "signup" ? "" : "none";
       document.getElementById("auth-nick").required = m === "signup";
       document.getElementById("auth-title").textContent = m === "login" ? "로그인" : "회원가입";
       document.getElementById("auth-submit").textContent = m === "login" ? "로그인" : "가입하기";
@@ -85,7 +94,7 @@
         location.href = "index.html";
       } else {
         const nick = document.getElementById("auth-nick").value.trim();
-        const res = await sbSignUp(email, pw, nick);
+        const res = await sbSignUp(email, pw, nick, document.getElementById("auth-team").value);
         btn.disabled = false;
         if (res.error) { alert("가입 실패: " + res.error.message); return; }
         if (res.needConfirm) { alert("가입 확인 이메일이 발송되었습니다. 메일함을 확인해 주세요."); return; }
