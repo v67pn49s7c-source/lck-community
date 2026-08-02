@@ -76,6 +76,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
   flex-shrink: 0;
 }
 .team-logo img { width: 74%; height: 74%; object-fit: contain; display: block; }
+.team-logo.placeholder { color: var(--text-dim); font-weight: 800; border-style: dashed; }
+.match-side.tbd { color: var(--text-dim); font-weight: 600; font-size: var(--fs-sm); }
 
 /* ── 상단 헤더 ── */
 .site-header {
@@ -561,6 +563,41 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
 .admin-note { padding: 10px 14px; font-size: var(--fs-sm); color: var(--text-dim); line-height: 1.7; background: var(--bg-soft); border-top: 1px solid var(--line); }
 
 .empty-note { padding: 28px; text-align: center; color: var(--text-dim); font-size: var(--fs-sm); }
+
+/* ── 대진표 (브래킷) ── */
+.bracket-wrap { overflow-x: auto; }
+.bracket { display: flex; gap: 12px; padding: 14px; align-items: stretch; min-width: min-content; }
+.bracket-col { flex: 1; min-width: 216px; display: flex; flex-direction: column; gap: 10px; }
+.bracket-col-title {
+  text-align: center; font-size: var(--fs-sm); font-weight: 800;
+  padding: 7px 4px; color: #fff;
+  background: linear-gradient(100deg, #241a4d, #4a2a7a 55%, #8b3fa8);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
+}
+.bracket-col-body { display: flex; flex-direction: column; gap: 10px; flex: 1; justify-content: center; }
+.bracket-match { border: 1px solid var(--line); background: var(--card); }
+.bm-head {
+  display: flex; justify-content: space-between; gap: 6px;
+  font-size: var(--fs-xs); font-weight: 700; color: #fff;
+  background: linear-gradient(90deg, #3b2a66, #7a3396);
+  padding: 4px 9px;
+}
+.bm-head .bm-date { font-weight: 500; opacity: .85; }
+.bm-slot {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 9px; border-top: 1px solid var(--line);
+  font-weight: 700; font-size: var(--fs-md);
+}
+.bm-slot:first-of-type { border-top: none; }
+.bm-slot .score { margin-left: auto; font-weight: 800; font-variant-numeric: tabular-nums; }
+.bm-slot.tbd { color: var(--text-dim); font-weight: 600; font-size: var(--fs-sm); }
+.bm-slot.winner { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.bm-slot.winner .score { color: var(--accent); }
+.bm-slot.loser { color: var(--text-dim); }
+.bracket-legend {
+  padding: 10px 14px; border-top: 1px solid var(--line);
+  font-size: var(--fs-sm); color: var(--text-sub); text-align: center;
+}
 
 /* ── 푸터 ── */
 .site-footer { border-top: 1px solid var(--line); padding: 18px 0 36px; margin-top: 32px; }

@@ -69,9 +69,11 @@
           <div class="row">
             <label>팀 1 (블루)
               <select id="m-a"></select>
+              <input id="m-a-custom" placeholder="자리 이름 (예: 레전드 3위, UB R1 승자)" style="display:none">
             </label>
             <label>팀 2 (레드)
               <select id="m-b"></select>
+              <input id="m-b-custom" placeholder="자리 이름 (예: 플레이-인 1위)" style="display:none">
             </label>
             <label>배당 1
               <input id="m-oddsa" type="number" step="0.01" min="1" value="2.00">
@@ -79,6 +81,15 @@
             <label>배당 2
               <input id="m-oddsb" type="number" step="0.01" min="1" value="2.00">
             </label>
+          </div>
+          <div class="row">
+            <label style="flex:2">대진 라벨 <span style="font-weight:400">(대진표에 표시되는 경기 이름 — 선택)</span>
+              <input id="m-label" placeholder="예: UB R1 M1, LB R2, Grand Finals">
+            </label>
+            <span class="muted" style="flex:3; align-self:end; font-size:11px; color:var(--text-dim); padding-bottom:6px">
+              토너먼트라서 아직 팀이 안 정해졌다면 팀 선택에서 <b>"미정 (자리 이름 직접 입력)"</b>을 고르세요.
+              나중에 팀이 확정되면 아래 목록에서 실제 팀으로 바꾸면 됩니다.
+            </span>
           </div>
           <div class="row actions">
             <button class="btn-primary" type="submit">경기 추가</button>
@@ -159,22 +170,34 @@
       tidSel.onchange = fillStages;
       fillStages();
 
-      const teamOpts = TEAMS.map(t => `<option value="${t.id}">${t.name} (${t.abbr})</option>`).join("");
-      document.getElementById("m-a").innerHTML = teamOpts;
-      document.getElementById("m-b").innerHTML = teamOpts;
+      const teamOpts = TEAMS.map(t => `<option value="${t.id}">${t.name} (${t.abbr})</option>`).join("")
+        + `<option value="__custom">미정 (자리 이름 직접 입력)</option>`;
+      ["a", "b"].forEach(side => {
+        const sel = document.getElementById("m-" + side);
+        const custom = document.getElementById(`m-${side}-custom`);
+        sel.innerHTML = teamOpts;
+        sel.onchange = () => { custom.style.display = sel.value === "__custom" ? "" : "none"; };
+      });
     }
 
     function renderMatchList() {
       const el = document.getElementById("match-list");
       const ms = sortedMatches();
+      const slotSel = (cls, v) => {
+        const isTeam = !!TEAM_MAP[v];
+        return `<select class="${cls}">
+          ${isTeam ? "" : `<option value="${esc(v)}" selected>미정: ${esc(v)}</option>`}
+          ${TEAMS.map(t => `<option value="${t.id}" ${t.id === v ? "selected" : ""}>${t.abbr}</option>`).join("")}
+        </select>`;
+      };
       el.innerHTML = ms.map(m => {
-        const A = TEAM_MAP[m.a], B = TEAM_MAP[m.b];
         const t = getTournaments().find(x => x.id === m.tid);
         return `
         <div class="admin-item" data-mid="${m.id}">
           <span class="badge-status ${m.status}">${m.status === "upcoming" ? "예정" : m.status === "live" ? "LIVE" : "종료"}</span>
           <span class="grow">
-            <b>${A ? A.abbr : m.a} vs ${B ? B.abbr : m.b}</b>
+            ${slotSel("ta", m.a)} <span class="muted">vs</span> ${slotSel("tb", m.b)}
+            ${m.label ? `<span class="cat-chip">${esc(m.label)}</span>` : ""}
             <span class="muted">· ${fmtWhen(m.at)} · ${esc(t ? t.name : "?")} / ${esc(m.stage || "-")}</span>
           </span>
           <select class="st">
@@ -197,6 +220,8 @@
           const sa = row.querySelector(".sa").value, sb = row.querySelector(".sb").value;
           updateMatch(mid, {
             status,
+            a: row.querySelector(".ta").value,
+            b: row.querySelector(".tb").value,
             scoreA: sa === "" ? null : Number(sa),
             scoreB: sb === "" ? null : Number(sb),
           });
@@ -213,9 +238,11 @@
     document.getElementById("match-form").addEventListener("submit", e => {
       e.preventDefault();
       const at = document.getElementById("m-at").value;
-      const a = document.getElementById("m-a").value, b = document.getElementById("m-b").value;
+      let a = document.getElementById("m-a").value, b = document.getElementById("m-b").value;
+      if (a === "__custom") a = document.getElementById("m-a-custom").value.trim() || "미정";
+      if (b === "__custom") b = document.getElementById("m-b-custom").value.trim() || "미정";
       if (!at) return;
-      if (a === b) { alert("같은 팀끼리는 경기할 수 없습니다."); return; }
+      if (a === b && TEAM_MAP[a]) { alert("같은 팀끼리는 경기할 수 없습니다."); return; }
       if (!document.getElementById("m-tid").value) { alert("먼저 대회를 추가하세요."); return; }
       addMatch({
         id: "m" + Date.now(),
@@ -223,6 +250,7 @@
         stage: document.getElementById("m-stage").value,
         at: at + ":00+09:00",
         a, b,
+        label: document.getElementById("m-label").value.trim(),
         oddsA: Number(document.getElementById("m-oddsa").value) || 2,
         oddsB: Number(document.getElementById("m-oddsb").value) || 2,
         status: "upcoming", scoreA: null, scoreB: null,

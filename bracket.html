@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>대진표 — LCK 라운지</title>
+  <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <main class="page">
+    <div class="container">
+      <div class="page-title-row">
+        <h1 class="page-title">대진표 <span class="sub" id="bracket-sub"></span></h1>
+        <div style="display:flex; gap:8px; align-items:center">
+          <select id="tournament-select" style="min-width:200px"></select>
+          <a class="btn-secondary" href="matches.html">일정으로</a>
+        </div>
+      </div>
+
+      <section class="card">
+        <div class="bracket-wrap">
+          <div class="bracket" id="bracket-body"></div>
+        </div>
+        <div class="bracket-legend">
+          붉은 배경 = 승리 팀 · <span style="color:var(--text-dim)">회색 점선 로고 = 아직 정해지지 않은 자리</span>
+          · 경기 칸을 누르면 응원방으로 이동합니다
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="assets/data.js"></script>
+  <script src="assets/store.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    renderHeader("경기", null);
+
+    const state = { tid: new URLSearchParams(location.search).get("t") };
+
+    function renderSelect() {
+      const ts = getTournaments();
+      const sel = document.getElementById("tournament-select");
+      if (!ts.length) { sel.innerHTML = `<option>등록된 대회 없음</option>`; return; }
+      if (!ts.find(t => t.id === state.tid)) state.tid = ts[ts.length - 1].id;
+      sel.innerHTML = ts.map(t => `<option value="${t.id}" ${t.id === state.tid ? "selected" : ""}>${esc(t.name)}</option>`).join("");
+      sel.onchange = () => { state.tid = sel.value; renderBracket(); };
+    }
+
+    function bmSlotHTML(m, side) {
+      const v = side === "a" ? m.a : m.b;
+      const myScore = side === "a" ? m.scoreA : m.scoreB;
+      const otherScore = side === "a" ? m.scoreB : m.scoreA;
+      const done = m.status === "done";
+      const win = done && myScore != null && otherScore != null && myScore > otherScore;
+      const lose = done && myScore != null && otherScore != null && myScore < otherScore;
+      return `
+      <div class="bm-slot ${isRealTeam(v) ? "" : "tbd"} ${win ? "winner" : ""} ${lose ? "loser" : ""}">
+        ${slotLogoHTML(v, 22)}
+        <span>${slotName(v)}</span>
+        <span class="score">${(done || m.status === "live") && myScore != null ? myScore : ""}</span>
+      </div>`;
+    }
+
+    function fmtShortDate(iso) {
+      const d = new Date(iso);
+      return new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric" }).format(d);
+    }
+
+    function renderBracket() {
+      const t = getTournaments().find(x => x.id === state.tid);
+      const el = document.getElementById("bracket-body");
+      document.getElementById("bracket-sub").textContent = t ? `${t.name} · ${t.type}` : "";
+      if (!t) { el.innerHTML = `<div class="empty-note">대회를 먼저 만들어 주세요 (관리자 메뉴)</div>`; return; }
+
+      const ms = sortedMatches().filter(m => m.tid === t.id);
+      el.innerHTML = t.stages.map(stage => {
+        const list = ms.filter(m => m.stage === stage);
+        return `
+        <div class="bracket-col">
+          <div class="bracket-col-title">${esc(stage)}</div>
+          <div class="bracket-col-body">
+            ${list.map(m => `
+              <a class="bracket-match" href="live.html?match=${m.id}">
+                <div class="bm-head">
+                  <span>${esc(m.label || `${slotName(m.a)} vs ${slotName(m.b)}`)}</span>
+                  <span class="bm-date">${fmtShortDate(m.at)}${m.status === "live" ? " · LIVE" : ""}</span>
+                </div>
+                ${bmSlotHTML(m, "a")}
+                ${bmSlotHTML(m, "b")}
+              </a>`).join("") || `<div class="empty-note" style="padding:14px">경기 없음</div>`}
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    renderSelect();
+    renderBracket();
+    renderFooter();
+  </script>
+</body>
+</html>

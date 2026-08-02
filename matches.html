@@ -13,7 +13,10 @@
       <div class="stack">
         <div class="page-title-row">
           <h1 class="page-title">경기 <span class="sub">일정 · 결과</span></h1>
-          <select id="tournament-select" style="min-width:200px"></select>
+          <div style="display:flex; gap:8px; align-items:center">
+            <select id="tournament-select" style="min-width:200px"></select>
+            <a class="btn-secondary" id="bracket-link" href="bracket.html">대진표</a>
+          </div>
         </div>
         <section class="card">
           <div class="board-toolbar">
@@ -63,7 +66,12 @@
       }
       state.tid = state.tid || ts[0].id;
       sel.innerHTML = ts.map(t => `<option value="${t.id}" ${t.id === state.tid ? "selected" : ""}>${esc(t.name)}</option>`).join("");
-      sel.onchange = () => { state.tid = sel.value; state.stage = "전체"; renderStageTabs(); renderMatches(); };
+      sel.onchange = () => { state.tid = sel.value; state.stage = "전체"; renderStageTabs(); renderMatches(); updateBracketLink(); };
+      updateBracketLink();
+    }
+
+    function updateBracketLink() {
+      document.getElementById("bracket-link").href = "bracket.html?t=" + (state.tid || "");
     }
 
     function renderStageTabs() {

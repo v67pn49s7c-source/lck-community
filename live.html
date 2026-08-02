@@ -73,20 +73,19 @@
         el.innerHTML = `<div class="empty-note">예정된 경기가 없습니다. 관리자 메뉴에서 경기를 추가하세요.</div>`;
         return;
       }
-      const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
       const live = match.status === "live", done = match.status === "done";
       document.getElementById("live-title").textContent =
         live ? "라이브" : done ? "경기 종료" : "경기 예정";
       document.getElementById("live-when").textContent = fmtWhen(match.at);
       el.innerHTML = `
-        <div class="lb-team">${teamLogoHTML(A, 52)}<span>${A.abbr}</span></div>
+        <div class="lb-team">${slotLogoHTML(match.a, 52)}<span>${slotName(match.a)}</span></div>
         <div style="text-align:center">
           ${live ? `<div class="live-badge" style="margin-bottom:6px">● LIVE</div>` : ""}
           <div class="lb-score">${(live || done) ? `${match.scoreA ?? 0} : ${match.scoreB ?? 0}` : "VS"}</div>
-          <div style="font-size:11px;color:var(--text-dim);margin-top:4px">${esc(match.stage || "")}</div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:4px">${esc(match.label || match.stage || "")}</div>
         </div>
-        <div class="lb-team">${teamLogoHTML(B, 52)}<span>${B.abbr}</span></div>`;
-      document.getElementById("chat-sub").textContent = `${A.abbr} vs ${B.abbr}`;
+        <div class="lb-team">${slotLogoHTML(match.b, 52)}<span>${slotName(match.b)}</span></div>`;
+      document.getElementById("chat-sub").textContent = `${slotName(match.a)} vs ${slotName(match.b)}`;
     }
 
     // 응원 채팅
@@ -123,16 +122,13 @@
     function renderUpcoming() {
       const ms = sortedMatches().filter(m => m.status !== "done").slice(0, 6);
       document.getElementById("upcoming-list").innerHTML =
-        ms.map(m => {
-          const A = TEAM_MAP[m.a], B = TEAM_MAP[m.b];
-          return `
+        ms.map(m => `
           <a class="post-row" href="live.html?match=${m.id}">
-            <span style="display:flex;align-items:center;gap:5px;font-weight:700">${teamLogoHTML(A, 18)} ${A.abbr}</span>
+            <span style="display:flex;align-items:center;gap:5px;font-weight:700">${slotLogoHTML(m.a, 18)} ${slotName(m.a)}</span>
             <span style="color:var(--text-dim);font-size:11px">vs</span>
-            <span style="display:flex;align-items:center;gap:5px;font-weight:700">${teamLogoHTML(B, 18)} ${B.abbr}</span>
+            <span style="display:flex;align-items:center;gap:5px;font-weight:700">${slotLogoHTML(m.b, 18)} ${slotName(m.b)}</span>
             <span class="post-meta" style="margin-left:auto">${m.status === "live" ? "LIVE" : fmtWhen(m.at)}</span>
-          </a>`;
-        }).join("") || `<div class="empty-note">예정된 경기가 없습니다</div>`;
+          </a>`).join("") || `<div class="empty-note">예정된 경기가 없습니다</div>`;
     }
 
     renderBanner();

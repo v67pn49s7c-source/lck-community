@@ -12,6 +12,26 @@ function teamLogoHTML(team, size) {
     <img src="assets/logos/${team.id}.svg" alt="${team.abbr} 로고"></span>`;
 }
 
+// 팀 슬롯: 실제 팀이면 로고, 아니면 "미정 자리" 표시 (토너먼트 대진용)
+// v 값: 팀 id("t1") 또는 자유 텍스트("레전드 3위", "UB R1 승자") 또는 빈 값
+function placeholderLogoHTML(size) {
+  const s = size || 24;
+  const cut = Math.max(4, Math.round(s * 0.2));
+  return `<span class="team-logo placeholder" style="width:${s}px;height:${s}px;font-size:${Math.round(s * 0.45)}px;
+    clip-path:polygon(0 0, 100% 0, 100% calc(100% - ${cut}px), calc(100% - ${cut}px) 100%, 0 100%);">?</span>`;
+}
+function slotLogoHTML(v, size) {
+  const t = TEAM_MAP[v];
+  return t ? teamLogoHTML(t, size) : placeholderLogoHTML(size);
+}
+function slotName(v) {
+  const t = TEAM_MAP[v];
+  if (t) return t.abbr;
+  return v ? esc(v) : "미정";
+}
+function isRealTeam(v) { return !!TEAM_MAP[v]; }
+function knownTeams(m) { return isRealTeam(m.a) && isRealTeam(m.b); }
+
 // KST 기준 날짜 표기
 const KST_FMT = new Intl.DateTimeFormat("ko-KR", {
   timeZone: "Asia/Seoul", month: "numeric", day: "numeric",
@@ -113,8 +133,13 @@ function renderFooter() {
 function renderPredictWidget() {
   const el = document.getElementById("predict-widget");
   if (!el) return;
-  const live = liveMatch();
-  const match = live || nextMatch();
+  // 양 팀이 확정된 경기만 예측 대상 (토너먼트 미정 슬롯 제외)
+  const candidates = sortedMatches().filter(m => m.status !== "done" && knownTeams(m));
+  const now = Date.now();
+  const live = candidates.find(m => m.status === "live");
+  const match = live
+    || candidates.find(m => new Date(m.at) > now)
+    || candidates[0];
   if (!match) { el.innerHTML = `<div class="empty-note">예정된 경기가 없습니다</div>`; return; }
 
   const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
@@ -224,8 +249,6 @@ function scheduleHTML(matches, opts) {
     return `
     <div class="day-label">${fmtDay(list[0].at)}${today ? '<span class="chip-today">오늘</span>' : ""}</div>
     ${list.map(m => {
-      const A = TEAM_MAP[m.a], B = TEAM_MAP[m.b];
-      if (!A || !B) return "";
       const done = m.status === "done", live = m.status === "live";
       const score = (done || live)
         ? `<span class="match-score">
@@ -246,9 +269,9 @@ function scheduleHTML(matches, opts) {
         <span class="match-time">${fmtTime(m.at)}</span>
         ${status}
         <div class="match-teams">
-          <span class="match-side">${teamLogoHTML(A, 24)} ${A.abbr}</span>
+          <span class="match-side ${isRealTeam(m.a) ? "" : "tbd"}">${slotLogoHTML(m.a, 24)} ${slotName(m.a)}</span>
           ${score}
-          <span class="match-side right">${B.abbr} ${teamLogoHTML(B, 24)}</span>
+          <span class="match-side right ${isRealTeam(m.b) ? "" : "tbd"}">${slotName(m.b)} ${slotLogoHTML(m.b, 24)}</span>
         </div>
         <div style="text-align:right">${right}</div>
         <span class="match-arrow">›</span>
