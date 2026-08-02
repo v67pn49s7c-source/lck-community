@@ -61,9 +61,18 @@
     function renderTable() {
       const rows = state.tab === "all" ? cumulativeStandings() : stageStandings(state.tab);
       document.getElementById("standings-table").innerHTML = standingsTableHTML(rows, { full: true });
-      document.getElementById("stage-note").innerHTML = state.tab === "all"
-        ? "시즌 누적 순위는 Rounds 1-2 · Road To MSI · Round 3-4 전 스테이지 결과를 모두 합산한 값입니다."
-        : "스테이지별 전적은 관리자 메뉴에서 수정할 수 있습니다.";
+      if (state.tab === "all") {
+        const included = getStageRecords().filter(stageInTotal).map(s => s.name);
+        const excluded = getStageRecords().filter(s => !stageInTotal(s)).map(s => s.name);
+        document.getElementById("stage-note").innerHTML =
+          `시즌 누적 순위 = ${included.map(esc).join(" + ")} 합산`
+          + (excluded.length ? ` <span style="color:var(--text-dim)">(${excluded.map(esc).join(", ")}은 별도 대회라 미합산)</span>` : "");
+      } else {
+        const s = getStageRecords().find(x => x.id === state.tab);
+        document.getElementById("stage-note").innerHTML =
+          (s && !stageInTotal(s) ? "이 스테이지는 별도 대회로, 종합 순위에는 합산되지 않습니다. " : "")
+          + "스테이지별 전적은 관리자 메뉴에서 수정할 수 있습니다.";
+      }
     }
 
     renderTabs();

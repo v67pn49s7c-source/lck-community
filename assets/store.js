@@ -59,7 +59,7 @@ async function storeInit() {
     id: x.id, tid: x.tid, stage: x.stage, at: x.at, a: x.a, b: x.b, label: x.label || "",
     oddsA: Number(x.odds_a), oddsB: Number(x.odds_b), status: x.status, scoreA: x.score_a, scoreB: x.score_b,
   }));
-  Cache.records = (r.data || []).map(x => ({ id: x.id, name: x.name, ord: x.ord, records: x.records || [] }));
+  Cache.records = (r.data || []).map(x => ({ id: x.id, name: x.name, ord: x.ord, records: x.records || [], in_total: x.in_total }));
   Cache.players = pl.data || [];
 
   const commentsByPost = {};
@@ -129,9 +129,15 @@ function nextMatch() {
 function getStageRecords() { return Cache.records; }
 function saveStageRecords(list) {
   Cache.records = list;
-  const rows = list.map(s => ({ id: s.id, name: s.name, ord: s.ord ?? 0, records: s.records }));
+  const rows = list.map(s => {
+    const row = { id: s.id, name: s.name, ord: s.ord ?? 0, records: s.records };
+    if (s.in_total !== undefined) row.in_total = s.in_total; // 컬럼 추가 SQL 실행 전 호환
+    return row;
+  });
   sb.from("stage_records").upsert(rows).then(r => sbErr(r.error, "saveStageRecords"));
 }
+// 이 스테이지가 종합(누적) 순위에 합산되는가 (기본: Road To MSI만 제외)
+function stageInTotal(s) { return s.in_total ?? (s.id !== "rtm"); }
 function stageStandings(stageId) {
   const s = Cache.records.find(x => x.id === stageId);
   if (!s) return [];
@@ -139,7 +145,7 @@ function stageStandings(stageId) {
 }
 function cumulativeStandings() {
   const acc = {};
-  Cache.records.forEach(s => s.records.forEach(r => {
+  Cache.records.filter(stageInTotal).forEach(s => s.records.forEach(r => {
     const t = acc[r.team] = acc[r.team] || { team: r.team, w: 0, l: 0, sw: 0, sl: 0 };
     t.w += r.w; t.l += r.l; t.sw += r.sw; t.sl += r.sl;
   }));

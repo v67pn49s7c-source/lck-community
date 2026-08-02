@@ -371,6 +371,13 @@
 
       el.innerHTML = `
         <div class="admin-list">
+          <div class="admin-item">
+            <label style="display:flex;gap:7px;align-items:center;font-weight:700;cursor:pointer">
+              <input type="checkbox" id="rec-intotal" ${stageInTotal(stage) ? "checked" : ""}>
+              이 스테이지 전적을 종합(누적) 순위에 합산
+            </label>
+            <span class="muted">Road To MSI 같은 별도 대회는 끄세요 — 순위 페이지 탭에는 계속 표시됩니다</span>
+          </div>
           ${TEAMS.map(t => {
             const r = stage.records.find(x => x.team === t.id) || { w: "", l: "", sw: "", sl: "" };
             return `
@@ -394,7 +401,8 @@
           if (v(".rw") === "" && v(".rl") === "") return; // 참가 안 한 팀은 비워두면 제외
           rows.push({ team: row.dataset.team, w: +v(".rw") || 0, l: +v(".rl") || 0, sw: +v(".rsw") || 0, sl: +v(".rsl") || 0 });
         });
-        saveStageRecords(getStageRecords().map(s => s.id === stage.id ? { ...s, records: rows } : s));
+        const inTotal = document.getElementById("rec-intotal").checked;
+        saveStageRecords(getStageRecords().map(s => s.id === stage.id ? { ...s, records: rows, in_total: inTotal } : s));
         alert("저장했습니다. 순위 페이지에 바로 반영됩니다.");
       });
     }
