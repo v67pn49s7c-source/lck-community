@@ -52,9 +52,11 @@
   </main>
 
   <script src="assets/data.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
   <script src="assets/store.js"></script>
   <script src="assets/app.js"></script>
   <script>
+  storeReady.then(async () => {
     const player = getPlayer(new URLSearchParams(location.search).get("id")) || getPlayers()[0];
     const team = player ? TEAM_MAP[player.team] : null;
     renderHeader("선수", team ? team.id : null);
@@ -83,8 +85,11 @@
 
       // 평점 이력
       const history = myRatingsForPlayer(player.id);
-      const avg = myAvgForPlayer(player.id);
-      document.getElementById("avg-label").textContent = avg != null ? `평균 ${avg} / 10` : "";
+      const comm = communityAvgForPlayer(player.id);
+      const myAvg = myAvgForPlayer(player.id);
+      document.getElementById("avg-label").textContent =
+        [comm ? `전체 평균 ${comm.avg} (${comm.n}명)` : null, myAvg != null ? `내 평균 ${myAvg}` : null]
+          .filter(Boolean).join(" · ");
       document.getElementById("rating-history").innerHTML = history.length
         ? history.map(h => {
             const m = getMatches().find(x => x.id === h.matchId);
@@ -120,7 +125,9 @@
         renderCheer();
       });
       document.querySelector("#cheer-form .nick").value = getNick();
+      await loadChat(cheerKey);
       renderCheer();
+      subscribeChat(cheerKey, renderCheer);
 
       // 같은 팀 선수
       document.getElementById("teammates").innerHTML = teamPlayers(team.id)
@@ -134,6 +141,8 @@
 
     setupSidebarStandings();
     renderFooter();
+  
+  });
   </script>
 </body>
 </html>

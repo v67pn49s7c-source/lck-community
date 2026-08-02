@@ -58,9 +58,11 @@
   </main>
 
   <script src="assets/data.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
   <script src="assets/store.js"></script>
   <script src="assets/app.js"></script>
   <script>
+  storeReady.then(async () => {
     renderHeader("승부예측", null);
 
     function renderStats() {
@@ -78,7 +80,7 @@
       if (!A || !B) return "";
       const votes = getVotes();
       const my = votes[m.id];
-      const pct = impliedPct(m);
+      const pct = communityPct(m);
 
       if (done) {
         const winner = m.scoreA > m.scoreB ? "a" : "b";
@@ -105,7 +107,7 @@
           ${teamLogoHTML(A, 24)} ${A.abbr} <span style="margin-left:auto;color:var(--text-sub)">${pct.a}%</span>
         </button>
         <div class="pm-info" style="text-align:center">
-          <b>${fmtWhen(m.at)}</b><br>${esc(shortStage(m.stage))} · 배당 ${m.oddsA?.toFixed(2)} : ${m.oddsB?.toFixed(2)}
+          <b>${fmtWhen(m.at)}</b><br>${esc(shortStage(m.stage))} · 배당 ${m.oddsA?.toFixed(2)} : ${m.oddsB?.toFixed(2)}${pct.n ? ` · ${pct.n}명 참여` : ""}
           ${my ? `<br><span style="color:var(--accent);font-weight:700">${my === "a" ? A.abbr : B.abbr} 승리 예측 중</span>` : ""}
         </div>
         <button class="pm-btn right ${my === "b" ? "voted" : ""}" style="--team-color:${B.color}" data-match="${m.id}" data-side="b">
@@ -134,6 +136,8 @@
     renderMatches();
     renderPredictRanking();
     renderFooter();
+  
+  });
   </script>
 </body>
 </html>

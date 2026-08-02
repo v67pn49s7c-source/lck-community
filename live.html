@@ -70,9 +70,11 @@
   </main>
 
   <script src="assets/data.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
   <script src="assets/store.js"></script>
   <script src="assets/app.js"></script>
   <script>
+  storeReady.then(async () => {
     renderHeader("라이브", null);
 
     // 대상 경기: URL 지정 > LIVE 중 > 다음 경기
@@ -157,7 +159,7 @@
       const myRatings = getRatings()[match.id] || {};
       const ratedCount = Object.keys(myRatings).length;
       document.getElementById("rating-status").textContent =
-        ratedCount ? `${ratedCount}명 평가 완료` : "아직 평가하지 않음";
+        ratedCount ? `내 평가 ${ratedCount}명 완료` : "아직 평가하지 않음";
 
       const teamBlock = (teamId) => {
         const t = TEAM_MAP[teamId];
@@ -166,9 +168,11 @@
         <div class="detail-team-head" style="--team-color:${t.color}">${teamLogoHTML(t, 20)} <b>${t.abbr}</b></div>
         ${players.map(p => {
           const my = myRatings[p.id];
+          const comm = communityAvgForPlayer(p.id, match.id);
           return `
           <div class="rating-row">
-            <a class="rr-player" href="player.html?id=${p.id}"><span class="pos">${esc(p.pos)}</span> <b>${esc(p.nick)}</b></a>
+            <a class="rr-player" href="player.html?id=${p.id}"><span class="pos">${esc(p.pos)}</span> <b>${esc(p.nick)}</b>
+              ${comm ? `<br><span style="font-size:10px;color:var(--text-dim)">평균 ${comm.avg} (${comm.n}명)</span>` : ""}</a>
             <div class="rr-scores">
               ${Array.from({ length: 10 }, (_, i) => i + 1).map(n =>
                 `<button class="rr-btn ${my === n ? "active" : ""} ${my != null && n <= my ? "filled" : ""}"
@@ -181,7 +185,7 @@
 
       document.getElementById("rating-body").innerHTML =
         teamBlock(match.a) + teamBlock(match.b) +
-        `<div class="admin-note">평점은 내 브라우저에 저장됩니다. 전체 팬 평균 평점은 서버(로그인) 도입 후 제공됩니다.</div>`;
+        `<div class="admin-note">평점은 즉시 저장되며, 전체 팬 평균에 반영됩니다 (1인 1표, 다시 누르면 수정).</div>`;
 
       document.querySelectorAll(".rr-btn").forEach(b => b.addEventListener("click", () => {
         setRating(match.id, b.dataset.pid, Number(b.dataset.score));
@@ -189,17 +193,11 @@
       }));
     }
 
-    // 응원 채팅
-    const SEED_CHAT = [
-      { nick: "협곡의봄", body: "오늘 경기 가즈아!!" },
-      { nick: "한타의신", body: "밴픽부터 재밌겠다" },
-      { nick: "바텀차이", body: "양팀 바텀 매치업 주목" },
-    ];
+    // 응원 채팅 (Supabase 실시간 — 모든 방문자 공유)
     function renderChat() {
       if (!match) return;
       const el = document.getElementById("chat-messages");
-      const msgs = getChat(match.id);
-      const list = msgs.length ? msgs : SEED_CHAT.map(m => ({ ...m, ts: Date.now() }));
+      const list = getChat(match.id);
       el.innerHTML =
         `<div class="chat-msg sys">응원방에 입장했습니다. 매너 있는 응원 부탁드려요!</div>` +
         list.map(m => `<div class="chat-msg"><b>${esc(m.nick)}</b>${esc(m.body)}</div>`).join("");
@@ -235,10 +233,16 @@
     renderBanner();
     renderDetails();
     renderRatingPanel();
-    renderChat();
     renderUpcoming();
     setupSidebarStandings();
     renderFooter();
+    if (match) {
+      await loadChat(match.id);
+      renderChat();
+      subscribeChat(match.id, renderChat);
+    }
+  
+  });
   </script>
 </body>
 </html>

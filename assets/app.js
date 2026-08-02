@@ -144,7 +144,7 @@ function renderPredictWidget() {
 
   const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
   const voted = getVotes()[match.id];
-  const pct = impliedPct(match);
+  const pct = communityPct(match);
 
   const whenEl = document.getElementById("predict-when");
   if (whenEl) whenEl.textContent = live ? "LIVE" : fmtWhen(match.at);
@@ -333,7 +333,8 @@ function renderPredictRanking() {
     </div>`).join("");
 }
 
-function initHome() {
+async function initHome() {
+  await storeReady;
   renderHeader("홈", null);
   renderHomeSchedule();
   renderHotPosts();

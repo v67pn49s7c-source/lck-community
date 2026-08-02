@@ -18,9 +18,11 @@
   </main>
 
   <script src="assets/data.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
   <script src="assets/store.js"></script>
   <script src="assets/app.js"></script>
   <script>
+  storeReady.then(async () => {
     renderHeader("선수", null);
 
     document.getElementById("rosters").innerHTML = TEAMS.map(t => {
@@ -34,7 +36,7 @@
         </div>
         <div class="team-grid" style="padding:14px">
           ${players.map(p => {
-            const avg = myAvgForPlayer(p.id);
+            const c = communityAvgForPlayer(p.id);
             return `
             <a class="team-card" style="--team-color:${t.color}" href="player.html?id=${p.id}">
               <span class="player-avatar" style="--team-color:${t.color}">${esc(p.nick.slice(0, 2))}</span>
@@ -42,7 +44,7 @@
                 <div class="tc-abbr">${esc(p.pos)}</div>
                 <div class="tc-name">${esc(p.nick)}</div>
                 <div class="tc-record">${esc(p.name)}</div>
-                <div class="tc-record">${avg != null ? "내 평점 " + avg : "평점 없음"}</div>
+                <div class="tc-record">${c ? "평균 " + c.avg + " · " + c.n + "명" : "평점 없음"}</div>
               </div>
             </a>`;
           }).join("")}
@@ -51,6 +53,8 @@
     }).join("");
 
     renderFooter();
+  
+  });
   </script>
 </body>
 </html>

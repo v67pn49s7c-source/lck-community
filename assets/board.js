@@ -100,7 +100,8 @@ function renderBoardList(el, state) {
 }
 
 // ── 글 보기 페이지 ──
-function initPostPage() {
+async function initPostPage() {
+  await storeReady;
   renderHeader("커뮤니티", null);
   const id = new URLSearchParams(location.search).get("id");
   const post = getPost(id);
@@ -181,7 +182,8 @@ function initPostPage() {
 }
 
 // ── 글쓰기 페이지 ──
-function initWritePage() {
+async function initWritePage() {
+  await storeReady;
   renderHeader("커뮤니티", null);
   const preTeam = new URLSearchParams(location.search).get("team") || "";
   const form = document.getElementById("write-form");
@@ -211,7 +213,8 @@ function initWritePage() {
 }
 
 // ── 커뮤니티(통합) 게시판 페이지 ──
-function initCommunityPage() {
+async function initCommunityPage() {
+  await storeReady;
   renderHeader("커뮤니티", null);
   renderBoardList(document.getElementById("board-root"), { teamId: null, cat: "전체", page: 1, query: "" });
   initSidebar();
@@ -225,7 +228,8 @@ function teamRecordText(teamId) {
   return `시즌 누적 <b>${r.rank}위</b> · <b>${r.w}승 ${r.l}패</b> · 세트 <b>${r.sw}-${r.sl}</b> · 포인트 <b>${r.pt}</b>`;
 }
 
-function initTeamPage() {
+async function initTeamPage() {
+  await storeReady;
   const id = new URLSearchParams(location.search).get("team");
   const team = TEAM_MAP[id] || TEAMS[0];
   renderHeader("커뮤니티", team.id);

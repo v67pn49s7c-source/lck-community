@@ -12,7 +12,7 @@
     <div class="container">
       <div class="page-title-row">
         <h1 class="page-title">관리자 <span class="sub">대회·경기 관리</span></h1>
-        <button class="btn-danger" id="btn-reset">전체 데이터 초기화</button>
+        <button class="btn-secondary" id="btn-logout">로그아웃</button>
       </div>
 
       <!-- 대회 관리 -->
@@ -159,20 +159,50 @@
       <section class="card">
         <div class="card-head"><h2 class="card-title">안내</h2></div>
         <div class="admin-note" style="border-top:none">
-          이 프로토타입의 데이터는 <b>보고 있는 브라우저에만</b> 저장됩니다 (localStorage).
-          즉, 관리자 화면에서 바꾼 내용은 내 브라우저에서만 보이고 다른 방문자에게는 보이지 않습니다.<br>
-          실서비스 단계에서 서버(데이터베이스)를 붙이면 모든 방문자가 같은 데이터를 보게 되며,
-          그때 이 페이지에 로그인(관리자 인증)도 함께 추가됩니다.
+          모든 데이터는 <b>Supabase 서버(서울)</b>에 저장되어 모든 방문자에게 공유됩니다.
+          운영 데이터(대회·경기·전적·선수·상세)는 관리자 로그인 상태에서만 수정할 수 있고,
+          글·댓글·채팅·예측·평점은 방문자 누구나 참여할 수 있습니다.<br>
+          데이터 백업·복구·계정 관리는 Supabase 대시보드(supabase.com)에서 할 수 있습니다.
         </div>
       </section>
     </div>
   </main>
 
   <script src="assets/data.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
   <script src="assets/store.js"></script>
   <script src="assets/app.js"></script>
   <script>
+  storeReady.then(async () => {
     renderHeader(null, null);
+
+    // ── 관리자 로그인 게이트 ──
+    const session = await sbGetSession();
+    if (!session) {
+      document.querySelector("main .container").innerHTML = `
+        <div class="page-title-row"><h1 class="page-title">관리자 로그인</h1></div>
+        <section class="card" style="max-width:420px">
+          <form class="admin-form" id="login-form">
+            <label style="display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:var(--text-dim)">이메일
+              <input id="login-email" type="email" required autocomplete="username"></label>
+            <label style="display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:var(--text-dim)">비밀번호
+              <input id="login-pw" type="password" required autocomplete="current-password"></label>
+            <div class="row actions"><button class="btn-primary" type="submit">로그인</button></div>
+          </form>
+          <div class="admin-note">Supabase Authentication에 등록한 관리자 계정으로 로그인하세요.<br>
+          로그인 없이도 사이트 열람은 가능하지만, 운영 데이터 수정은 관리자만 할 수 있습니다.</div>
+        </section>`;
+      document.getElementById("login-form").addEventListener("submit", async e => {
+        e.preventDefault();
+        const { error } = await sbSignIn(
+          document.getElementById("login-email").value.trim(),
+          document.getElementById("login-pw").value);
+        if (error) { alert("로그인 실패: " + error.message); return; }
+        location.reload();
+      });
+      renderFooter();
+      return;
+    }
 
     // ── 대회 관리 ──
     function renderTournamentList() {
@@ -311,11 +341,10 @@
       renderAll();
     });
 
-    // ── 초기화 ──
-    document.getElementById("btn-reset").addEventListener("click", () => {
-      if (!confirm("대회·경기·게시글·예측 데이터를 모두 초기 상태로 되돌릴까요?")) return;
-      resetAllData();
-      renderAll();
+    // ── 로그아웃 ──
+    document.getElementById("btn-logout").addEventListener("click", async () => {
+      await sbSignOut();
+      location.reload();
     });
 
     // ── 순위 전적 관리 ──
@@ -376,7 +405,7 @@
         </div>`).join("") || `<div class="empty-note">선수가 없습니다</div>`;
 
       document.querySelectorAll("[data-del-p]").forEach(b => b.addEventListener("click", () => {
-        savePlayers(getPlayers().filter(p => p.id !== b.dataset.delP));
+        deletePlayer(b.dataset.delP);
         renderPlayers();
       }));
     }
@@ -385,15 +414,13 @@
       const teamId = document.getElementById("pl-team").value;
       const nick = document.getElementById("pl-nick").value.trim();
       if (!nick) return;
-      const list = getPlayers();
-      list.push({
+      addPlayer({
         id: (teamId + "-" + nick + "-" + Date.now()).toLowerCase().replace(/[^a-z0-9-]/g, ""),
         team: teamId,
         pos: document.getElementById("pl-pos").value,
         nick,
         name: document.getElementById("pl-name").value.trim(),
       });
-      savePlayers(list);
       e.target.reset();
       renderPlayers();
     });
@@ -492,6 +519,8 @@
     }
     renderAll();
     renderFooter();
+  
+  });
   </script>
 </body>
 </html>

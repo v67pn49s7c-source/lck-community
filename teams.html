@@ -27,9 +27,11 @@
   </main>
 
   <script src="assets/data.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
   <script src="assets/store.js"></script>
   <script src="assets/app.js"></script>
   <script>
+  storeReady.then(async () => {
     renderHeader("팀", null);
 
     function teamCard(row, rank) {
@@ -52,6 +54,8 @@
       stageStandings("r34R").map((r, i) => teamCard(r, i + 1)).join("");
 
     renderFooter();
+  
+  });
   </script>
 </body>
 </html>
