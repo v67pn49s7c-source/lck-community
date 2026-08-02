@@ -87,19 +87,13 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
   border-bottom: 1px solid var(--line);
 }
 .header-inner { display: flex; align-items: center; gap: 22px; height: 52px; }
-.brand {
-  display: flex; align-items: center; gap: 8px;
-  font-size: var(--fs-lg); font-weight: 800; letter-spacing: -0.02em;
-  white-space: nowrap;
-}
-.brand .brand-badge {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 24px; height: 24px;
-  background: var(--accent); color: #fff;
-  font-size: 12px; font-weight: 900;
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
-}
-.brand em { font-style: normal; color: var(--accent); }
+.brand { display: flex; align-items: center; flex-shrink: 0; }
+.brand-full { height: 34px; display: block; }
+/* 테마별 워드마크: 라이트=원본(검정 글자), 다크=밝은 글자 버전 */
+.brand-full.dark { display: none; }
+:root[data-theme="dark"] .brand-full.light { display: none; }
+:root[data-theme="dark"] .brand-full.dark { display: block; }
+.brand-icon { display: none; height: 34px; }
 
 .main-nav { display: flex; align-items: center; gap: 0; flex: 1; }
 .main-nav a {
@@ -677,9 +671,34 @@ table.detail-table tr:last-child td { border-bottom: none; }
 @media (max-width: 960px) {
   .layout { grid-template-columns: 1fr; }
   .layout > aside { position: static; }
-  .main-nav { overflow-x: auto; scrollbar-width: none; }
+  /* 모바일 헤더: 사각 로고 + 가로 스크롤 메뉴 */
+  .brand-full, .brand-full.light, .brand-full.dark { display: none !important; }
+  .brand-icon { display: block; }
+  .header-inner { gap: 10px; }
+  .main-nav {
+    overflow-x: auto; scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap; min-width: 0;
+  }
+  .main-nav::-webkit-scrollbar { display: none; }
+  .main-nav a { padding: 15px 9px; font-size: 13px; flex-shrink: 0; white-space: nowrap; }
+  .btn-login { padding: 6px 10px; white-space: nowrap; flex-shrink: 0; }
+  .btn-icon { flex-shrink: 0; }
+  .user-chip { max-width: 72px; }
   .team-grid { grid-template-columns: repeat(2, 1fr); }
   .stat-cards { grid-template-columns: repeat(2, 1fr); }
   .predict-match { grid-template-columns: 1fr; }
   table.board-table .col-views, table.board-table .col-date { display: none; }
+}
+
+/* 좁은 화면: 경기 행 압축 (시간 · 팀 · 예측%) */
+@media (max-width: 640px) {
+  .match-row { grid-template-columns: 36px minmax(0, 1fr) auto; gap: 6px; padding: 8px 10px; }
+  .match-row .match-status, .match-row .match-arrow { display: none; }
+  .match-teams { grid-template-columns: minmax(0, 1fr) 54px minmax(0, 1fr); gap: 4px; }
+  .match-side { font-size: 12px; gap: 4px; overflow: hidden; }
+  .match-score { font-size: 12px; }
+  .odds { flex-direction: column; gap: 3px; align-items: stretch; }
+  .odds-pill { padding: 1px 6px; font-size: 10px; justify-content: center; }
+  .day-label { padding: 6px 10px 3px; }
 }

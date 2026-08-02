@@ -89,7 +89,11 @@ function renderHeader(activeMenu, activeTeamId) {
   header.innerHTML = `
   <header class="site-header">
     <div class="container header-inner">
-      <a class="brand" href="index.html"><span class="brand-badge">L</span>LCK <em>라운지</em></a>
+      <a class="brand" href="index.html" title="The Nexus">
+        <img class="brand-full light" src="assets/brand/nexus-desktop.png" alt="The Nexus">
+        <img class="brand-full dark" src="assets/brand/nexus-desktop-dark.png" alt="The Nexus">
+        <img class="brand-icon" src="assets/brand/nexus-mobile.png" alt="The Nexus">
+      </a>
       <nav class="main-nav">
         ${NAV_MENUS.map(([m, href]) => `<a href="${href}" class="${m === activeMenu ? "active" : ""}">${m}</a>`).join("")}
       </nav>
@@ -129,7 +133,7 @@ function renderFooter() {
   f.className = "site-footer";
   f.innerHTML = `
     <div class="container">
-      <b>LCK 라운지</b>는 Riot Games 및 LCK와 무관한 <b>비공식 팬 프로젝트</b>입니다.
+      <b>The Nexus</b>는 Riot Games 및 LCK와 무관한 <b>비공식 팬 프로젝트</b>입니다.
       모든 예측 참여는 무료이며 포인트는 환전·거래할 수 없습니다.<br>
       팀명·로고에 대한 권리는 각 구단 및 Riot Games에 있습니다.
       · 문의: report@lcklounge.example · <a href="admin.html">관리자</a>
@@ -278,11 +282,12 @@ function scheduleHTML(matches, opts) {
       const status = live ? `<span class="match-status live">LIVE</span>`
         : done ? `<span class="match-status done">경기 종료</span>`
         : `<span class="match-status upcoming">예정</span>`;
+      const pct = communityPct(m);
       const right = done
         ? (opts.showStage ? `<span class="chip-stage">${esc(shortStage(m.stage))}</span>` : "")
-        : `<div class="odds">
-            <span class="odds-pill">1 <b>${(m.oddsA ?? 0).toFixed(2)}</b></span>
-            <span class="odds-pill">2 <b>${(m.oddsB ?? 0).toFixed(2)}</b></span>
+        : `<div class="odds" title="승부예측 비율${pct.n ? ` · ${pct.n}명 참여` : " (예상)"}">
+            <span class="odds-pill"><b>${pct.a}%</b></span>
+            <span class="odds-pill"><b>${pct.b}%</b></span>
           </div>`;
       return `
       <a class="match-row" href="live.html?match=${m.id}">

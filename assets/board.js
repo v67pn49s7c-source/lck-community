@@ -133,7 +133,7 @@ async function initPostPage() {
   }
 
   const t = post.team ? TEAM_MAP[post.team] : null;
-  document.title = `${post.title} — LCK 라운지`;
+  document.title = `${post.title} — The Nexus`;
 
   const render = () => {
     const cur = getPost(id);
@@ -251,7 +251,7 @@ async function initTeamPage() {
   const id = new URLSearchParams(location.search).get("team");
   const team = TEAM_MAP[id] || TEAMS[0];
   renderHeader("커뮤니티", team.id);
-  document.title = `${team.name} 게시판 — LCK 라운지`;
+  document.title = `${team.name} 게시판 — The Nexus`;
 
   const hero = document.getElementById("team-hero");
   hero.style.background = `linear-gradient(120deg, ${team.dark} 0%, #12141b 70%)`;

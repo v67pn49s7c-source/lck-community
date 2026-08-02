@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>승부예측 — LCK 라운지</title>
+  <title>승부예측 — The Nexus</title>
   <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
+  <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
@@ -107,7 +108,7 @@
           ${teamLogoHTML(A, 24)} ${A.abbr} <span style="margin-left:auto;color:var(--text-sub)">${pct.a}%</span>
         </button>
         <div class="pm-info" style="text-align:center">
-          <b>${fmtWhen(m.at)}</b><br>${esc(shortStage(m.stage))} · 배당 ${m.oddsA?.toFixed(2)} : ${m.oddsB?.toFixed(2)}${pct.n ? ` · ${pct.n}명 참여` : ""}
+          <b>${fmtWhen(m.at)}</b><br>${esc(shortStage(m.stage))} · ${pct.n ? `${pct.n}명 참여` : "예측 대기 중"}
           ${my ? `<br><span style="color:var(--accent);font-weight:700">${my === "a" ? A.abbr : B.abbr} 승리 예측 중</span>` : ""}
         </div>
         <button class="pm-btn right ${my === "b" ? "voted" : ""}" style="--team-color:${B.color}" data-match="${m.id}" data-side="b">
