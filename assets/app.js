@@ -80,8 +80,8 @@ function applyTheme(theme) {
 
 // ── 헤더 / 푸터 ──
 const NAV_MENUS = [
-  ["홈", "index.html"], ["경기", "matches.html"], ["승부예측", "predict.html"],
-  ["라이브", "live.html"], ["커뮤니티", "community.html"], ["팀", "teams.html"], ["랭킹", "ranking.html"],
+  ["홈", "index.html"], ["경기", "matches.html"], ["순위", "standings.html"], ["승부예측", "predict.html"],
+  ["라이브", "live.html"], ["커뮤니티", "community.html"], ["팀", "teams.html"], ["선수", "players.html"], ["랭킹", "ranking.html"],
 ];
 
 function renderHeader(activeMenu, activeTeamId) {
@@ -201,35 +201,47 @@ function renderPredictWidget() {
   }
 }
 
-function renderStandings(group) {
-  const el = document.getElementById("standings-body");
-  if (!el) return;
-  const rows = STANDINGS[group];
-  el.innerHTML = `
+// 순위 테이블 HTML (rows: {team,w,l,sw,sl,pt}) — full 옵션 시 세트 스코어 컬럼 포함
+function standingsTableHTML(rows, opts) {
+  opts = opts || {};
+  if (!rows.length) return `<div class="empty-note">전적 데이터가 없습니다</div>`;
+  return `
     <table class="standings">
-      <thead><tr><th>순위</th><th>팀</th><th>승-패</th><th>포인트</th></tr></thead>
+      <thead><tr><th>순위</th><th>팀</th><th>승-패</th>${opts.full ? "<th>세트</th>" : ""}<th>포인트</th></tr></thead>
       <tbody>
         ${rows.map((r, i) => {
           const t = TEAM_MAP[r.team];
-          const rate = Math.round((r.w / (r.w + r.l || 1)) * 100);
+          if (!t) return "";
+          const rate = Math.round((r.w / ((r.w + r.l) || 1)) * 100);
           return `<tr>
             <td class="rank">${i + 1}</td>
             <td><a class="team-cell" href="team.html?team=${t.id}">${teamLogoHTML(t, 20)} ${t.abbr}</a></td>
             <td class="wl"><b>${r.w}W ${r.l}L</b> &nbsp;${rate}%</td>
+            ${opts.full ? `<td class="wl">${r.sw}W ${r.sl}L</td>` : ""}
             <td class="pt">${r.pt}</td>
           </tr>`;
         }).join("")}
       </tbody>
     </table>`;
-  document.querySelectorAll(".standing-tabs button").forEach(b =>
-    b.classList.toggle("active", b.dataset.group === group));
+}
+
+// 사이드바 순위: 시즌 누적 (1라운드부터 전부 합산)
+function setupSidebarStandings() {
+  const body = document.getElementById("standings-body");
+  if (!body) return;
+  const card = body.closest(".card");
+  card?.querySelector(".standing-tabs")?.remove();
+  const title = card?.querySelector(".card-title");
+  if (title) title.innerHTML = `LCK 순위 <span class="sub">2026 시즌 누적</span>`;
+  const head = card?.querySelector(".card-head");
+  if (head && !head.querySelector("a.card-more"))
+    head.insertAdjacentHTML("beforeend", `<a class="card-more" href="standings.html">라운드별 ›</a>`);
+  body.innerHTML = standingsTableHTML(cumulativeStandings());
 }
 
 function initSidebar() {
   renderPredictWidget();
-  renderStandings("legend");
-  document.querySelectorAll(".standing-tabs button").forEach(b =>
-    b.addEventListener("click", () => renderStandings(b.dataset.group)));
+  setupSidebarStandings();
 }
 
 // ── 경기 일정 렌더링 (홈/경기 페이지 공용) ──

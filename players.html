@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>선수 — LCK 라운지</title>
+  <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <main class="page">
+    <div class="container">
+      <div class="page-title-row">
+        <h1 class="page-title">선수 <span class="sub">2026 LCK 로스터 · 카드를 누르면 선수 응원 페이지로</span></h1>
+      </div>
+      <div id="rosters"></div>
+    </div>
+  </main>
+
+  <script src="assets/data.js"></script>
+  <script src="assets/store.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    renderHeader("선수", null);
+
+    document.getElementById("rosters").innerHTML = TEAMS.map(t => {
+      const players = teamPlayers(t.id);
+      if (!players.length) return "";
+      return `
+      <section class="card" style="margin-bottom:14px">
+        <div class="card-head">
+          <h2 class="card-title">${t.name} <span class="sub" style="color:${t.color}">${t.abbr}</span></h2>
+          <a class="card-more" href="team.html?team=${t.id}">팀 게시판 ›</a>
+        </div>
+        <div class="team-grid" style="padding:14px">
+          ${players.map(p => {
+            const avg = myAvgForPlayer(p.id);
+            return `
+            <a class="team-card" style="--team-color:${t.color}" href="player.html?id=${p.id}">
+              <span class="player-avatar" style="--team-color:${t.color}">${esc(p.nick.slice(0, 2))}</span>
+              <div style="text-align:center">
+                <div class="tc-abbr">${esc(p.pos)}</div>
+                <div class="tc-name">${esc(p.nick)}</div>
+                <div class="tc-record">${esc(p.name)}</div>
+                <div class="tc-record">${avg != null ? "내 평점 " + avg : "평점 없음"}</div>
+              </div>
+            </a>`;
+          }).join("")}
+        </div>
+      </section>`;
+    }).join("");
+
+    renderFooter();
+  </script>
+</body>
+</html>

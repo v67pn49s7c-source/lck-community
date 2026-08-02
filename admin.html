@@ -103,6 +103,59 @@
         </div>
       </section>
 
+      <!-- 스테이지 전적(순위) 관리 -->
+      <section class="card" style="margin-bottom:14px">
+        <div class="card-head">
+          <h2 class="card-title">순위 전적 관리 <span class="sub">스테이지별 승·패·세트 — 순위는 자동 계산(포인트=세트 득실차)</span></h2>
+          <select id="rec-stage" style="min-width:200px"></select>
+        </div>
+        <div id="rec-table"></div>
+        <div class="admin-note">
+          경기가 끝나면 해당 스테이지의 승·패·세트 수치를 올려 주세요. 시즌 누적 순위는 모든 스테이지 합산으로 자동 계산됩니다.
+        </div>
+      </section>
+
+      <!-- 선수 관리 -->
+      <section class="card" style="margin-bottom:14px">
+        <div class="card-head">
+          <h2 class="card-title">선수 관리 <span class="sub">로스터는 추정 시드라 틀릴 수 있어요 — 여기서 수정</span></h2>
+          <select id="pl-team" style="min-width:160px"></select>
+        </div>
+        <form class="admin-form" id="player-form">
+          <div class="row">
+            <label>포지션
+              <select id="pl-pos"><option>탑</option><option>정글</option><option>미드</option><option>원딜</option><option>서폿</option></select>
+            </label>
+            <label>닉네임
+              <input id="pl-nick" placeholder="예: Faker" required>
+            </label>
+            <label>이름
+              <input id="pl-name" placeholder="예: 이상혁">
+            </label>
+            <div style="display:flex; align-items:flex-end">
+              <button class="btn-primary" type="submit">선수 추가</button>
+            </div>
+          </div>
+        </form>
+        <div class="admin-list" id="player-list"></div>
+      </section>
+
+      <!-- 경기 상세 입력 -->
+      <section class="card" style="margin-bottom:14px">
+        <div class="card-head">
+          <h2 class="card-title">경기 상세 입력 <span class="sub">세트별 KDA·아이템·룬 (추후 API 자동 수집 자리)</span></h2>
+          <div style="display:flex; gap:8px">
+            <select id="dt-match" style="min-width:220px"></select>
+            <select id="dt-set" style="min-width:90px"></select>
+          </div>
+        </div>
+        <div id="dt-grid"></div>
+        <div class="admin-note">
+          종료된 경기를 선택하고 세트를 고른 뒤, 선수별 수치를 입력하고 저장하세요.
+          입력된 세트는 해당 경기의 라이브 페이지 "경기 상세"에 표시됩니다. 샘플: 8/2 DNS vs BRO 경기에 3세트 입력돼 있음.
+        </div>
+      </section>
+
       <section class="card">
         <div class="card-head"><h2 class="card-title">안내</h2></div>
         <div class="admin-note" style="border-top:none">
@@ -265,10 +318,177 @@
       renderAll();
     });
 
+    // ── 순위 전적 관리 ──
+    function renderRecords() {
+      const stages = getStageRecords();
+      const sel = document.getElementById("rec-stage");
+      if (!sel.options.length) {
+        sel.innerHTML = stages.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join("");
+        sel.onchange = renderRecords;
+      }
+      const stage = stages.find(s => s.id === sel.value) || stages[0];
+      const el = document.getElementById("rec-table");
+      if (!stage) { el.innerHTML = `<div class="empty-note">전적 데이터 없음</div>`; return; }
+
+      el.innerHTML = `
+        <div class="admin-list">
+          ${TEAMS.map(t => {
+            const r = stage.records.find(x => x.team === t.id) || { w: "", l: "", sw: "", sl: "" };
+            return `
+            <div class="admin-item" data-team="${t.id}">
+              <span style="display:flex;align-items:center;gap:7px;width:120px;font-weight:700">${teamLogoHTML(t, 20)} ${t.abbr}</span>
+              <span class="muted">승</span><input class="score rw" type="number" min="0" value="${r.w}">
+              <span class="muted">패</span><input class="score rl" type="number" min="0" value="${r.l}">
+              <span class="muted">세트승</span><input class="score rsw" type="number" min="0" value="${r.sw}">
+              <span class="muted">세트패</span><input class="score rsl" type="number" min="0" value="${r.sl}">
+            </div>`;
+          }).join("")}
+          <div class="admin-item" style="justify-content:flex-end">
+            <button class="btn-primary" id="rec-save">이 스테이지 전적 저장</button>
+          </div>
+        </div>`;
+
+      document.getElementById("rec-save").addEventListener("click", () => {
+        const rows = [];
+        el.querySelectorAll("[data-team]").forEach(row => {
+          const v = c => row.querySelector(c).value;
+          if (v(".rw") === "" && v(".rl") === "") return; // 참가 안 한 팀은 비워두면 제외
+          rows.push({ team: row.dataset.team, w: +v(".rw") || 0, l: +v(".rl") || 0, sw: +v(".rsw") || 0, sl: +v(".rsl") || 0 });
+        });
+        saveStageRecords(getStageRecords().map(s => s.id === stage.id ? { ...s, records: rows } : s));
+        alert("저장했습니다. 순위 페이지에 바로 반영됩니다.");
+      });
+    }
+
+    // ── 선수 관리 ──
+    function renderPlayers() {
+      const sel = document.getElementById("pl-team");
+      if (!sel.options.length) {
+        sel.innerHTML = TEAMS.map(t => `<option value="${t.id}">${t.name} (${t.abbr})</option>`).join("");
+        sel.onchange = renderPlayers;
+      }
+      const teamId = sel.value || TEAMS[0].id;
+      document.getElementById("player-list").innerHTML = teamPlayers(teamId).map(p => `
+        <div class="admin-item">
+          <span class="cat-chip">${esc(p.pos)}</span>
+          <span class="grow"><b>${esc(p.nick)}</b> <span class="muted">${esc(p.name)}</span></span>
+          <button class="btn-danger" data-del-p="${p.id}">삭제</button>
+        </div>`).join("") || `<div class="empty-note">선수가 없습니다</div>`;
+
+      document.querySelectorAll("[data-del-p]").forEach(b => b.addEventListener("click", () => {
+        savePlayers(getPlayers().filter(p => p.id !== b.dataset.delP));
+        renderPlayers();
+      }));
+    }
+    document.getElementById("player-form").addEventListener("submit", e => {
+      e.preventDefault();
+      const teamId = document.getElementById("pl-team").value;
+      const nick = document.getElementById("pl-nick").value.trim();
+      if (!nick) return;
+      const list = getPlayers();
+      list.push({
+        id: (teamId + "-" + nick + "-" + Date.now()).toLowerCase().replace(/[^a-z0-9-]/g, ""),
+        team: teamId,
+        pos: document.getElementById("pl-pos").value,
+        nick,
+        name: document.getElementById("pl-name").value.trim(),
+      });
+      savePlayers(list);
+      e.target.reset();
+      renderPlayers();
+    });
+
+    // ── 경기 상세 입력 ──
+    function renderDetailEditor() {
+      const mSel = document.getElementById("dt-match");
+      const sSel = document.getElementById("dt-set");
+      const doneMatches = sortedMatches().filter(m => (m.status === "done" || m.status === "live") && knownTeams(m));
+      if (!doneMatches.length) {
+        document.getElementById("dt-grid").innerHTML = `<div class="empty-note">종료/진행 중인 경기가 없습니다</div>`;
+        return;
+      }
+      if (!mSel.options.length || !doneMatches.find(m => m.id === mSel.value)) {
+        mSel.innerHTML = doneMatches.map(m =>
+          `<option value="${m.id}">${slotName(m.a)} vs ${slotName(m.b)} · ${fmtWhen(m.at)}</option>`).join("");
+        mSel.onchange = () => { sSel.innerHTML = ""; renderDetailEditor(); };
+      }
+      const match = doneMatches.find(m => m.id === mSel.value) || doneMatches[0];
+      const d = getDetails(match.id) || { sets: [] };
+      const setCount = Math.max(d.sets.length + 1, 1);
+      if (sSel.dataset.for !== match.id || !sSel.options.length) {
+        sSel.dataset.for = match.id;
+        sSel.innerHTML = Array.from({ length: Math.min(setCount, 5) }, (_, i) =>
+          `<option value="${i}">${i + 1}세트${d.sets[i] ? " ✓" : " (새로)"}</option>`).join("");
+        sSel.onchange = renderDetailEditor;
+      }
+      const setIdx = Number(sSel.value || 0);
+      const existing = d.sets[setIdx];
+      const starters = [...teamPlayers(match.a), ...teamPlayers(match.b)];
+
+      document.getElementById("dt-grid").innerHTML = `
+        <div class="admin-list">
+          <div class="admin-item" style="gap:6px">
+            <span class="muted">세트 승리 팀:</span>
+            <select id="dt-win">
+              <option value="a" ${existing?.win === "a" ? "selected" : ""}>${slotName(match.a)}</option>
+              <option value="b" ${existing?.win === "b" ? "selected" : ""}>${slotName(match.b)}</option>
+            </select>
+          </div>
+          ${starters.map((p, i) => {
+            const row = existing?.players.find(x => x.pid === p.id) || {};
+            const t = TEAM_MAP[p.team];
+            return `
+            <div class="admin-item dt-row" data-pid="${p.id}" style="gap:5px">
+              <span style="width:110px; display:flex; align-items:center; gap:5px; font-weight:700">
+                ${teamLogoHTML(t, 16)} ${esc(p.nick)}</span>
+              <input class="dc" placeholder="챔피언" value="${esc(row.champ || "")}" style="width:90px">
+              <input class="score dk2" type="number" min="0" placeholder="K" value="${row.k ?? ""}">
+              <input class="score dd" type="number" min="0" placeholder="D" value="${row.d ?? ""}">
+              <input class="score da" type="number" min="0" placeholder="A" value="${row.a ?? ""}">
+              <input class="score dcs" type="number" min="0" placeholder="CS" value="${row.cs ?? ""}" style="width:56px">
+              <input class="score dg" type="number" min="0" step="0.1" placeholder="골드k" value="${row.gold ?? ""}" style="width:60px">
+              <input class="di" placeholder="아이템 (쉼표 구분)" value="${esc(row.items || "")}" style="flex:1; min-width:140px">
+              <input class="dr" placeholder="룬 주/부" value="${esc(row.runes || "")}" style="width:110px">
+            </div>`;
+          }).join("")}
+          <div class="admin-item" style="justify-content:flex-end; gap:8px">
+            ${existing ? `<button class="btn-danger" id="dt-del">이 세트 삭제</button>` : ""}
+            <button class="btn-primary" id="dt-save">${setIdx + 1}세트 저장</button>
+          </div>
+        </div>`;
+
+      document.getElementById("dt-save").addEventListener("click", () => {
+        const players = [...document.querySelectorAll(".dt-row")].map(row => ({
+          pid: row.dataset.pid,
+          champ: row.querySelector(".dc").value.trim(),
+          k: +row.querySelector(".dk2").value || 0,
+          d: +row.querySelector(".dd").value || 0,
+          a: +row.querySelector(".da").value || 0,
+          cs: +row.querySelector(".dcs").value || 0,
+          gold: +row.querySelector(".dg").value || 0,
+          items: row.querySelector(".di").value.trim(),
+          runes: row.querySelector(".dr").value.trim(),
+        }));
+        saveDetailSet(match.id, setIdx, { win: document.getElementById("dt-win").value, players });
+        sSel.innerHTML = "";
+        renderDetailEditor();
+        alert("저장했습니다. 해당 경기 라이브 페이지에서 확인하세요.");
+      });
+      document.getElementById("dt-del")?.addEventListener("click", () => {
+        if (!confirm("이 세트 기록을 삭제할까요?")) return;
+        deleteDetailSet(match.id, setIdx);
+        sSel.innerHTML = "";
+        renderDetailEditor();
+      });
+    }
+
     function renderAll() {
       renderTournamentList();
       fillMatchForm();
       renderMatchList();
+      renderRecords();
+      renderPlayers();
+      renderDetailEditor();
     }
     renderAll();
     renderFooter();

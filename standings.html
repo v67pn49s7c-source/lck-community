@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>순위 — LCK 라운지</title>
+  <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <main class="page">
+    <div class="container layout">
+      <div class="stack">
+        <div class="page-title-row">
+          <h1 class="page-title">리그 순위 <span class="sub">2026 LCK · 포인트 = 세트 득실차</span></h1>
+        </div>
+        <section class="card">
+          <div class="board-toolbar">
+            <div class="filter-tabs" id="stage-tabs"></div>
+          </div>
+          <div id="standings-table"></div>
+          <div class="admin-note" id="stage-note"></div>
+        </section>
+      </div>
+
+      <aside class="stack">
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">다음 경기 예측</h2>
+            <span class="card-more" id="predict-when"></span>
+          </div>
+          <div class="predict-widget" id="predict-widget"></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <script src="assets/data.js"></script>
+  <script src="assets/store.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    renderHeader("순위", null);
+
+    const state = { tab: "all" };
+
+    function tabs() {
+      return [{ id: "all", name: "시즌 누적" }, ...getStageRecords().map(s => ({ id: s.id, name: s.name }))];
+    }
+
+    function renderTabs() {
+      const el = document.getElementById("stage-tabs");
+      el.innerHTML = tabs().map(t =>
+        `<button data-tab="${t.id}" class="${state.tab === t.id ? "active" : ""}">${esc(t.name)}</button>`).join("");
+      el.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+        state.tab = b.dataset.tab; renderTabs(); renderTable();
+      }));
+    }
+
+    function renderTable() {
+      const rows = state.tab === "all" ? cumulativeStandings() : stageStandings(state.tab);
+      document.getElementById("standings-table").innerHTML = standingsTableHTML(rows, { full: true });
+      document.getElementById("stage-note").innerHTML = state.tab === "all"
+        ? "시즌 누적 순위는 Rounds 1-2 · Road To MSI · Round 3-4 전 스테이지 결과를 모두 합산한 값입니다."
+        : "스테이지별 전적은 관리자 메뉴에서 수정할 수 있습니다.";
+    }
+
+    renderTabs();
+    renderTable();
+    renderPredictWidget();
+    renderFooter();
+  </script>
+</body>
+</html>

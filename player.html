@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>선수 — LCK 라운지</title>
+  <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <div class="team-hero" id="player-hero"></div>
+
+  <main class="page">
+    <div class="container layout">
+      <div class="stack">
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">내 평점 이력</h2>
+            <span class="card-more" id="avg-label"></span>
+          </div>
+          <div id="rating-history"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">응원 한마디</h2>
+            <span class="card-more">비방·혐오 표현은 제재됩니다</span>
+          </div>
+          <div id="cheer-list"></div>
+          <form class="comment-form" id="cheer-form">
+            <input class="nick" placeholder="닉네임" required maxlength="12">
+            <input class="body" placeholder="응원 메시지를 남겨 주세요" required maxlength="200" autocomplete="off">
+            <button class="btn-primary" type="submit">등록</button>
+          </form>
+        </section>
+      </div>
+
+      <aside class="stack">
+        <section class="card">
+          <div class="card-head"><h2 class="card-title">같은 팀 선수</h2></div>
+          <div id="teammates"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">LCK 순위</h2>
+          </div>
+          <div id="standings-body"></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <script src="assets/data.js"></script>
+  <script src="assets/store.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    const player = getPlayer(new URLSearchParams(location.search).get("id")) || getPlayers()[0];
+    const team = player ? TEAM_MAP[player.team] : null;
+    renderHeader("선수", team ? team.id : null);
+
+    if (!player) {
+      document.querySelector("main .stack").innerHTML = `<div class="empty-note">선수를 찾을 수 없습니다.</div>`;
+    } else {
+      document.title = `${player.nick} — LCK 라운지`;
+
+      // 히어로
+      const hero = document.getElementById("player-hero");
+      hero.style.background = `linear-gradient(120deg, ${team.dark} 0%, #12141b 70%)`;
+      hero.innerHTML = `
+        <div class="container team-hero-inner">
+          <span class="player-avatar big" style="--team-color:${team.color}">${esc(player.nick.slice(0, 2))}</span>
+          <div class="team-hero-info">
+            <h1><span style="color:${team.color}">${esc(player.nick)}</span> ${esc(player.name)}</h1>
+            <p class="desc">${team.name} · ${esc(player.pos)} · ${teamRecordSummary()}</p>
+          </div>
+        </div>`;
+
+      function teamRecordSummary() {
+        const r = cumulativeRankOf(team.id);
+        return r ? `팀 시즌 누적 <b>${r.rank}위</b> (${r.w}승 ${r.l}패)` : "";
+      }
+
+      // 평점 이력
+      const history = myRatingsForPlayer(player.id);
+      const avg = myAvgForPlayer(player.id);
+      document.getElementById("avg-label").textContent = avg != null ? `평균 ${avg} / 10` : "";
+      document.getElementById("rating-history").innerHTML = history.length
+        ? history.map(h => {
+            const m = getMatches().find(x => x.id === h.matchId);
+            const label = m ? `${slotName(m.a)} vs ${slotName(m.b)} (${fmtWhen(m.at)})` : h.matchId;
+            return `
+            <a class="post-row" href="live.html?match=${h.matchId}">
+              <span class="post-title">${label}</span>
+              <span class="rate" style="font-weight:800;color:var(--blue)">${h.score}점</span>
+            </a>`;
+          }).join("")
+        : `<div class="empty-note">아직 준 평점이 없습니다. 경기 종료 후 라이브 페이지에서 평가할 수 있어요.</div>`;
+
+      // 응원 한마디 (선수별 채팅 저장소 재사용)
+      const cheerKey = "player_" + player.id;
+      function renderCheer() {
+        const list = getChat(cheerKey);
+        document.getElementById("cheer-list").innerHTML = list.length
+          ? list.slice().reverse().map(c => `
+              <div class="comment-row">
+                <div class="c-meta"><b>${esc(c.nick)}</b><span>${fmtAgo(c.ts)}</span></div>
+                <div class="c-body">${esc(c.body)}</div>
+              </div>`).join("")
+          : `<div class="empty-note">첫 응원 메시지를 남겨 보세요!</div>`;
+      }
+      document.getElementById("cheer-form").addEventListener("submit", e => {
+        e.preventDefault();
+        const nick = e.target.querySelector(".nick").value.trim();
+        const body = e.target.querySelector(".body").value.trim();
+        if (!nick || !body) return;
+        setNick(nick);
+        addChat(cheerKey, nick, body);
+        e.target.querySelector(".body").value = "";
+        renderCheer();
+      });
+      document.querySelector("#cheer-form .nick").value = getNick();
+      renderCheer();
+
+      // 같은 팀 선수
+      document.getElementById("teammates").innerHTML = teamPlayers(team.id)
+        .map(p => `
+          <a class="post-row ${p.id === player.id ? "active" : ""}" href="player.html?id=${p.id}">
+            <span class="tag-cat">${esc(p.pos)}</span>
+            <span class="post-title" style="${p.id === player.id ? "color:var(--accent)" : ""}">${esc(p.nick)} <span style="color:var(--text-dim);font-weight:400">${esc(p.name)}</span></span>
+            <span class="post-meta">${myAvgForPlayer(p.id) != null ? "내 평점 " + myAvgForPlayer(p.id) : ""}</span>
+          </a>`).join("");
+    }
+
+    setupSidebarStandings();
+    renderFooter();
+  </script>
+</body>
+</html>

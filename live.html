@@ -19,6 +19,22 @@
           <div class="live-banner" id="live-banner"></div>
         </section>
 
+        <section class="card" id="details-card" style="display:none">
+          <div class="card-head">
+            <h2 class="card-title">경기 상세 <span class="sub">KDA · 아이템 · 룬</span></h2>
+            <div class="filter-tabs" id="set-tabs"></div>
+          </div>
+          <div id="details-body"></div>
+        </section>
+
+        <section class="card" id="rating-card" style="display:none">
+          <div class="card-head">
+            <h2 class="card-title">선수 평점 <span class="sub">10점 만점 · 경기 종료 후 참여</span></h2>
+            <span class="card-more" id="rating-status"></span>
+          </div>
+          <div id="rating-body"></div>
+        </section>
+
         <section class="card">
           <div class="card-head">
             <h2 class="card-title">응원방 <span class="sub" id="chat-sub"></span></h2>
@@ -45,11 +61,7 @@
 
         <section class="card">
           <div class="card-head">
-            <h2 class="card-title">LCK 순위 <span class="sub">라운드 3-4</span></h2>
-          </div>
-          <div class="standing-tabs">
-            <button data-group="legend" class="active">레전드 그룹</button>
-            <button data-group="rise">라이즈 그룹</button>
+            <h2 class="card-title">LCK 순위</h2>
           </div>
           <div id="standings-body"></div>
         </section>
@@ -86,6 +98,95 @@
         </div>
         <div class="lb-team">${slotLogoHTML(match.b, 52)}<span>${slotName(match.b)}</span></div>`;
       document.getElementById("chat-sub").textContent = `${slotName(match.a)} vs ${slotName(match.b)}`;
+    }
+
+    // ── 경기 상세 (세트별 KDA·아이템·룬) ──
+    let curSet = 0;
+    function renderDetails() {
+      if (!match) return;
+      const d = getDetails(match.id);
+      const card = document.getElementById("details-card");
+      if (!d || !d.sets.length) { card.style.display = "none"; return; }
+      card.style.display = "";
+
+      const tabsEl = document.getElementById("set-tabs");
+      tabsEl.innerHTML = d.sets.map((s, i) =>
+        `<button data-set="${i}" class="${i === curSet ? "active" : ""}">${i + 1}세트</button>`).join("");
+      tabsEl.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+        curSet = Number(b.dataset.set); renderDetails();
+      }));
+
+      const set = d.sets[curSet];
+      const half = (list, teamId) => {
+        const t = TEAM_MAP[teamId];
+        const winner = set.win === "a" ? match.a : match.b;
+        return `
+        <div class="detail-team-head" style="--team-color:${t ? t.color : "#888"}">
+          ${t ? teamLogoHTML(t, 20) : ""} <b>${slotName(teamId)}</b>
+          ${winner === teamId ? `<span class="cat-chip notice">세트 승</span>` : ""}
+        </div>
+        <table class="detail-table">
+          <thead><tr><th>선수</th><th>챔피언</th><th>KDA</th><th>CS</th><th>골드</th><th>아이템</th><th>룬</th></tr></thead>
+          <tbody>
+            ${list.map(p => {
+              const pl = getPlayer(p.pid);
+              return `<tr>
+                <td class="dt-player">${pl ? `<a href="player.html?id=${pl.id}">${esc(pl.nick)}</a><span class="pos">${esc(pl.pos)}</span>` : esc(p.pid)}</td>
+                <td class="dt-champ">${esc(p.champ)}</td>
+                <td class="dt-kda"><b>${p.k}</b> / <em>${p.d}</em> / ${p.a}</td>
+                <td>${p.cs}</td>
+                <td>${p.gold}k</td>
+                <td class="dt-items">${esc(p.items)}</td>
+                <td class="dt-runes">${esc(p.runes)}</td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>`;
+      };
+      const aList = set.players.slice(0, 5), bList = set.players.slice(5, 10);
+      document.getElementById("details-body").innerHTML = half(aList, match.a) + half(bList, match.b);
+    }
+
+    // ── 선수 평점 (경기 종료 후) ──
+    function renderRatingPanel() {
+      if (!match) return;
+      const card = document.getElementById("rating-card");
+      if (match.status !== "done" || !knownTeams(match)) { card.style.display = "none"; return; }
+      card.style.display = "";
+
+      const myRatings = getRatings()[match.id] || {};
+      const ratedCount = Object.keys(myRatings).length;
+      document.getElementById("rating-status").textContent =
+        ratedCount ? `${ratedCount}명 평가 완료` : "아직 평가하지 않음";
+
+      const teamBlock = (teamId) => {
+        const t = TEAM_MAP[teamId];
+        const players = teamPlayers(teamId);
+        return `
+        <div class="detail-team-head" style="--team-color:${t.color}">${teamLogoHTML(t, 20)} <b>${t.abbr}</b></div>
+        ${players.map(p => {
+          const my = myRatings[p.id];
+          return `
+          <div class="rating-row">
+            <a class="rr-player" href="player.html?id=${p.id}"><span class="pos">${esc(p.pos)}</span> <b>${esc(p.nick)}</b></a>
+            <div class="rr-scores">
+              ${Array.from({ length: 10 }, (_, i) => i + 1).map(n =>
+                `<button class="rr-btn ${my === n ? "active" : ""} ${my != null && n <= my ? "filled" : ""}"
+                  data-pid="${p.id}" data-score="${n}">${n}</button>`).join("")}
+            </div>
+            <span class="rr-my">${my != null ? my.toFixed(0) + "점" : "-"}</span>
+          </div>`;
+        }).join("")}`;
+      };
+
+      document.getElementById("rating-body").innerHTML =
+        teamBlock(match.a) + teamBlock(match.b) +
+        `<div class="admin-note">평점은 내 브라우저에 저장됩니다. 전체 팬 평균 평점은 서버(로그인) 도입 후 제공됩니다.</div>`;
+
+      document.querySelectorAll(".rr-btn").forEach(b => b.addEventListener("click", () => {
+        setRating(match.id, b.dataset.pid, Number(b.dataset.score));
+        renderRatingPanel();
+      }));
     }
 
     // 응원 채팅
@@ -132,11 +233,11 @@
     }
 
     renderBanner();
+    renderDetails();
+    renderRatingPanel();
     renderChat();
     renderUpcoming();
-    renderStandings("legend");
-    document.querySelectorAll(".standing-tabs button").forEach(b =>
-      b.addEventListener("click", () => renderStandings(b.dataset.group)));
+    setupSidebarStandings();
     renderFooter();
   </script>
 </body>

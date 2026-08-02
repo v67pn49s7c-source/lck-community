@@ -220,15 +220,9 @@ function initCommunityPage() {
 
 // ── 팀 게시판 페이지 ──
 function teamRecordText(teamId) {
-  for (const group of ["legend", "rise"]) {
-    const row = STANDINGS[group].find(r => r.team === teamId);
-    if (row) {
-      const label = group === "legend" ? "레전드 그룹" : "라이즈 그룹";
-      const rank = STANDINGS[group].indexOf(row) + 1;
-      return `${label} <b>${rank}위</b> · <b>${row.w}승 ${row.l}패</b> · 포인트 <b>${row.pt}</b>`;
-    }
-  }
-  return "";
+  const r = cumulativeRankOf(teamId);
+  if (!r) return "";
+  return `시즌 누적 <b>${r.rank}위</b> · <b>${r.w}승 ${r.l}패</b> · 세트 <b>${r.sw}-${r.sl}</b> · 포인트 <b>${r.pt}</b>`;
 }
 
 function initTeamPage() {

@@ -34,20 +34,22 @@
 
     function teamCard(row, rank) {
       const t = TEAM_MAP[row.team];
+      const cum = cumulativeRankOf(row.team);
       return `
       <a class="team-card" style="--team-color:${t.color}" href="team.html?team=${t.id}">
         ${teamLogoHTML(t, 52)}
         <div style="text-align:center">
           <div class="tc-abbr">${t.abbr}</div>
           <div class="tc-name">${t.name}</div>
-          <div class="tc-record">${rank}위 · ${row.w}승 ${row.l}패 · ${row.pt}P</div>
+          <div class="tc-record">그룹 ${rank}위 · ${row.w}승 ${row.l}패</div>
+          <div class="tc-record">시즌 누적 ${cum ? cum.rank + "위 · " + cum.w + "승 " + cum.l + "패" : "-"}</div>
         </div>
       </a>`;
     }
     document.getElementById("legend-grid").innerHTML =
-      STANDINGS.legend.map((r, i) => teamCard(r, i + 1)).join("");
+      stageStandings("r34L").map((r, i) => teamCard(r, i + 1)).join("");
     document.getElementById("rise-grid").innerHTML =
-      STANDINGS.rise.map((r, i) => teamCard(r, i + 1)).join("");
+      stageStandings("r34R").map((r, i) => teamCard(r, i + 1)).join("");
 
     renderFooter();
   </script>
