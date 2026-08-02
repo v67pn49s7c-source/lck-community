@@ -661,6 +661,23 @@ table.detail-table tr:last-child td { border-bottom: none; }
   font-size: var(--fs-sm); color: var(--text-sub); text-align: center;
 }
 
+/* ── 문서(약관 등) ── */
+.doc { padding: 20px 22px 26px; line-height: 1.75; font-size: var(--fs-md); }
+.doc h2 {
+  font-size: var(--fs-lg); font-weight: 800; letter-spacing: -0.02em;
+  margin: 22px 0 8px; padding-left: 10px;
+  border-left: 4px solid var(--accent);
+}
+.doc h2:first-child { margin-top: 0; }
+.doc p { margin: 6px 0; color: var(--text-sub); }
+.doc ul { margin: 6px 0; padding-left: 4px; }
+.doc li {
+  position: relative; padding-left: 14px; margin: 4px 0; color: var(--text-sub);
+}
+.doc li::before { content: ""; position: absolute; left: 0; top: 11px; width: 5px; height: 5px; background: var(--accent); transform: skewX(-14deg); }
+.doc b { color: var(--text); }
+.doc .doc-note { margin-top: 18px; font-size: var(--fs-sm); color: var(--text-dim); }
+
 /* ── 푸터 ── */
 .site-footer { border-top: 1px solid var(--line); padding: 18px 0 36px; margin-top: 32px; }
 .site-footer .container { font-size: var(--fs-xs); color: var(--text-dim); line-height: 1.8; }

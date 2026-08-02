@@ -142,7 +142,7 @@ function renderFooter() {
       <b>The Nexus</b>는 Riot Games 및 LCK와 무관한 <b>비공식 팬 프로젝트</b>입니다.
       모든 예측 참여는 무료이며 포인트는 환전·거래할 수 없습니다.<br>
       팀명·로고에 대한 권리는 각 구단 및 Riot Games에 있습니다.
-      · 문의: report@lcklounge.example · <a href="admin.html">관리자</a>
+      · <a href="terms.html">이용약관</a> · 문의: report@lcklounge.example · <a href="admin.html">관리자</a>
     </div>`;
   document.body.appendChild(f);
 }
