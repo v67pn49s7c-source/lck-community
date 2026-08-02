@@ -85,6 +85,7 @@ const NAV_MENUS = [
 ];
 
 function renderHeader(activeMenu, activeTeamId) {
+  document.body.classList.add("app-ready"); // 데이터 로드 완료 → 화면 표시
   const header = document.createElement("div");
   header.innerHTML = `
   <header class="site-header">

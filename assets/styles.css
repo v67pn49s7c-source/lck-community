@@ -40,6 +40,25 @@
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ── 로딩 상태: 데이터 준비 전에는 내용 숨기고 스피너 표시 ── */
+body:not(.app-ready) main,
+body:not(.app-ready) .team-hero,
+body:not(.app-ready) footer { visibility: hidden; }
+body:not(.app-ready)::before {
+  content: "";
+  position: fixed; top: 42%; left: 50%; margin-left: -16px;
+  width: 32px; height: 32px; z-index: 100;
+  border: 3px solid var(--line); border-top-color: var(--accent);
+  animation: spin .8s linear infinite;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%);
+}
+body:not(.app-ready)::after {
+  content: "불러오는 중...";
+  position: fixed; top: calc(42% + 44px); left: 0; right: 0; z-index: 100;
+  text-align: center; font-size: 13px; color: var(--text-dim); font-weight: 600;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 html { -webkit-text-size-adjust: 100%; }
 
 body {
