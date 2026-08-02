@@ -58,6 +58,7 @@ async function storeInit() {
   Cache.matches = (m.data || []).map(x => ({
     id: x.id, tid: x.tid, stage: x.stage, at: x.at, a: x.a, b: x.b, label: x.label || "",
     oddsA: Number(x.odds_a), oddsB: Number(x.odds_b), status: x.status, scoreA: x.score_a, scoreB: x.score_b,
+    counted: x.counted,
   }));
   Cache.records = (r.data || []).map(x => ({ id: x.id, name: x.name, ord: x.ord, records: x.records || [], in_total: x.in_total }));
   Cache.players = pl.data || [];
@@ -138,6 +139,33 @@ function saveStageRecords(list) {
 }
 // 이 스테이지가 종합(누적) 순위에 합산되는가 (기본: Road To MSI만 제외)
 function stageInTotal(s) { return s.in_total ?? (s.id !== "rtm"); }
+
+// 종료된 경기 결과를 순위 전적에 반영 (경기당 1회 — counted 플래그로 이중 반영 방지)
+function applyMatchToRecords(matchId) {
+  const m = Cache.matches.find(x => x.id === matchId);
+  if (!m) return { ok: false, reason: "경기를 찾을 수 없음" };
+  if (m.counted) return { ok: false, reason: "이미 순위에 반영된 경기" };
+  if (m.status !== "done" || m.scoreA == null || m.scoreB == null)
+    return { ok: false, reason: "종료 상태 + 스코어 입력 후 반영할 수 있음" };
+  if (!TEAM_MAP[m.a] || !TEAM_MAP[m.b]) return { ok: false, reason: "미정 팀은 반영 불가" };
+  const stage = Cache.records.find(s => s.name === m.stage);
+  if (!stage) return { ok: false, reason: `순위 전적 관리에 "${m.stage}" 스테이지가 없음 (스테이지 추가 후 반영)` };
+
+  const rec = t => {
+    let r = stage.records.find(x => x.team === t);
+    if (!r) { r = { team: t, w: 0, l: 0, sw: 0, sl: 0 }; stage.records.push(r); }
+    return r;
+  };
+  const A = rec(m.a), B = rec(m.b);
+  const aWin = m.scoreA > m.scoreB;
+  (aWin ? A : B).w++; (aWin ? B : A).l++;
+  A.sw += m.scoreA; A.sl += m.scoreB;
+  B.sw += m.scoreB; B.sl += m.scoreA;
+  m.counted = true;
+  saveStageRecords(Cache.records);
+  sb.from("matches").update({ counted: true }).eq("id", m.id).then(r => sbErr(r.error, "markCounted"));
+  return { ok: true };
+}
 function stageStandings(stageId) {
   const s = Cache.records.find(x => x.id === stageId);
   if (!s) return [];

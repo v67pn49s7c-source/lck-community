@@ -111,7 +111,9 @@
         </div>
         <div id="rec-table"></div>
         <div class="admin-note">
-          경기가 끝나면 해당 스테이지의 승·패·세트 수치를 올려 주세요. 시즌 누적 순위는 모든 스테이지 합산으로 자동 계산됩니다.
+          <b>경기 관리에서 결과를 "종료+스코어"로 저장하면 여기 전적에 자동 반영</b>됩니다
+          (경기의 스테이지명과 같은 이름의 스테이지가 있을 때 · 경기당 1회 · 반영된 경기는 "순위 반영됨" 표시).<br>
+          과거 스테이지(Rounds 1-2 등)나 세부 조정은 여기서 직접 수정하세요. 시즌 누적 순위는 "종합 합산"이 켜진 스테이지만 합산합니다.
         </div>
       </section>
 
@@ -302,6 +304,11 @@
           <span class="muted">:</span>
           <input class="score sb" type="number" min="0" max="3" value="${m.scoreB ?? ""}" placeholder="0">
           <button class="btn-secondary save">저장</button>
+          ${m.status === "done"
+            ? (m.counted
+              ? `<span class="cat-chip">순위 반영됨</span>`
+              : `<button class="btn-secondary apply" style="color:var(--accent);border-color:var(--accent)">순위 반영</button>`)
+            : ""}
           <button class="btn-danger del">삭제</button>
         </div>`;
       }).join("") || `<div class="empty-note">등록된 경기가 없습니다</div>`;
@@ -318,6 +325,17 @@
             scoreA: sa === "" ? null : Number(sa),
             scoreB: sb === "" ? null : Number(sb),
           });
+          // 종료 저장 시 순위 전적에 자동 반영 (경기당 1회)
+          if (status === "done") {
+            const res = applyMatchToRecords(mid);
+            if (res.ok) alert("경기 결과가 순위 전적에 자동 반영되었습니다.");
+            else if (res.reason && !res.reason.includes("이미")) alert("순위 자동 반영 안 됨: " + res.reason);
+          }
+          renderAll();
+        });
+        row.querySelector(".apply")?.addEventListener("click", () => {
+          const res = applyMatchToRecords(mid);
+          alert(res.ok ? "순위 전적에 반영했습니다." : "반영 실패: " + res.reason);
           renderAll();
         });
         row.querySelector(".del").addEventListener("click", () => {
@@ -392,7 +410,31 @@
           <div class="admin-item" style="justify-content:flex-end">
             <button class="btn-primary" id="rec-save">이 스테이지 전적 저장</button>
           </div>
+          <div class="admin-item">
+            <input id="rec-new-name" placeholder="새 스테이지 이름 (경기 관리의 스테이지명과 똑같이 입력)" style="flex:1; min-width:220px">
+            <label style="display:flex;gap:5px;align-items:center;cursor:pointer">
+              <input type="checkbox" id="rec-new-total" checked> 종합 합산
+            </label>
+            <button class="btn-secondary" id="rec-add">스테이지 추가</button>
+          </div>
         </div>`;
+
+      document.getElementById("rec-add").addEventListener("click", () => {
+        const name = document.getElementById("rec-new-name").value.trim();
+        if (!name) return;
+        if (getStageRecords().some(s => s.name === name)) { alert("이미 있는 스테이지 이름입니다."); return; }
+        const list = getStageRecords();
+        list.push({
+          id: "s" + Date.now(), name,
+          ord: Math.max(0, ...list.map(s => s.ord ?? 0)) + 1,
+          records: [], in_total: document.getElementById("rec-new-total").checked,
+        });
+        saveStageRecords(list);
+        sel.innerHTML = "";
+        renderRecords();
+        sel.value = list[list.length - 1].id;
+        renderRecords();
+      });
 
       document.getElementById("rec-save").addEventListener("click", () => {
         const rows = [];
