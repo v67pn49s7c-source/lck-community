@@ -393,18 +393,32 @@ function setSetting(key, value) {
   sb.from("site_settings").upsert({ key, value }).then(r => sbErr(r.error, "setSetting"));
 }
 // slot: "desktop-light" | "desktop-dark" | "mobile"
-// 업로드된 로고가 있으면 저장소 URL, 없으면 기본 파일
+// 업로드된 로고(데이터 URL)가 있으면 그것, 없으면 기본 파일
 function brandLogoURL(slot, fallback) {
   const v = getSetting("logo_" + slot);
-  if (!v) return fallback;
-  return `${SB_URL}/storage/v1/object/public/brand/logo-${slot}.png?v=${v}`;
+  return v && v.startsWith("data:") ? v : fallback;
 }
+// 이미지를 표시 크기에 맞게 자동 축소한 뒤 설정 테이블에 저장
 async function uploadBrandLogo(slot, file) {
-  const { error } = await sb.storage.from("brand")
-    .upload(`logo-${slot}.png`, file, { upsert: true, contentType: file.type || "image/png" });
-  if (error) return { error };
-  setSetting("logo_" + slot, String(Date.now()));
-  return { ok: true };
+  try {
+    const bmp = await createImageBitmap(file);
+    const targetH = slot === "mobile" ? 192 : 120; // 표시 크기의 약 3배 (레티나 대응)
+    const scale = Math.min(1, targetH / bmp.height);
+    const w = Math.max(1, Math.round(bmp.width * scale));
+    const h = Math.max(1, Math.round(bmp.height * scale));
+    const c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    c.getContext("2d").drawImage(bmp, 0, 0, w, h);
+    const dataUrl = c.toDataURL("image/png");
+    if (dataUrl.length > 600000)
+      return { error: { message: "축소 후에도 이미지가 너무 큽니다. 가로로 긴 단순한 로고 이미지를 사용해 주세요." } };
+    const { error } = await sb.from("site_settings").upsert({ key: "logo_" + slot, value: dataUrl });
+    if (error) return { error };
+    Cache.settings["logo_" + slot] = dataUrl;
+    return { ok: true };
+  } catch (e) {
+    return { error: { message: "이미지를 읽을 수 없습니다 (" + e.message + ")" } };
+  }
 }
 function resetBrandLogo(slot) { setSetting("logo_" + slot, ""); }
 
