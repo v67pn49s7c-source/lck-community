@@ -3,6 +3,8 @@
 // 사진이 없는 선수(KT Peter, DNS Shavel)는 기존 이니셜 카드로 표시된다.
 // 로스터가 바뀌면 이 파일에 "선수id": "사진URL" 한 줄만 추가하면 된다.
 const PLAYER_PHOTOS = {
+  "kt-effort-1785755537491": "http://static.lolesports.com/players/1769085556949_image6-2026-01-22T133848.159.png", // KT Effort
+  // DNS Shavel(공식 표기 Sharvel)은 공식 DB에 기본 실루엣만 등록되어 있어 제외 — 실제 사진이 올라오면 여기 추가
   "bfx-clear": "http://static.lolesports.com/players/1769091426725_LCK_BFX_Clear_F.png", // BFX Clear
   "bfx-daystar-1785696803255": "http://static.lolesports.com/players/1769091448891_LCK_BFX_Daystar_F.PNG", // BFX Daystar
   "bfx-kellin": "http://static.lolesports.com/players/1769091436066_LCK_BFX_Kellin_F.PNG", // BFX Kellin
