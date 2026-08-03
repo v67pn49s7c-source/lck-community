@@ -47,18 +47,23 @@ body:not(.app-ready) .team-hero,
 body:not(.app-ready) footer { visibility: hidden; }
 body:not(.app-ready)::before {
   content: "";
-  position: fixed; top: 42%; left: 50%; margin-left: -16px;
-  width: 32px; height: 32px; z-index: 100;
-  border: 3px solid var(--line); border-top-color: var(--accent);
-  animation: spin .8s linear infinite;
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%);
+  position: fixed; top: 42%; left: 50%; margin-left: -32px;
+  width: 64px; height: 64px; z-index: 100;
+  background: url("brand/nexus-mark.png") center / contain no-repeat;
+  animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
   content: "불러오는 중...";
-  position: fixed; top: calc(42% + 44px); left: 0; right: 0; z-index: 100;
+  position: fixed; top: calc(42% + 76px); left: 0; right: 0; z-index: 100;
   text-align: center; font-size: 13px; color: var(--text-dim); font-weight: 600;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes logo-pulse {
+  0%, 100% { transform: scale(.9); opacity: .5; }
+  50% { transform: scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body:not(.app-ready)::before { animation: none; opacity: .85; }
+}
 html { -webkit-text-size-adjust: 100%; }
 
 body {
