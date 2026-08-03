@@ -25,6 +25,7 @@ function voterId() {
 const Cache = {
   tournaments: [], matches: [], records: [], players: [],
   posts: [], predictions: [], ratings: [], details: {}, chat: {}, settings: {},
+  polls: [], pollVotes: [], reactions: [], commentLikes: [], founding: [], profiles: [],
 };
 
 function sbErr(e, what) { if (e) console.error("[supabase]", what, e.message); }
@@ -56,6 +57,22 @@ async function storeInit() {
   [t, m, r, pl, po, co, pr, ra, de].forEach((res, i) => sbErr(res.error, "load#" + i));
   Cache.settings = Object.fromEntries((st.data || []).map(x => [x.key, x.value]));
 
+  // 팬심지수 관련 (테이블이 아직 없으면 조용히 빈 값)
+  const [pq, pv, rx, cl, ff, pf] = await Promise.all([
+    sb.from("polls").select("*").order("created_at"),
+    sb.from("poll_votes").select("*"),
+    sb.from("reactions").select("*"),
+    sb.from("comment_likes").select("*"),
+    sb.from("founding_fans").select("*").order("no"),
+    sb.from("profiles").select("id,nick,fav_team"),
+  ]);
+  Cache.polls = pq.data || [];
+  Cache.pollVotes = pv.data || [];
+  Cache.reactions = rx.data || [];
+  Cache.commentLikes = cl.data || [];
+  Cache.founding = ff.data || [];
+  Cache.profiles = pf.data || [];
+
   Cache.tournaments = (t.data || []).map(x => ({ id: x.id, name: x.name, type: x.type, stages: x.stages || [], note: x.note || "" }));
   Cache.matches = (m.data || []).map(x => ({
     id: x.id, tid: x.tid, stage: x.stage, at: x.at, a: x.a, b: x.b, label: x.label || "",
@@ -67,10 +84,13 @@ async function storeInit() {
 
   const commentsByPost = {};
   (co.data || []).forEach(c => {
-    (commentsByPost[c.post_id] = commentsByPost[c.post_id] || []).push({ nick: c.nick, body: c.body, ts: Date.parse(c.created_at) });
+    (commentsByPost[c.post_id] = commentsByPost[c.post_id] || []).push({
+      id: c.id, nick: c.nick, body: c.body, author_team: c.author_team || null, ts: Date.parse(c.created_at),
+    });
   });
   Cache.posts = (po.data || []).map(x => ({
     id: x.id, team: x.team, cat: x.cat, title: x.title, body: x.body, nick: x.nick,
+    author_team: x.author_team || null, match_id: x.match_id || null,
     up: x.up, views: x.views, ts: Date.parse(x.created_at), comments: commentsByPost[x.id] || [],
   }));
 
@@ -209,12 +229,18 @@ function getPosts() { return Cache.posts; }
 function getPost(id) { return Cache.posts.find(p => p.id === id); }
 function addPost(p) {
   if (Auth.profile) p.nick = Auth.profile.nick; // 회원은 고정 닉네임 사용
+  p.author_team = Auth.profile?.fav_team || null;
   p.id = "p" + Date.now();
   p.ts = Date.now(); p.views = 0; p.up = 0; p.comments = [];
   Cache.posts.unshift(p);
-  sb.from("posts").insert({ id: p.id, team: p.team, cat: p.cat, title: p.title, body: p.body, nick: p.nick })
-    .then(r => sbErr(r.error, "addPost"));
+  sb.from("posts").insert({
+    id: p.id, team: p.team, cat: p.cat, title: p.title, body: p.body, nick: p.nick,
+    author_team: p.author_team, match_id: p.match_id || null,
+  }).then(r => sbErr(r.error, "addPost"));
   return p.id;
+}
+function postsForMatch(matchId) {
+  return Cache.posts.filter(p => p.match_id === matchId);
 }
 function updatePost(id, patch) {
   // 조회수·추천은 서버 함수로만 증가 (임의 조작 방지)
@@ -228,9 +254,17 @@ function deletePost(id) {
 }
 function addComment(postId, nick, body) {
   if (Auth.profile) nick = Auth.profile.nick;
+  const author_team = Auth.profile?.fav_team || null;
   const p = Cache.posts.find(x => x.id === postId);
-  if (p) p.comments.push({ nick, body, ts: Date.now() });
-  sb.from("comments").insert({ post_id: postId, nick, body }).then(r => sbErr(r.error, "addComment"));
+  if (p) p.comments.push({ nick, body, author_team, ts: Date.now() });
+  sb.from("comments").insert({ post_id: postId, nick, body, author_team })
+    .select().single().then(r => {
+      sbErr(r.error, "addComment");
+      if (r.data && p) { // 서버 id 반영 (댓글 추천용)
+        const c = p.comments[p.comments.length - 1];
+        if (c && c.id == null) c.id = r.data.id;
+      }
+    });
 }
 
 // ── 승부예측 ──
@@ -339,13 +373,14 @@ async function loadChat(room) {
   const { data, error } = await sb.from("chat_messages")
     .select("*").eq("room", room).order("created_at", { ascending: false }).limit(100);
   sbErr(error, "loadChat");
-  Cache.chat[room] = (data || []).reverse().map(c => ({ nick: c.nick, body: c.body, ts: Date.parse(c.created_at) }));
+  Cache.chat[room] = (data || []).reverse().map(c => ({ nick: c.nick, body: c.body, author_team: c.author_team || null, ts: Date.parse(c.created_at) }));
 }
 function getChat(room) { return Cache.chat[room] || []; }
 function addChat(room, nick, body) {
   if (Auth.profile) nick = Auth.profile.nick;
-  (Cache.chat[room] = Cache.chat[room] || []).push({ nick, body, ts: Date.now(), mine: true });
-  sb.from("chat_messages").insert({ room, nick, body }).then(r => sbErr(r.error, "addChat"));
+  const author_team = Auth.profile?.fav_team || null;
+  (Cache.chat[room] = Cache.chat[room] || []).push({ nick, body, author_team, ts: Date.now(), mine: true });
+  sb.from("chat_messages").insert({ room, nick, body, author_team }).then(r => sbErr(r.error, "addChat"));
 }
 function subscribeChat(room, onMessage) {
   sb.channel("chat-" + room)
@@ -354,7 +389,7 @@ function subscribeChat(room, onMessage) {
       const list = Cache.chat[room] = Cache.chat[room] || [];
       // 내가 방금 보낸 메시지의 중복 수신 방지
       const dup = list.some(x => x.mine && x.nick === c.nick && x.body === c.body && Math.abs(x.ts - Date.parse(c.created_at)) < 15000);
-      if (!dup) list.push({ nick: c.nick, body: c.body, ts: Date.parse(c.created_at) });
+      if (!dup) list.push({ nick: c.nick, body: c.body, author_team: c.author_team || null, ts: Date.parse(c.created_at) });
       onMessage();
     })
     .subscribe();
@@ -384,6 +419,124 @@ function deleteDetailSet(matchId, pos) {
   if (!d.sets.length) delete Cache.details[matchId];
   sb.from("match_details").delete().eq("match_id", matchId).eq("set_index", dbIdx)
     .then(r => sbErr(r.error, "deleteDetailSet"));
+}
+
+// ── 팬심지수: 투표 ──
+function getPolls() { return Cache.polls; }
+function pollsForMatch(matchId) { return Cache.polls.filter(p => p.match_id === matchId); }
+function getPollByPost(postId) { return Cache.polls.find(p => p.post_id === postId); }
+function pollOpen(poll) { return !poll.closes_at || new Date(poll.closes_at) > new Date(); }
+
+function createPoll(p) {
+  p.id = p.id || "poll" + Date.now() + Math.random().toString(36).slice(2, 6);
+  Cache.polls.push(p);
+  sb.from("polls").insert({
+    id: p.id, match_id: p.match_id || null, phase: p.phase || null, post_id: p.post_id || null,
+    question: p.question, options: p.options, multi: !!p.multi, closes_at: p.closes_at || null,
+  }).then(r => sbErr(r.error, "createPoll"));
+  return p.id;
+}
+
+function myPollVote(pollId) {
+  const me = voterId();
+  return Cache.pollVotes.find(v => v.poll_id === pollId && v.voter === me) || null;
+}
+function votePoll(pollId, choices) {
+  const me = voterId();
+  const row = {
+    poll_id: pollId, voter: me, choices,
+    fav_team: Auth.profile?.fav_team || null,
+    is_member: !!Auth.session,
+  };
+  const existing = Cache.pollVotes.find(v => v.poll_id === pollId && v.voter === me);
+  if (existing) Object.assign(existing, row);
+  else Cache.pollVotes.push(row);
+  sb.from("poll_votes").upsert(row).then(r => sbErr(r.error, "votePoll"));
+}
+// 집계: 전체 + 팬덤별 (teamA/teamB 팬 · 중립=그 외 전부)
+function pollResults(poll, teamA, teamB) {
+  const votes = Cache.pollVotes.filter(v => v.poll_id === poll.id);
+  const n = poll.options.length;
+  const bucket = () => ({ counts: Array(n).fill(0), total: 0 });
+  const overall = bucket(), a = bucket(), b = bucket(), neutral = bucket();
+  votes.forEach(v => {
+    const targets = [overall];
+    if (teamA && v.fav_team === teamA) targets.push(a);
+    else if (teamB && v.fav_team === teamB) targets.push(b);
+    else targets.push(neutral);
+    (v.choices || []).forEach(c => {
+      if (c >= 0 && c < n) targets.forEach(t => t.counts[c]++);
+    });
+    targets.forEach(t => t.total++);
+  });
+  return { overall, teamA: a, teamB: b, neutral, voters: votes.length };
+}
+
+// ── 빠른 반응 (글) ──
+const REACTION_KINDS = [
+  { kind: "agree", label: "동의해요", emoji: "👍" },
+  { kind: "insight", label: "분석 좋아요", emoji: "🧠" },
+  { kind: "fun", label: "재미있어요", emoji: "😂" },
+  { kind: "cheer", label: "응원해요", emoji: "🔥" },
+];
+function reactionCounts(postId) {
+  const out = {};
+  REACTION_KINDS.forEach(k => out[k.kind] = 0);
+  Cache.reactions.filter(r => r.post_id === postId).forEach(r => out[r.kind] = (out[r.kind] || 0) + 1);
+  return out;
+}
+function myReactions(postId) {
+  const me = voterId();
+  return new Set(Cache.reactions.filter(r => r.post_id === postId && r.voter === me).map(r => r.kind));
+}
+function toggleReaction(postId, kind) {
+  const me = voterId();
+  const i = Cache.reactions.findIndex(r => r.post_id === postId && r.voter === me && r.kind === kind);
+  if (i >= 0) {
+    Cache.reactions.splice(i, 1);
+    sb.from("reactions").delete().eq("post_id", postId).eq("voter", me).eq("kind", kind)
+      .then(r => sbErr(r.error, "delReaction"));
+  } else {
+    Cache.reactions.push({ post_id: postId, voter: me, kind });
+    sb.from("reactions").insert({ post_id: postId, voter: me, kind }).then(r => sbErr(r.error, "addReaction"));
+  }
+}
+
+// ── 댓글 추천 ──
+function commentLikeCount(commentId) {
+  return Cache.commentLikes.filter(l => l.comment_id === commentId).length;
+}
+function myCommentLike(commentId) {
+  const me = voterId();
+  return Cache.commentLikes.some(l => l.comment_id === commentId && l.voter === me);
+}
+function likeComment(commentId) {
+  const me = voterId();
+  if (myCommentLike(commentId)) return false;
+  Cache.commentLikes.push({ comment_id: commentId, voter: me });
+  sb.from("comment_likes").insert({ comment_id: commentId, voter: me }).then(r => sbErr(r.error, "likeComment"));
+  return true;
+}
+
+// ── 창립 팬 100인 ──
+function foundingList(team) {
+  return Cache.founding.filter(f => f.team === team)
+    .map(f => ({ ...f, nick: Cache.profiles.find(p => p.id === f.user_id)?.nick || "?" }));
+}
+function myFoundingNo(team) {
+  if (!Auth.session) return null;
+  return Cache.founding.find(f => f.team === team && f.user_id === Auth.session.user.id)?.no ?? null;
+}
+function foundingNoOf(nick, team) {
+  const prof = Cache.profiles.find(p => p.nick === nick && p.fav_team === team);
+  if (!prof) return null;
+  return Cache.founding.find(f => f.team === team && f.user_id === prof.id)?.no ?? null;
+}
+async function claimFounding(team) {
+  const { data, error } = await sb.rpc("claim_founding", { t: team });
+  if (error) return { error };
+  Cache.founding.push({ team, user_id: Auth.session.user.id, no: data });
+  return { no: data };
 }
 
 // ── 사이트 설정 · 로고 ──

@@ -32,6 +32,15 @@ function slotName(v) {
 function isRealTeam(v) { return !!TEAM_MAP[v]; }
 function knownTeams(m) { return isRealTeam(m.a) && isRealTeam(m.b); }
 
+// 닉네임 + 응원팀 배지 (+ 창립 팬 번호)
+function nickHTML(nick, teamId) {
+  const t = teamId ? TEAM_MAP[teamId] : null;
+  if (!t) return esc(nick);
+  const fno = foundingNoOf(nick, teamId);
+  return `${esc(nick)}<span class="nick-badge" title="${t.name} 팬">${teamLogoHTML(t, 14)}</span>`
+    + (fno ? `<span class="founding-chip" title="${t.abbr} 창립 팬 #${fno}">#${fno}</span>` : "");
+}
+
 // KST 기준 날짜 표기
 const KST_FMT = new Intl.DateTimeFormat("ko-KR", {
   timeZone: "Asia/Seoul", month: "numeric", day: "numeric",
@@ -315,6 +324,164 @@ function shortStage(stage) {
   return (stage || "").replace("라운드 ", "R").replace(" 그룹", "");
 }
 
+// ── 팬심지수 투표 위젯 (경기·게시글·홈 공용) ──────────────
+// ctx: { teamA, teamB (팀 id·팬덤 비교용), compact(홈 카드) }
+function renderPollInto(el, poll, ctx) {
+  ctx = ctx || {};
+  const open = pollOpen(poll);
+  const mine = myPollVote(poll.id);
+  let choosing = open && !mine; // 아직 투표 전이면 선택 화면
+  let picked = new Set(mine ? mine.choices : []);
+
+  const A = ctx.teamA ? TEAM_MAP[ctx.teamA] : null;
+  const B = ctx.teamB ? TEAM_MAP[ctx.teamB] : null;
+
+  function pct(c, t) { return t ? Math.round((c / t) * 100) : 0; }
+
+  function resultsHTML() {
+    const r = pollResults(poll, ctx.teamA, ctx.teamB);
+    const mySet = new Set(myPollVote(poll.id)?.choices || []);
+    const canBreak = !!Auth.session && (A || B);
+    return `
+      ${poll.options.map((opt, i) => {
+        const p = pct(r.overall.counts[i], r.overall.total);
+        return `
+        <div class="poll-opt-result ${mySet.has(i) ? "mine" : ""}">
+          <div class="por-top">
+            <span class="por-label">${esc(opt)} ${mySet.has(i) ? '<span class="por-my">내 선택</span>' : ""}</span>
+            <b class="por-pct">${p}%</b>
+          </div>
+          <div class="por-bar"><span style="width:${p}%"></span></div>
+          ${(A || B) ? (canBreak ? `
+            <div class="por-break">
+              ${A ? `<span style="color:${A.color}">${A.abbr}팬 ${pct(r.teamA.counts[i], r.teamA.total)}%</span>` : ""}
+              ${B ? `<span style="color:${B.color}">${B.abbr}팬 ${pct(r.teamB.counts[i], r.teamB.total)}%</span>` : ""}
+              <span>중립 ${pct(r.neutral.counts[i], r.neutral.total)}%</span>
+            </div>` : "") : ""}
+        </div>`;
+      }).join("")}
+      ${(A || B) && !canBreak ? `
+        <div class="poll-gate">
+          <div class="poll-gate-blur">
+            ${A ? `${A.abbr}팬 ▮▮▮▮▮ · ` : ""}${B ? `${B.abbr}팬 ▮▮▮▮ · ` : ""}중립 ▮▮▮
+          </div>
+          <a class="btn-primary" href="login.html">간편 가입하고 팬덤별 결과 보기</a>
+        </div>` : ""}
+      <div class="poll-foot">
+        <span>${r.voters}명 참여${poll.closes_at ? ` · ${open ? "마감 " + fmtWhen(poll.closes_at) : "마감됨"}` : ""}</span>
+        <span class="poll-foot-btns">
+          ${open && myPollVote(poll.id) ? `<button class="poll-change">선택 변경</button>` : ""}
+          ${ctx.share !== false && (A || B) ? `<button class="poll-share">결과 카드 저장</button>` : ""}
+        </span>
+      </div>`;
+  }
+
+  function chooseHTML() {
+    return `
+      ${poll.options.map((opt, i) => `
+        <button class="poll-choice ${picked.has(i) ? "picked" : ""}" data-i="${i}">${esc(opt)}</button>`).join("")}
+      ${poll.multi ? `<button class="btn-primary poll-submit" style="width:100%">투표하기</button>` : ""}
+      <div class="poll-foot"><span>${poll.multi ? "복수 선택 가능" : "하나를 선택하면 바로 투표됩니다"}${poll.closes_at ? ` · 마감 ${fmtWhen(poll.closes_at)}` : ""}</span></div>`;
+  }
+
+  function draw() {
+    el.innerHTML = `
+      <div class="poll-q">${esc(poll.question)}</div>
+      ${choosing ? chooseHTML() : resultsHTML()}`;
+
+    el.querySelectorAll(".poll-choice").forEach(b => b.addEventListener("click", () => {
+      const i = Number(b.dataset.i);
+      if (poll.multi) {
+        picked.has(i) ? picked.delete(i) : picked.add(i);
+        draw();
+      } else {
+        votePoll(poll.id, [i]);
+        choosing = false;
+        draw();
+      }
+    }));
+    el.querySelector(".poll-submit")?.addEventListener("click", () => {
+      if (!picked.size) { alert("하나 이상 선택해 주세요."); return; }
+      votePoll(poll.id, [...picked]);
+      choosing = false;
+      draw();
+    });
+    el.querySelector(".poll-change")?.addEventListener("click", () => {
+      picked = new Set(myPollVote(poll.id)?.choices || []);
+      choosing = true;
+      draw();
+    });
+    el.querySelector(".poll-share")?.addEventListener("click", () => sharePollCard(poll, ctx));
+  }
+  draw();
+}
+
+// 투표 결과 세로 공유 카드 (PNG 저장)
+function sharePollCard(poll, ctx) {
+  const r = pollResults(poll, ctx.teamA, ctx.teamB);
+  const A = ctx.teamA ? TEAM_MAP[ctx.teamA] : null;
+  const B = ctx.teamB ? TEAM_MAP[ctx.teamB] : null;
+  const W = 720, H = 900;
+  const c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const g = c.getContext("2d");
+
+  g.fillStyle = "#0f1015"; g.fillRect(0, 0, W, H);
+  g.fillStyle = "#ff4655"; g.fillRect(0, 0, W, 8);
+  g.fillStyle = "#ff4655"; g.font = "bold 30px sans-serif";
+  g.fillText("THE NEXUS", 48, 78);
+  g.fillStyle = "#9aa1b0"; g.font = "600 22px sans-serif";
+  g.fillText("팬심지수", 48, 112);
+
+  // 질문 (줄바꿈)
+  g.fillStyle = "#e9ebf1"; g.font = "bold 34px sans-serif";
+  const words = poll.question.split(" ");
+  let line = "", y = 180;
+  words.forEach(w => {
+    if (g.measureText(line + w).width > W - 96) { g.fillText(line, 48, y); y += 46; line = ""; }
+    line += w + " ";
+  });
+  g.fillText(line.trim(), 48, y); y += 60;
+
+  const pctOf = (cnt, tot) => tot ? Math.round((cnt / tot) * 100) : 0;
+  poll.options.forEach((opt, i) => {
+    const p = pctOf(r.overall.counts[i], r.overall.total);
+    g.fillStyle = "#9aa1b0"; g.font = "600 24px sans-serif";
+    g.fillText(opt, 48, y);
+    g.fillStyle = "#e9ebf1"; g.font = "bold 24px sans-serif";
+    g.textAlign = "right"; g.fillText(p + "%", W - 48, y); g.textAlign = "left";
+    y += 14;
+    g.fillStyle = "#1f232e"; g.fillRect(48, y, W - 96, 14);
+    g.fillStyle = "#ff4655"; g.fillRect(48, y, (W - 96) * p / 100, 14);
+    y += 20;
+    if (Auth.session && (A || B)) {
+      g.fillStyle = "#667080"; g.font = "500 18px sans-serif";
+      const parts = [];
+      if (A) parts.push(`${A.abbr}팬 ${pctOf(r.teamA.counts[i], r.teamA.total)}%`);
+      if (B) parts.push(`${B.abbr}팬 ${pctOf(r.teamB.counts[i], r.teamB.total)}%`);
+      parts.push(`중립 ${pctOf(r.neutral.counts[i], r.neutral.total)}%`);
+      g.fillText(parts.join(" · "), 48, y + 8); y += 26;
+    }
+    y += 18;
+  });
+
+  g.fillStyle = "#667080"; g.font = "600 20px sans-serif";
+  g.fillText(`${r.voters}명 참여 · 팬덤별 여론은 THE NEXUS에서`, 48, H - 72);
+  g.fillStyle = "#9aa1b0";
+  g.fillText(location.host + (poll.match_id ? "/live.html?match=" + poll.match_id : ""), 48, H - 40);
+
+  c.toBlob(async blob => {
+    const file = new File([blob], "nexus-poll.png", { type: "image/png" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: "THE NEXUS 팬심지수" }); return; } catch {}
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "nexus-poll.png";
+    a.click();
+  });
+}
+
 // ── 홈 ──
 function renderHomeSchedule() {
   const el = document.getElementById("schedule-body");
@@ -353,9 +520,27 @@ function renderPredictRanking() {
     </div>`).join("");
 }
 
+// 홈 "오늘의 투표": 마감이 가장 가까운 진행 중 투표
+function renderTodayPoll() {
+  const card = document.getElementById("today-poll-card");
+  if (!card) return;
+  const open = getPolls().filter(pollOpen)
+    .sort((a, b) => (a.closes_at ? new Date(a.closes_at) : Infinity) - (b.closes_at ? new Date(b.closes_at) : Infinity));
+  const poll = open[0];
+  if (!poll) { card.style.display = "none"; return; }
+  card.style.display = "";
+  const m = poll.match_id ? getMatches().find(x => x.id === poll.match_id) : null;
+  const link = card.querySelector("#today-poll-link");
+  if (link && m) { link.href = "live.html?match=" + m.id; link.style.display = ""; }
+  else if (link) link.style.display = "none";
+  renderPollInto(card.querySelector("#today-poll"), poll,
+    m ? { teamA: m.a, teamB: m.b } : {});
+}
+
 async function initHome() {
   await storeReady;
   renderHeader("홈", null);
+  renderTodayPoll();
   renderHomeSchedule();
   renderHotPosts();
   renderPredictRanking();

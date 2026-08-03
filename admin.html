@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>관리자 — The Nexus</title>
   <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
+  <meta property="og:title" content="The Nexus — LCK 팬 커뮤니티">
+  <meta property="og:description" content="경기마다 팬심지수 투표! 전체·양 팀 팬·중립의 여론을 비교해 보세요.">
+  <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/nexus-mobile.png">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="stylesheet" href="assets/styles.css">
 </head>
@@ -622,7 +627,64 @@
       });
     }
 
+    // ── 팬심지수 자동 생성 (경기마다 투표·사전 토론 글 동기화) ──
+    function syncFanPulse() {
+      let made = 0;
+      sortedMatches().forEach(m => {
+        if (!knownTeams(m)) return;
+        const A = TEAM_MAP[m.a], B = TEAM_MAP[m.b];
+        const dateStr = fmtWhen(m.at);
+        // 경기 전: 승부 예측 투표 (마감 = 경기 시작)
+        if (!Cache.polls.some(p => p.match_id === m.id && p.phase === "pre")) {
+          createPoll({
+            match_id: m.id, phase: "pre",
+            question: `${A.abbr} vs ${B.abbr}, 결과는? (${dateStr})`,
+            options: [`${A.abbr} 2:0 승`, `${A.abbr} 2:1 승`, `${B.abbr} 2:1 승`, `${B.abbr} 2:0 승`],
+            closes_at: m.at,
+          });
+          made++;
+        }
+        // 사전 토론 글
+        if (!Cache.posts.some(p => p.match_id === m.id && p.title.startsWith("[경기 토론]"))) {
+          addPost({
+            team: null, cat: "경기 분석", match_id: m.id,
+            title: `[경기 토론] ${A.abbr} vs ${B.abbr} (${dateStr})`,
+            body: `${A.name} vs ${B.name} 경기 토론 글입니다.\n예상 밴픽, 관전 포인트, 응원 한마디를 남겨 주세요!\n\n※ 팬심지수 투표는 경기 페이지에서 참여할 수 있습니다.`,
+            nick: "운영자",
+          });
+          made++;
+        }
+        // 경기 후: POM + 승부처 투표 (마감 = 경기 후 48시간)
+        if (m.status === "done") {
+          const closes = new Date(new Date(m.at).getTime() + 48 * 3600e3).toISOString();
+          if (!Cache.polls.some(p => p.match_id === m.id && p.phase === "post_pom")) {
+            const starters = [...teamPlayers(m.a), ...teamPlayers(m.b)];
+            if (starters.length) {
+              createPoll({
+                match_id: m.id, phase: "post_pom",
+                question: `팬 선정 POM은? (${A.abbr} ${m.scoreA ?? ""}:${m.scoreB ?? ""} ${B.abbr})`,
+                options: starters.map(p => `${p.nick} (${TEAM_MAP[p.team].abbr} ${p.pos})`),
+                closes_at: closes,
+              });
+              made++;
+            }
+          }
+          if (!Cache.polls.some(p => p.match_id === m.id && p.phase === "post_key")) {
+            createPoll({
+              match_id: m.id, phase: "post_key",
+              question: `${A.abbr} vs ${B.abbr}, 승부처는?`,
+              options: ["밴픽", "초반 설계", "한타", "운영", "개인 기량"],
+              closes_at: closes,
+            });
+            made++;
+          }
+        }
+      });
+      if (made) console.log(`[팬심지수] ${made}개 투표·토론 글 자동 생성`);
+    }
+
     function renderAll() {
+      syncFanPulse();
       renderTournamentList();
       fillMatchForm();
       renderMatchList();

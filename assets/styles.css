@@ -680,6 +680,62 @@ table.detail-table tr:last-child td { border-bottom: none; }
   font-size: var(--fs-sm); color: var(--text-sub); text-align: center;
 }
 
+/* ── 팬심지수 투표 ── */
+.poll-box { padding: 12px 14px; }
+.poll-box + .poll-box { border-top: 1px solid var(--line); }
+.poll-q { font-size: var(--fs-md); font-weight: 800; margin-bottom: 10px; letter-spacing: -0.01em; }
+.poll-choice {
+  display: block; width: 100%; text-align: left;
+  padding: 9px 12px; margin: 6px 0;
+  background: var(--bg-soft); border: 1px solid var(--line);
+  font-weight: 700; font-size: var(--fs-base);
+  transition: border-color .15s, background .15s;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+}
+.poll-choice:hover { border-color: var(--accent); }
+.poll-choice.picked { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.poll-submit { margin-top: 8px; }
+.poll-opt-result { margin: 9px 0; }
+.poll-opt-result .por-top { display: flex; justify-content: space-between; align-items: center; font-size: var(--fs-base); }
+.poll-opt-result .por-label { font-weight: 600; color: var(--text-sub); }
+.poll-opt-result.mine .por-label { color: var(--text); font-weight: 800; }
+.por-my {
+  font-size: 10px; font-weight: 800; color: #fff; background: var(--accent);
+  padding: 1px 6px; margin-left: 4px;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%);
+}
+.por-pct { font-variant-numeric: tabular-nums; }
+.por-bar { height: 8px; background: var(--bg-soft); margin-top: 4px; overflow: hidden; transform: skewX(-14deg); }
+.por-bar span { display: block; height: 100%; background: var(--accent); }
+.poll-opt-result.mine .por-bar span { background: linear-gradient(90deg, var(--accent), #ff7a85); }
+.por-break { display: flex; gap: 10px; margin-top: 3px; font-size: var(--fs-xs); color: var(--text-dim); font-weight: 600; flex-wrap: wrap; }
+.poll-gate { text-align: center; padding: 10px 0 4px; }
+.poll-gate-blur { color: var(--text-dim); filter: blur(2.5px); user-select: none; margin-bottom: 8px; font-size: var(--fs-sm); }
+.poll-foot {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  margin-top: 10px; font-size: var(--fs-xs); color: var(--text-dim); flex-wrap: wrap;
+}
+.poll-foot-btns { display: flex; gap: 10px; }
+.poll-foot button { color: var(--accent); font-weight: 700; font-size: var(--fs-xs); }
+.poll-foot button:hover { text-decoration: underline; }
+
+/* 닉네임 옆 응원팀 배지 */
+.nick-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  vertical-align: -2px; margin-left: 4px;
+}
+.founding-chip {
+  font-size: 9px; font-weight: 900; letter-spacing: .02em;
+  color: #d8b64a; border: 1px solid #d8b64a55; padding: 0 4px; margin-left: 3px;
+}
+
+/* 창립 팬 패널 */
+.founding-panel { padding: 12px 14px; }
+.founding-bar { height: 8px; background: var(--bg-soft); overflow: hidden; transform: skewX(-14deg); margin: 8px 0; }
+.founding-bar span { display: block; height: 100%; background: linear-gradient(90deg, #d8b64a, #f0d98c); }
+.founding-names { font-size: var(--fs-xs); color: var(--text-dim); line-height: 1.9; }
+.founding-names b { color: var(--text-sub); }
+
 /* ── 문서(약관 등) ── */
 .doc { padding: 20px 22px 26px; line-height: 1.75; font-size: var(--fs-md); }
 .doc h2 {

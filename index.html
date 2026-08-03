@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>The Nexus — LCK 팬 커뮤니티</title>
   <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
+  <meta property="og:title" content="The Nexus — LCK 팬 커뮤니티">
+  <meta property="og:description" content="경기마다 팬심지수 투표! 전체·양 팀 팬·중립의 여론을 비교해 보세요.">
+  <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/nexus-mobile.png">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="stylesheet" href="assets/styles.css">
 </head>
@@ -30,6 +35,14 @@
       </div>
 
       <aside class="stack">
+        <section class="card" id="today-poll-card" style="display:none">
+          <div class="card-head">
+            <h2 class="card-title">오늘의 투표</h2>
+            <a class="card-more" id="today-poll-link" href="#">경기 페이지 ›</a>
+          </div>
+          <div class="poll-box" id="today-poll"></div>
+        </section>
+
         <section class="card">
           <div class="card-head">
             <h2 class="card-title">다음 경기 예측</h2>
