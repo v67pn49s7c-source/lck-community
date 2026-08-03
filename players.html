@@ -27,6 +27,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
   <script src="assets/store.js"></script>
   <script src="assets/app.js"></script>
+  <script src="assets/player-photos.js"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("선수", null);
@@ -45,7 +46,7 @@
             const c = latestMatchRating(p.id);
             return `
             <a class="team-card" style="--team-color:${t.color}" href="player.html?id=${p.id}">
-              <span class="player-avatar" style="--team-color:${t.color}">${esc(p.nick.slice(0, 2))}</span>
+              ${playerAvatarHTML(p, t.color, false)}
               <div style="text-align:center">
                 <div class="tc-abbr">${esc(p.pos)}</div>
                 <div class="tc-name">${esc(p.nick)}</div>

@@ -758,6 +758,11 @@ table.detail-table tr:last-child td { border-bottom: none; }
   clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
 }
 .player-avatar.big { width: 64px; height: 64px; font-size: 22px; }
+.player-avatar.photo {
+  object-fit: cover; object-position: center top; /* 상반신 위주로 크롭 */
+  border-bottom: 2px solid var(--team-color, var(--logo-line));
+}
+.team-card .player-avatar { width: 72px; height: 72px; }
 
 /* ── 대진표 (브래킷) ── */
 .bracket-wrap { overflow-x: auto; }

@@ -49,6 +49,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
   <script src="assets/store.js"></script>
   <script src="assets/app.js"></script>
+  <script src="assets/player-photos.js"></script>
   <script>
   storeReady.then(async () => {
     const player = getPlayer(new URLSearchParams(location.search).get("id")) || getPlayers()[0];
@@ -65,7 +66,7 @@
       hero.style.background = `linear-gradient(120deg, ${team.dark} 0%, #12141b 70%)`;
       hero.innerHTML = `
         <div class="container team-hero-inner">
-          <span class="player-avatar big" style="--team-color:${team.color}">${esc(player.nick.slice(0, 2))}</span>
+          ${playerAvatarHTML(player, team.color, true)}
           <div class="team-hero-info">
             <h1><span style="color:${team.color}">${esc(player.nick)}</span> ${esc(player.name)}</h1>
             <p class="desc">${team.name} · ${esc(player.pos)} · ${teamRecordSummary()}</p>
