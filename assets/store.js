@@ -360,10 +360,13 @@ function fanSplitForPlayer(playerId, matchId, ownTeam, oppTeam) {
   return { all: stat(g.all), home: stat(g.home), opp: stat(g.opp), neu: stat(g.neu) };
 }
 // 경기에 실제 출전한 선수 id 집합 (경기 상세 기록 기준 · 기록 없으면 빈 집합)
+// 챔피언 칸이 비어 있는 행은 "명단에만 있고 출전 안 함"으로 보고 제외한다.
 function playedPidsForMatch(matchId) {
   const det = Cache.details[matchId];
   const played = new Set();
-  ((det && det.sets) || []).forEach(s => (s.players || []).forEach(p => { if (p.pid) played.add(p.pid); }));
+  ((det && det.sets) || []).forEach(s => (s.players || []).forEach(p => {
+    if (p.pid && (p.champ || "").trim()) played.add(p.pid);
+  }));
   return played;
 }
 // 팬심 평점 표: 포지션별로 양 팀 선수를 짝지어 행 구성 (좌우 미러 배치용)

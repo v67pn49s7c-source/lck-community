@@ -162,7 +162,15 @@
           </tbody>
         </table>`;
       };
-      const aList = set.players.slice(0, 5), bList = set.players.slice(5, 10);
+      // 챔피언이 기록된(=출전한) 선수만, 소속 팀 기준으로 나눠서 표시
+      const playersInSet = set.players.filter(p => (p.champ || "").trim());
+      const aList = [], bList = [];
+      playersInSet.forEach(p => {
+        const pl = getPlayer(p.pid);
+        if (pl && pl.team === match.b) bList.push(p);
+        else if (pl && pl.team === match.a) aList.push(p);
+        else (aList.length <= bList.length ? aList : bList).push(p); // 로스터에 없는 id 안전망
+      });
       document.getElementById("details-body").innerHTML = half(aList, match.a) + half(bList, match.b);
     }
 
@@ -184,13 +192,13 @@
       const tA = TEAM_MAP[match.a], tB = TEAM_MAP[match.b];
       const tierOf = a => a >= 9 ? "t9" : a >= 8 ? "t8" : a >= 7 ? "t7" : a >= 6 ? "t6" : "t5";
 
-      // 포지션 아이콘 (자체 제작 SVG)
+      // 포지션 아이콘 (LoL 공식 포지션 마크)
       const POS_ICONS = {
-        "탑": `<svg viewBox="0 0 24 24"><path d="M3 3v18l5-5V8h8l5-5H3z"/><rect x="13" y="13" width="7" height="7" opacity=".4"/></svg>`,
-        "정글": `<svg viewBox="0 0 24 24"><path d="M7.6 20.8 Q2.2 17.2 2.2 8.9 Q2.2 7.6 2.7 6.2 Q5.2 10.4 6.4 14.2 Q7.3 17.4 7.6 20.8 Z"/><path d="M10.6 21 Q8.2 13 9.8 2.6 Q11.8 9.6 11.4 15.2 Q11.2 18.3 10.6 21 Z"/><path d="M13.6 21 Q12.4 11.4 15.2 1.4 Q17 9 15.7 15.6 Q15 18.7 13.6 21 Z"/><path d="M16.4 20.4 Q16.6 15 18.6 11.4 Q20.2 8.6 22 6.4 Q22.2 12.4 20 16.2 Q18.5 18.8 16.4 20.4 Z"/></svg>`,
-        "미드": `<svg viewBox="0 0 24 24"><path d="M3 21v-6L15 3h6v6L9 21H3z"/><path d="M3 3h5L3 8V3z" opacity=".4"/><path d="M21 21h-5l5-5v5z" opacity=".4"/></svg>`,
-        "원딜": `<svg viewBox="0 0 24 24"><path d="M21 21V3l-5 5v8H8l-5 5h18z"/><rect x="4" y="4" width="7" height="7" opacity=".4"/></svg>`,
-        "서폿": `<svg viewBox="0 0 24 24"><path d="M8.7 2.4h6.6l1.7 2.7-5 3.6-5-3.6 1.7-2.7z"/><path d="M12 9.4l2.5 1.9-1.2 8.2-1.3 2.3-1.3-2.3-1.2-8.2 2.5-1.9z"/><path d="M9.8 9.2L1.6 8.4l2.6 3.2 5.4-.2.2-2.2z"/><path d="M9.3 12.8l-5.1.2 2.5 2.7 2.8-.9-.2-2z"/><path d="M14.2 9.2l8.2-.8-2.6 3.2-5.4-.2-.2-2.2z"/><path d="M14.7 12.8l5.1.2-2.5 2.7-2.8-.9.2-2z"/></svg>`,
+        "탑": `<svg viewBox="0 0 34 34"><path opacity=".45" fill-rule="evenodd" d="M21,14H14v7h7V14Zm5-3V26L11.014,26l-4,4H30V7.016Z"/><polygon points="4 4 4.003 28.045 9 23 9 9 23 9 28.045 4.003 4 4"/></svg>`,
+        "정글": `<svg viewBox="0 0 34 34"><path fill-rule="evenodd" d="M25,3c-2.128,3.3-5.147,6.851-6.966,11.469A42.373,42.373,0,0,1,20,20a27.7,27.7,0,0,1,1-3C21,12.023,22.856,8.277,25,3ZM13,20c-1.488-4.487-4.76-6.966-9-9,3.868,3.136,4.422,7.52,5,12l3.743,3.312C14.215,27.917,16.527,30.451,17,31c4.555-9.445-3.366-20.8-8-28C11.67,9.573,13.717,13.342,13,20Zm8,5a15.271,15.271,0,0,1,0,2l4-4c0.578-4.48,1.132-8.864,5-12C24.712,13.537,22.134,18.854,21,25Z"/></svg>`,
+        "미드": `<svg viewBox="0 0 34 34"><path opacity=".45" fill-rule="evenodd" d="M30,12.968l-4.008,4L26,26H17l-4,4H30ZM16.979,8L21,4H4V20.977L8,17,8,8h8.981Z"/><polygon points="25 4 4 25 4 30 9 30 30 9 30 4 25 4"/></svg>`,
+        "원딜": `<svg viewBox="0 0 34 34"><path opacity=".45" fill-rule="evenodd" d="M13,20h7V13H13v7ZM4,4V26.984l3.955-4L8,8,22.986,8l4-4H4Z"/><polygon points="29.997 5.955 25 11 25 25 11 25 5.955 29.997 30 30 29.997 5.955"/></svg>`,
+        "서폿": `<svg viewBox="0 0 34 34"><path fill-rule="evenodd" d="M26,13c3.535,0,8-4,8-4H23l-3,3,2,7,5-2-3-4h2ZM22,5L20.827,3H13.062L12,5l5,6Zm-5,9-1-1L13,28l4,3,4-3L18,13ZM11,9H0s4.465,4,8,4h2L7,17l5,2,2-7Z"/></svg>`,
       };
       const posIcon = pos => POS_ICONS[pos] || "";
 

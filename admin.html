@@ -194,6 +194,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
   <script src="assets/store.js"></script>
   <script src="assets/app.js"></script>
+  <script src="assets/ddragon.js"></script>
   <script>
   storeReady.then(async () => {
     renderHeader(null, null);
@@ -548,17 +549,18 @@
             <div class="admin-item dt-row" data-pid="${p.id}" style="gap:5px">
               <span style="width:110px; display:flex; align-items:center; gap:5px; font-weight:700">
                 ${teamLogoHTML(t, 16)} ${esc(p.nick)}</span>
-              <input class="dc" placeholder="챔피언" value="${esc(row.champ || "")}" style="width:90px">
-              <input class="dsp" placeholder="스펠 (예: 점멸,점화)" value="${esc(row.spell || "")}" style="width:110px">
+              <input class="dc dd-pickable" data-kind="champ" readonly placeholder="챔피언 선택" value="${esc(row.champ || "")}" style="width:100px;cursor:pointer">
+              <input class="dsp dd-pickable" data-kind="spell" readonly placeholder="스펠 선택" value="${esc(row.spell || "")}" style="width:100px;cursor:pointer">
               <input class="score dk2" type="number" min="0" placeholder="K" value="${row.k ?? ""}">
               <input class="score dd" type="number" min="0" placeholder="D" value="${row.d ?? ""}">
               <input class="score da" type="number" min="0" placeholder="A" value="${row.a ?? ""}">
               <input class="score dcs" type="number" min="0" placeholder="CS" value="${row.cs ?? ""}" style="width:56px">
               <input class="score dg" type="number" min="0" step="0.1" placeholder="골드k" value="${row.gold ?? ""}" style="width:60px">
-              <input class="di" placeholder="아이템 (쉼표 구분)" value="${esc(row.items || "")}" style="flex:1; min-width:140px">
-              <input class="dr" placeholder="룬 주/부" value="${esc(row.runes || "")}" style="width:110px">
+              <input class="di dd-pickable" data-kind="item" readonly placeholder="아이템 선택 (클릭)" value="${esc(row.items || "")}" style="flex:1; min-width:140px;cursor:pointer">
+              <input class="dr dd-pickable" data-kind="rune" readonly placeholder="룬 선택" value="${esc(row.runes || "")}" style="width:110px;cursor:pointer">
             </div>`;
           }).join("")}
+          <div class="admin-note">칸을 클릭하면 아이콘 선택창이 열립니다. <b>출전하지 않은 선수는 챔피언을 비워 두세요</b> — 저장 시 자동으로 제외되고, 평점·경기 상세에도 나오지 않습니다.</div>
           <div class="admin-item" style="justify-content:flex-end; gap:8px">
             ${existing ? `<button class="btn-danger" id="dt-del">이 세트 삭제</button>` : ""}
             <button class="btn-primary" id="dt-save">${setIdx + 1}세트 저장</button>
@@ -577,7 +579,7 @@
           gold: +row.querySelector(".dg").value || 0,
           items: row.querySelector(".di").value.trim(),
           runes: row.querySelector(".dr").value.trim(),
-        }));
+        })).filter(p => p.champ); // 챔피언이 비어 있으면 미출전 → 저장 제외
         saveDetailSet(match.id, setIdx, { win: document.getElementById("dt-win").value, players });
         sSel.innerHTML = "";
         renderDetailEditor();
