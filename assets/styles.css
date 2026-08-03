@@ -238,6 +238,14 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
   font-size: 10px; font-weight: 600; color: var(--text-dim);
   border: 1px solid var(--line); padding: 1px 7px;
 }
+.match-right { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.chip-pog {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 800; color: #221a06; background: #f5b942;
+  padding: 1px 7px; white-space: nowrap;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%);
+}
+.chip-pog b { font-variant-numeric: tabular-nums; }
 .match-row {
   display: grid;
   grid-template-columns: 44px 56px minmax(0, 1fr) 132px 14px;

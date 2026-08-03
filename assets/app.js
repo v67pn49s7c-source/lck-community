@@ -299,8 +299,12 @@ function scheduleHTML(matches, opts) {
         : done ? `<span class="match-status done">경기 종료</span>`
         : `<span class="match-status upcoming">예정</span>`;
       const pct = communityPct(m);
+      // 종료 경기: 팬 선정 POG (평점 1위) 표시
+      const pog = done ? pogForMatch(m.id) : null;
+      const pogPl = pog ? getPlayer(pog.pid) : null;
       const right = done
-        ? (opts.showStage ? `<span class="chip-stage">${esc(shortStage(m.stage))}</span>` : "")
+        ? `${pogPl ? `<span class="chip-pog" title="팬 선정 POG · ${pog.n}명 평가">👑 ${esc(pogPl.nick)} <b>${pog.avg.toFixed(1)}</b></span>` : ""}
+           ${opts.showStage ? `<span class="chip-stage">${esc(shortStage(m.stage))}</span>` : ""}`
         : `<div class="odds" title="승부예측 비율${pct.n ? ` · ${pct.n}명 참여` : " (예상)"}">
             <span class="odds-pill"><b>${pct.a}%</b></span>
             <span class="odds-pill"><b>${pct.b}%</b></span>
@@ -314,7 +318,7 @@ function scheduleHTML(matches, opts) {
           ${score}
           <span class="match-side right ${isRealTeam(m.b) ? "" : "tbd"}">${slotName(m.b)} ${slotLogoHTML(m.b, 24)}</span>
         </div>
-        <div style="text-align:right">${right}</div>
+        <div class="match-right">${right}</div>
         <span class="match-arrow">›</span>
       </a>`;
     }).join("")}`;
