@@ -6,6 +6,37 @@
 const DD = { ver: null, items: {}, spells: {}, runes: {}, champs: {} };
 const DD_CDN = "https://ddragon.leagueoflegends.com/cdn";
 
+// 옛 이름·다른 표기 → 현재 정식 이름 (시즌 개편으로 이름이 바뀐 것들)
+const DD_ALIAS = {
+  // 아이템
+  "루덴의 동반자": "루덴의 메아리",
+  "루덴의 폭풍": "루덴의 메아리",
+  "흑색 절단기": "칠흑의 양날 도끼",
+  "세라프의 포옹": "대천사의 포옹",
+  "나보리 신속검": "나보리 명멸검",
+  "나보리 회전검": "나보리 명멸검",
+  // 룬
+  "소환: 아에리": "콩콩이 소환",
+  "아에리 소환": "콩콩이 소환",
+  "난입": "폭풍전사의 포효",
+  "돌파": "폭풍전사의 포효",
+  "시대의 흐름": "폭풍전사의 포효",
+};
+
+// 이름 찾기: 정확한 이름 → 별칭 → 공백 무시 (판금장화 ↔ 판금 장화)
+function ddLookup(map, name) {
+  if (!name) return null;
+  if (map[name] != null) return map[name];
+  const alias = DD_ALIAS[name];
+  if (alias && map[alias] != null) return map[alias];
+  if (!map.__norm) {
+    const n = {};
+    Object.keys(map).forEach(k => { n[k.replace(/\s+/g, "")] = map[k]; });
+    Object.defineProperty(map, "__norm", { value: n, enumerable: false });
+  }
+  return map.__norm[name.replace(/\s+/g, "")] ?? null;
+}
+
 async function ddInit() {
   try {
     const vers = await (await fetch("https://ddragon.leagueoflegends.com/api/versions.json")).json();
@@ -41,7 +72,7 @@ async function ddInit() {
 function ddChampHTML(name) {
   name = (name || "").trim();
   if (!name) return "";
-  const f = DD.champs[name];
+  const f = ddLookup(DD.champs, name);
   return f
     ? `<img class="dd-ic champ" src="${DD_CDN}/${DD.ver}/img/champion/${f}" alt="${esc(name)}" title="${esc(name)}" loading="lazy"> <span class="dd-nm">${esc(name)}</span>`
     : esc(name);
@@ -52,7 +83,7 @@ function ddSpellHTML(str) {
   if (!parts.length) return "";
   if (!DD.ver) return esc(str);
   return parts.map(nm => {
-    const f = DD.spells[nm];
+    const f = ddLookup(DD.spells, nm);
     return f
       ? `<img class="dd-ic" src="${DD_CDN}/${DD.ver}/img/spell/${f}" alt="${esc(nm)}" title="${esc(nm)}" loading="lazy">`
       : `<span class="dd-miss" title="이름이 정확하지 않아요">${esc(nm)}</span>`;
@@ -64,7 +95,7 @@ function ddItemsHTML(str) {
   if (!parts.length) return "";
   if (!DD.ver) return esc(str);
   return parts.map(nm => {
-    const id = DD.items[nm];
+    const id = ddLookup(DD.items, nm);
     return id
       ? `<img class="dd-ic" src="${DD_CDN}/${DD.ver}/img/item/${id}.png" alt="${esc(nm)}" title="${esc(nm)}" loading="lazy">`
       : `<span class="dd-miss" title="이름이 정확하지 않아요">${esc(nm)}</span>`;
@@ -76,7 +107,7 @@ function ddRunesHTML(str) {
   if (!parts.length) return "";
   if (!DD.ver) return esc(str);
   return parts.map(nm => {
-    const ic = DD.runes[nm];
+    const ic = ddLookup(DD.runes, nm);
     return ic
       ? `<img class="dd-ic rune" src="${DD_CDN}/img/${ic}" alt="${esc(nm)}" title="${esc(nm)}" loading="lazy">`
       : `<span class="dd-miss" title="이름이 정확하지 않아요">${esc(nm)}</span>`;
