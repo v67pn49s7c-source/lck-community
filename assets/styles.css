@@ -612,15 +612,42 @@ table.detail-table tr:last-child td { border-bottom: none; }
 .dt-kda em { font-style: normal; color: var(--accent); }
 .dt-items, .dt-runes { font-size: var(--fs-xs); line-height: 1.5; }
 
-/* ── 팬심 평점 ── */
-.frate-grid { display: grid; grid-template-columns: 1fr 1fr; }
-.frate-grid > div + div { border-left: 1px solid var(--line); }
-.frate-grid .rr-scores { min-width: 0; }
-.frate-grid .rr-btn { flex: 1 1 0; min-width: 0; max-width: 26px; }
+/* ── 팬심 평점 (후푸식 좌우 미러 배치) ── */
+.frate-vs { display: grid; grid-template-columns: 1fr 48px 1fr; }
+.fv-teamhead {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 14px; font-weight: 800; font-size: var(--fs-md);
+  border-bottom: 2px solid var(--team-color, var(--line));
+  background: color-mix(in srgb, var(--team-color, var(--line)) 8%, transparent);
+}
+.fv-teamhead.right { justify-content: flex-end; }
+.fv-vs {
+  display: flex; align-items: center; justify-content: center;
+  font-size: var(--fs-xs); font-weight: 800; color: var(--text-dim);
+  border-bottom: 2px solid var(--line);
+}
+.fv-pos {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; border-bottom: 1px solid var(--line); color: var(--text-dim);
+}
+.fv-pos svg { width: 20px; height: 20px; fill: currentColor; }
+.fv-pos span { font-size: 9px; font-weight: 700; }
+.fv-teamtag { display: none; font-size: 10px; font-weight: 900; margin-right: 2px; }
+.frate-vs .rr-scores { min-width: 0; }
+.frate-vs .rr-btn { flex: 1 1 0; min-width: 0; max-width: 26px; }
+/* 오른쪽 팀: 점수 배지가 가운데(포지션 아이콘)를 향하도록 미러 */
+.fv-cell.right .fr-head { flex-direction: row-reverse; }
+.fv-cell.right .fr-badge { margin-left: 0; margin-right: auto; }
+.fv-cell.right .fr-cuts { justify-content: flex-end; }
+.fv-cell.right .fr-mine { flex-direction: row-reverse; }
 .frate { padding: 9px 14px 11px; border-bottom: 1px solid var(--line); }
 .frate.pog {
   background: linear-gradient(90deg, rgba(245, 185, 66, .08), transparent 70%);
   box-shadow: inset 3px 0 0 #f5b942;
+}
+.fv-cell.right.pog {
+  background: linear-gradient(270deg, rgba(245, 185, 66, .08), transparent 70%);
+  box-shadow: inset -3px 0 0 #f5b942;
 }
 .fr-head { display: flex; align-items: center; gap: 8px; min-height: 26px; }
 .fr-player .pos { font-size: 10px; color: var(--text-dim); margin-right: 4px; }
@@ -818,10 +845,20 @@ table.detail-table tr:last-child td { border-bottom: none; }
   table.board-table .col-views, table.board-table .col-date { display: none; }
 }
 
-/* 좁은 화면: 팬심 평점 한 줄 배치 */
+/* 좁은 화면: 팬심 평점 한 줄 배치 (팀 태그로 소속 구분) */
 @media (max-width: 720px) {
-  .frate-grid { grid-template-columns: 1fr; }
-  .frate-grid > div + div { border-left: none; border-top: 1px solid var(--line); }
+  .frate-vs { grid-template-columns: 1fr; }
+  .fv-teamhead, .fv-vs { display: none; }
+  .fv-teamtag { display: inline; }
+  .fv-pos { flex-direction: row; gap: 6px; padding: 5px 14px; background: var(--bg-soft); justify-content: flex-start; }
+  .fv-pos svg { width: 15px; height: 15px; }
+  .fv-pos span { font-size: 10px; }
+  .fv-cell.right .fr-head { flex-direction: row; }
+  .fv-cell.right .fr-badge { margin-left: auto; margin-right: 0; }
+  .fv-cell.right .fr-cuts { justify-content: flex-start; }
+  .fv-cell.right .fr-mine { flex-direction: row; }
+  .fv-cell.right.pog { background: linear-gradient(90deg, rgba(245, 185, 66, .08), transparent 70%); box-shadow: inset 3px 0 0 #f5b942; }
+  .fv-cell.empty { display: none; }
 }
 
 /* 좁은 화면: 경기 행 압축 (시간 · 팀 · 예측%) */

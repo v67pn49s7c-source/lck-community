@@ -203,53 +203,65 @@
 
       const pog = pogForMatch(match.id);
       const played = playedPidsForMatch(match.id); // 경기 상세 기록이 있으면 출전 선수만
+      const rows = fanRatingRows(match);
+      const tA = TEAM_MAP[match.a], tB = TEAM_MAP[match.b];
       const tierOf = a => a >= 9 ? "t9" : a >= 8 ? "t8" : a >= 7 ? "t7" : a >= 6 ? "t6" : "t5";
 
-      const teamBlock = (teamId, oppId) => {
-        const t = TEAM_MAP[teamId], o = TEAM_MAP[oppId];
-        let players = teamPlayers(teamId);
-        if (played.size) players = players.filter(p => played.has(p.id));
+      // 포지션 아이콘 (자체 제작 SVG)
+      const POS_ICONS = {
+        "탑": `<svg viewBox="0 0 24 24"><path d="M3 3v18l5-5V8h8l5-5H3z"/><rect x="13" y="13" width="7" height="7" opacity=".4"/></svg>`,
+        "정글": `<svg viewBox="0 0 24 24"><path d="M12 2c1.8 3.4 2.7 7.1 2.7 11 0 3.1-.9 6.1-2.7 9-1.8-2.9-2.7-5.9-2.7-9 0-3.9.9-7.6 2.7-11z"/><path d="M5.5 5.5c2.2 1.8 3.7 4.1 4.4 6.9-1.9-.9-3.4-2.3-4.5-4.1-.2-.9-.2-1.9.1-2.8z" opacity=".5"/><path d="M18.5 5.5c.3.9.3 1.9.1 2.8-1.1 1.8-2.6 3.2-4.5 4.1.7-2.8 2.2-5.1 4.4-6.9z" opacity=".5"/></svg>`,
+        "미드": `<svg viewBox="0 0 24 24"><path d="M3 21v-6L15 3h6v6L9 21H3z"/><path d="M3 3h5L3 8V3z" opacity=".4"/><path d="M21 21h-5l5-5v5z" opacity=".4"/></svg>`,
+        "원딜": `<svg viewBox="0 0 24 24"><path d="M21 21V3l-5 5v8H8l-5 5h18z"/><rect x="4" y="4" width="7" height="7" opacity=".4"/></svg>`,
+        "서폿": `<svg viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.4 8.7-8 11-4.6-2.3-8-6-8-11V5l8-3z"/><path d="M12 6v11.7c2.6-1.5 4.5-3.7 4.5-6.7V7.7L12 6z" opacity=".35"/></svg>`,
+      };
+      const posIcon = pos => POS_ICONS[pos] || "";
+
+      // 선수 칸 (dir: left=왼쪽 팀, right=오른쪽 팀 — 점수 배지가 가운데를 향하도록 미러)
+      const cell = (x, team, opp, dir) => {
+        if (!x) return `<div class="frate fv-cell empty ${dir}"></div>`;
+        const { p, s } = x;
+        const my = myRatings[p.id];
+        const isPog = pog && pog.pid === p.id;
+        const respect = s.opp && s.opp.n >= 2 && s.opp.avg >= 8;
+        const gap = (s.home && s.opp) ? Math.round((s.home.avg - s.opp.avg) * 10) / 10 : null;
         return `
-        <div class="detail-team-head" style="--team-color:${t.color}">${teamLogoHTML(t, 20)} <b>${t.abbr}</b></div>
-        ${players.map(p => {
-          const my = myRatings[p.id];
-          const s = fanSplitForPlayer(p.id, match.id, teamId, oppId);
-          const isPog = pog && pog.pid === p.id;
-          const respect = s.opp && s.opp.n >= 2 && s.opp.avg >= 8;
-          const gap = (s.home && s.opp) ? Math.round((s.home.avg - s.opp.avg) * 10) / 10 : null;
-          return `
-          <div class="frate ${isPog ? "pog" : ""}">
-            <div class="fr-head">
-              <a class="fr-player" href="player.html?id=${p.id}"><span class="pos">${esc(p.pos)}</span> <b>${esc(p.nick)}</b></a>
-              ${isPog ? `<span class="fr-pog">👑 팬 선정 POG</span>` : ""}
-              ${respect ? `<span class="fr-respect">상대 팬도 인정</span>` : ""}
-              <span class="fr-badge ${s.all ? tierOf(s.all.avg) : "none"}">${s.all ? s.all.avg.toFixed(1) : "—"}</span>
+        <div class="frate fv-cell ${dir} ${isPog ? "pog" : ""}">
+          <div class="fr-head">
+            <a class="fr-player" href="player.html?id=${p.id}"><span class="fv-teamtag" style="color:${team.color}">${team.abbr}</span> <b>${esc(p.nick)}</b></a>
+            ${isPog ? `<span class="fr-pog">👑 팬 선정 POG</span>` : ""}
+            ${respect ? `<span class="fr-respect">상대 팬도 인정</span>` : ""}
+            <span class="fr-badge ${s.all ? tierOf(s.all.avg) : "none"}">${s.all ? s.all.avg.toFixed(1) : "—"}</span>
+          </div>
+          ${s.all ? `
+          <div class="fr-cuts">
+            <span class="fr-cut"><i style="background:${team.color}"></i>아군 ${s.home ? s.home.avg.toFixed(1) : "—"}</span>
+            <span class="fr-cut"><i style="background:${opp.color}"></i>상대 ${s.opp ? s.opp.avg.toFixed(1) : "—"}</span>
+            <span class="fr-cut"><i></i>중립 ${s.neu ? s.neu.avg.toFixed(1) : "—"}</span>
+            ${gap != null ? `<span class="fr-gap">팬심 온도차 ${gap > 0 ? "+" : ""}${gap.toFixed(1)}</span>` : ""}
+            <span class="fr-gap">${s.all.n}명 참여</span>
+          </div>` : `
+          <div class="fr-cuts"><span class="fr-gap">아직 평가가 없습니다 — 첫 평점을 남겨 보세요</span></div>`}
+          <div class="fr-mine">
+            <div class="rr-scores">
+              ${Array.from({ length: 10 }, (_, i) => i + 1).map(n =>
+                `<button class="rr-btn ${my === n ? "active" : ""} ${my != null && n <= my ? "filled" : ""}"
+                  data-pid="${p.id}" data-score="${n}">${n}</button>`).join("")}
             </div>
-            ${s.all ? `
-            <div class="fr-cuts">
-              <span class="fr-cut"><i style="background:${t.color}"></i>아군 ${s.home ? s.home.avg.toFixed(1) : "—"}</span>
-              <span class="fr-cut"><i style="background:${o.color}"></i>상대 ${s.opp ? s.opp.avg.toFixed(1) : "—"}</span>
-              <span class="fr-cut"><i></i>중립 ${s.neu ? s.neu.avg.toFixed(1) : "—"}</span>
-              ${gap != null ? `<span class="fr-gap">팬심 온도차 ${gap > 0 ? "+" : ""}${gap.toFixed(1)}</span>` : ""}
-              <span class="fr-gap">${s.all.n}명 참여</span>
-            </div>` : `
-            <div class="fr-cuts"><span class="fr-gap">아직 평가가 없습니다 — 첫 평점을 남겨 보세요</span></div>`}
-            <div class="fr-mine">
-              <div class="rr-scores">
-                ${Array.from({ length: 10 }, (_, i) => i + 1).map(n =>
-                  `<button class="rr-btn ${my === n ? "active" : ""} ${my != null && n <= my ? "filled" : ""}"
-                    data-pid="${p.id}" data-score="${n}">${n}</button>`).join("")}
-              </div>
-              <span class="rr-my">${my != null ? my.toFixed(0) + "점" : "-"}</span>
-            </div>
-          </div>`;
-        }).join("")}`;
+            <span class="rr-my">${my != null ? my.toFixed(0) + "점" : "-"}</span>
+          </div>
+        </div>`;
       };
 
       document.getElementById("rating-body").innerHTML =
-        `<div class="frate-grid">
-          <div>${teamBlock(match.a, match.b)}</div>
-          <div>${teamBlock(match.b, match.a)}</div>
+        `<div class="frate-vs">
+          <div class="fv-teamhead" style="--team-color:${tA.color}">${teamLogoHTML(tA, 20)} <b>${tA.abbr}</b></div>
+          <div class="fv-vs">VS</div>
+          <div class="fv-teamhead right" style="--team-color:${tB.color}"><b>${tB.abbr}</b> ${teamLogoHTML(tB, 20)}</div>
+          ${rows.map(r =>
+            cell(r.a, tA, tB, "left") +
+            `<div class="fv-pos">${posIcon(r.pos)}<span>${esc(r.pos)}</span></div>` +
+            cell(r.b, tB, tA, "right")).join("")}
         </div>` +
         `<div class="admin-note">평점은 즉시 저장되며 바로 반영됩니다 (1인 1표, 다시 누르면 수정).
           아군·상대 구분은 로그인 회원의 응원팀 설정 기준이며, 비회원·응원팀 미설정은 중립으로 집계됩니다.${

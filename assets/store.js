@@ -366,6 +366,31 @@ function playedPidsForMatch(matchId) {
   ((det && det.sets) || []).forEach(s => (s.players || []).forEach(p => { if (p.pid) played.add(p.pid); }));
   return played;
 }
+// 팬심 평점 표: 포지션별로 양 팀 선수를 짝지어 행 구성 (좌우 미러 배치용)
+function fanRatingRows(match) {
+  const posOrder = ["탑", "정글", "미드", "원딜", "서폿"];
+  const played = playedPidsForMatch(match.id);
+  const side = (teamId, oppId) => {
+    let ps = teamPlayers(teamId);
+    if (played.size) ps = ps.filter(p => played.has(p.id));
+    return ps.map(p => ({ p, s: fanSplitForPlayer(p.id, match.id, teamId, oppId) }));
+  };
+  const A = side(match.a, match.b), B = side(match.b, match.a);
+  const rows = [], used = new Set();
+  posOrder.forEach(pos => {
+    const as = A.filter(x => x.p.pos === pos), bs = B.filter(x => x.p.pos === pos);
+    for (let i = 0; i < Math.max(as.length, bs.length); i++) {
+      rows.push({ pos, a: as[i] || null, b: bs[i] || null });
+      if (as[i]) used.add(as[i].p.id);
+      if (bs[i]) used.add(bs[i].p.id);
+    }
+  });
+  // 표준 포지션 표기가 아닌 선수 안전망
+  A.filter(x => !used.has(x.p.id)).forEach(x => rows.push({ pos: x.p.pos, a: x, b: null }));
+  B.filter(x => !used.has(x.p.id)).forEach(x => rows.push({ pos: x.p.pos, a: null, b: x }));
+  return rows;
+}
+
 // 경기 POG: 전체 평균 1위 선수 (동률이면 참여자 많은 쪽 · 출전 기록이 있으면 출전 선수만)
 function pogForMatch(matchId) {
   const played = playedPidsForMatch(matchId);
