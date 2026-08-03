@@ -1002,6 +1002,15 @@ table.award-table td a:hover b { color: var(--accent); }
   .match-score { font-size: 12px; }
   /* 예측 비율: 가로 두 알약 고정 폭 — 행 높이·정렬 일정하게 */
   .odds { flex-direction: row; gap: 4px; }
+  /* 게시판 도구줄: 분류 탭과 검색을 각각 한 줄 전체로 (탭이 눌려 세로로 접히던 문제) */
+  .board-toolbar { padding: 10px; gap: 8px; }
+  .board-toolbar .filter-tabs { flex: 1 0 100%; gap: 5px; }
+  .board-toolbar .filter-tabs button { flex: 0 0 auto; padding: 5px 10px; }
+  .board-search { flex: 1 0 100%; }
+  .board-search input { flex: 1; width: auto; min-width: 0; }
+  /* 수상 페이지: 좁은 화면에서는 막대 생략 */
+  .pom-row { grid-template-columns: 26px auto minmax(0, 1fr) 66px; gap: 8px; padding: 8px 10px; }
+  .pom-bar { display: none; }
   .odds-pill { width: 40px; padding: 2px 0; font-size: 10px; justify-content: center; }
   .match-right { min-width: 86px; }
   .chip-pog { font-size: 9px; max-width: 86px; }
