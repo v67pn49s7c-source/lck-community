@@ -324,6 +324,13 @@
           <input class="score sa" type="number" min="0" max="3" value="${m.scoreA ?? ""}" placeholder="0">
           <span class="muted">:</span>
           <input class="score sb" type="number" min="0" max="3" value="${m.scoreB ?? ""}" placeholder="0">
+          ${m.status === "done" && TEAM_MAP[m.a] && TEAM_MAP[m.b]
+            ? `<select class="pom" title="POM (경기 MVP · 100pt)">
+                <option value="">POM 미지정</option>
+                ${[...teamPlayers(m.a), ...teamPlayers(m.b)].map(p =>
+                  `<option value="${p.id}" ${pomForMatch(m.id)?.player_id === p.id ? "selected" : ""}>POM: ${esc(p.nick)}</option>`).join("")}
+              </select>`
+            : ""}
           <button class="btn-secondary save">저장</button>
           ${m.status === "done"
             ? (m.counted
@@ -339,6 +346,8 @@
         row.querySelector(".save").addEventListener("click", () => {
           const status = row.querySelector(".st").value;
           const sa = row.querySelector(".sa").value, sb = row.querySelector(".sb").value;
+          const pomSel = row.querySelector(".pom");
+          if (pomSel) setPOM(mid, pomSel.value || null); // POM 지정/해제 (100pt)
           updateMatch(mid, {
             status,
             a: row.querySelector(".ta").value,

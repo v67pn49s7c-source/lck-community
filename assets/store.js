@@ -24,7 +24,7 @@ function voterId() {
 
 const Cache = {
   tournaments: [], matches: [], records: [], players: [],
-  posts: [], predictions: [], ratings: [], details: {}, settings: {},
+  posts: [], predictions: [], ratings: [], details: {}, settings: {}, pom: [], awards: [],
   polls: [], pollVotes: [], reactions: [], commentLikes: [], founding: [], profiles: [],
 };
 
@@ -58,14 +58,18 @@ async function storeInit() {
   Cache.settings = Object.fromEntries((st.data || []).map(x => [x.key, x.value]));
 
   // 팬심지수 관련 (테이블이 아직 없으면 조용히 빈 값)
-  const [pq, pv, rx, cl, ff, pf] = await Promise.all([
+  const [pq, pv, rx, cl, ff, pf, pm, aw] = await Promise.all([
     sb.from("polls").select("*").order("created_at"),
     sb.from("poll_votes").select("*"),
     sb.from("reactions").select("*"),
     sb.from("comment_likes").select("*"),
     sb.from("founding_fans").select("*").order("no"),
     sb.from("profiles").select("id,nick,fav_team"),
+    sb.from("pom_awards").select("*"),
+    sb.from("awards").select("*").order("ord"),
   ]);
+  Cache.pom = pm.data || [];
+  Cache.awards = aw.data || [];
   Cache.polls = pq.data || [];
   Cache.pollVotes = pv.data || [];
   Cache.reactions = rx.data || [];
@@ -410,6 +414,61 @@ function pogForMatch(matchId) {
       best = { pid, avg: Math.round(avg * 10) / 10, n: by[pid].n };
   });
   return best;
+}
+
+// ── POM (Player of the Match) 포인트 ──
+// LCK 공식 제도: 경기마다 MVP 1명에게 100pt. 우리 사이트의 "팬 선정 POG"와 별개.
+function pomForMatch(matchId) {
+  return Cache.pom.find(x => x.match_id === matchId) || null;
+}
+function pomPointsFor(playerId) {
+  return Cache.pom.filter(x => x.player_id === playerId).reduce((s, x) => s + (x.pts || 0), 0);
+}
+// 누적 순위 (동점은 공동 순위)
+function pomRanking() {
+  const by = {};
+  Cache.pom.forEach(x => { by[x.player_id] = (by[x.player_id] || 0) + (x.pts || 0); });
+  const list = Object.keys(by)
+    .map(pid => ({ pid, player: getPlayer(pid), pts: by[pid] }))
+    .filter(x => x.player)
+    .sort((a, b) => b.pts - a.pts || a.player.nick.localeCompare(b.player.nick));
+  let rank = 0, prev = null;
+  list.forEach((x, i) => { if (x.pts !== prev) { rank = i + 1; prev = x.pts; } x.rank = rank; });
+  return list;
+}
+function setPOM(matchId, playerId) {
+  const cur = pomForMatch(matchId);
+  if (cur) {
+    if (!playerId) {                       // 지정 해제
+      Cache.pom = Cache.pom.filter(x => x !== cur);
+      sb.from("pom_awards").delete().eq("match_id", matchId).then(r => sbErr(r.error, "setPOM.del"));
+      return;
+    }
+    cur.player_id = playerId;
+    sb.from("pom_awards").update({ player_id: playerId }).eq("match_id", matchId)
+      .then(r => sbErr(r.error, "setPOM.upd"));
+    return;
+  }
+  if (!playerId) return;
+  Cache.pom.push({ match_id: matchId, player_id: playerId, pts: 100, label: "" });
+  sb.from("pom_awards").insert({ match_id: matchId, player_id: playerId, pts: 100 })
+    .then(r => sbErr(r.error, "setPOM.ins"));
+}
+
+// ── 시즌 수상 (정규시즌 MVP · ALL-LCK · 감독상 · 신인상 · 세레모니 · 펜타킬) ──
+function awardsByCat(cat) {
+  return Cache.awards.filter(a => a.cat === cat).sort((a, b) => a.ord - b.ord);
+}
+function addAward(a) {
+  Cache.awards.push(a);
+  sb.from("awards").insert(a).select().then(r => {
+    sbErr(r.error, "addAward");
+    if (r.data && r.data[0]) Object.assign(a, r.data[0]);
+  });
+}
+function deleteAward(id) {
+  Cache.awards = Cache.awards.filter(a => a.id !== id);
+  sb.from("awards").delete().eq("id", id).then(r => sbErr(r.error, "deleteAward"));
 }
 
 // 선수의 경기별 평점 목록 (최신 경기 순)

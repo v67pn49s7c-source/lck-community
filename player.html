@@ -70,6 +70,10 @@
           <div class="team-hero-info">
             <h1><span style="color:${team.color}">${esc(player.nick)}</span> ${esc(player.name)}</h1>
             <p class="desc">${team.name} · ${esc(player.pos)} · ${teamRecordSummary()}</p>
+            ${pomPointsFor(player.id) ? `<p class="desc" style="margin-top:4px">
+              <b style="color:var(--blue)">POM ${pomPointsFor(player.id).toLocaleString()}pt</b>
+              <span style="color:var(--text-dim)">· 경기 MVP ${pomPointsFor(player.id) / 100}회 · 시즌 ${pomRanking().find(x => x.pid === player.id)?.rank || "-"}위</span>
+            </p>` : ""}
           </div>
         </div>`;
 

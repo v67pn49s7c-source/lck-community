@@ -90,7 +90,8 @@ function applyTheme(theme) {
 // ── 헤더 / 푸터 ──
 const NAV_MENUS = [
   ["홈", "index.html"], ["경기", "matches.html"], ["순위", "standings.html"], ["승부예측", "predict.html"],
-  ["라이브", "live.html"], ["커뮤니티", "community.html"], ["팀", "teams.html"], ["선수", "players.html"], ["랭킹", "ranking.html"],
+  ["라이브", "live.html"], ["커뮤니티", "community.html"], ["팀", "teams.html"], ["선수", "players.html"],
+  ["수상", "awards.html"], ["랭킹", "ranking.html"],
 ];
 
 function renderHeader(activeMenu, activeTeamId) {
@@ -299,11 +300,14 @@ function scheduleHTML(matches, opts) {
         : done ? `<span class="match-status done">경기 종료</span>`
         : `<span class="match-status upcoming">예정</span>`;
       const pct = communityPct(m);
-      // 종료 경기: 팬 선정 POG (평점 1위) 표시
+      // 종료 경기: 공식 POM(경기 MVP) + 팬 선정 POG(평점 1위)
+      const pom = done ? pomForMatch(m.id) : null;
+      const pomPl = pom ? getPlayer(pom.player_id) : null;
       const pog = done ? pogForMatch(m.id) : null;
       const pogPl = pog ? getPlayer(pog.pid) : null;
       const right = done
-        ? `${pogPl ? `<span class="chip-pog" title="팬 선정 POG · ${pog.n}명 평가">👑 ${esc(pogPl.nick)} <b>${pog.avg.toFixed(1)}</b></span>` : ""}
+        ? `${pomPl ? `<span class="chip-pom" title="LCK 공식 POM · ${pom.pts}pt">POM ${esc(pomPl.nick)}</span>` : ""}
+           ${pogPl ? `<span class="chip-pog" title="팬 선정 POG · ${pog.n}명 평가">👑 ${esc(pogPl.nick)} <b>${pog.avg.toFixed(1)}</b></span>` : ""}
            ${opts.showStage ? `<span class="chip-stage">${esc(shortStage(m.stage))}</span>` : ""}`
         : `<div class="odds" title="승부예측 비율${pct.n ? ` · ${pct.n}명 참여` : " (예상)"}">
             <span class="odds-pill"><b>${Math.round(pct.a)}%</b></span>

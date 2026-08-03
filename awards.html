@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>수상 — The Nexus</title>
+  <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
+  <meta property="og:title" content="The Nexus — LCK 팬 커뮤니티">
+  <meta property="og:description" content="POM 포인트 순위 · 시즌 수상 · 베스트 세레모니 · 펜타킬 기록">
+  <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/nexus-mobile.png">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <main class="page">
+    <div class="container layout">
+      <div class="stack">
+        <div class="page-head">
+          <h1 class="page-title">수상 <span class="sub">2026 시즌 · POM 포인트와 공식 수상 기록</span></h1>
+        </div>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">POM 포인트 <span class="sub">경기 MVP · 1회 100pt</span></h2>
+            <span class="card-more" id="pom-sum"></span>
+          </div>
+          <div class="filter-tabs" id="pom-pos-tabs" style="padding:10px 14px 0"></div>
+          <div id="pom-body"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">시즌 수상 <span class="sub">정규시즌 MVP · ALL-LCK · 감독상 · 신인상</span></h2>
+          </div>
+          <div id="season-awards"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">베스트 세레모니 <span class="sub">주차별</span></h2>
+          </div>
+          <div id="ceremony-body"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">질레트 펜타킬 <span class="sub">시즌 펜타킬 기록</span></h2>
+          </div>
+          <div id="pentakill-body"></div>
+        </section>
+      </div>
+
+      <aside class="stack">
+        <section class="card">
+          <div class="card-head"><h2 class="card-title">POM TOP 5</h2></div>
+          <div id="pom-top"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head"><h2 class="card-title">LCK 순위</h2></div>
+          <div id="standings-body"></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <script src="assets/data.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+  <script src="assets/store.js"></script>
+  <script src="assets/app.js"></script>
+  <script src="assets/player-photos.js"></script>
+  <script src="assets/ddragon.js"></script>
+  <script>
+  storeReady.then(async () => {
+    renderHeader("수상", null);
+
+    const POSITIONS = ["전체", "탑", "정글", "미드", "원딜", "서폿"];
+    let posFilter = "전체";
+
+    // ── POM 포인트 순위 ──
+    function renderPOM() {
+      const all = pomRanking();
+      document.getElementById("pom-sum").textContent =
+        all.length ? `${all.length}명 · 총 ${all.reduce((s, x) => s + x.pts, 0).toLocaleString()}pt` : "";
+
+      document.getElementById("pom-pos-tabs").innerHTML = POSITIONS.map(p =>
+        `<button data-pos="${p}" class="${p === posFilter ? "active" : ""}">${p}</button>`).join("");
+      document.querySelectorAll("#pom-pos-tabs button").forEach(b =>
+        b.addEventListener("click", () => { posFilter = b.dataset.pos; renderPOM(); }));
+
+      const list = posFilter === "전체" ? all : all.filter(x => x.player.pos === posFilter);
+      const max = all.length ? all[0].pts : 0;
+
+      document.getElementById("pom-body").innerHTML = list.length ? list.map(x => {
+        const t = TEAM_MAP[x.player.team];
+        const medal = x.rank === 1 ? "gold" : x.rank === 2 ? "silver" : x.rank === 3 ? "bronze" : "";
+        return `
+        <a class="pom-row ${medal}" href="player.html?id=${x.pid}">
+          <span class="pom-rank ${medal}">${x.rank}</span>
+          ${playerAvatarHTML(x.player, t ? t.color : "var(--accent)", false)}
+          <span class="pom-who">
+            <b>${esc(x.player.nick)}</b>
+            <span class="pom-sub">${t ? teamLogoHTML(t, 14) : ""} ${esc(t ? t.abbr : "")} · ${esc(x.player.pos)}</span>
+          </span>
+          <span class="pom-bar"><i style="width:${max ? (x.pts / max) * 100 : 0}%"></i></span>
+          <span class="pom-pts">${x.pts.toLocaleString()}<em>pt</em></span>
+        </a>`;
+      }).join("") : `<div class="empty-note">아직 POM 기록이 없습니다. 관리자 → 경기 관리에서 경기별 POM을 지정하세요.</div>`;
+
+      // 사이드 TOP 5
+      document.getElementById("pom-top").innerHTML = all.slice(0, 5).map(x => {
+        const t = TEAM_MAP[x.player.team];
+        return `
+        <a class="rank-row" href="player.html?id=${x.pid}">
+          <span class="no ${x.rank <= 3 ? "top" : ""}">${x.rank}</span>
+          <span class="post-title">${esc(x.player.nick)} <span style="color:var(--text-dim);font-weight:400">${esc(t ? t.abbr : "")}</span></span>
+          <span class="post-meta">${x.pts.toLocaleString()}pt</span>
+        </a>`;
+      }).join("") || `<div class="empty-note">기록 없음</div>`;
+    }
+
+    // ── 시즌 수상 (수상자 없으면 "공석") ──
+    function awardCard(cat, title, desc) {
+      const list = awardsByCat(cat);
+      const body = list.length ? list.map(a => {
+        const p = a.player_id ? getPlayer(a.player_id) : null;
+        const t = TEAM_MAP[a.team] || (p ? TEAM_MAP[p.team] : null);
+        return `
+        <div class="aw-winner">
+          ${p ? playerAvatarHTML(p, t ? t.color : "var(--accent)", false)
+              : `<span class="player-avatar" style="--team-color:${t ? t.color : "var(--accent)"}">${esc((a.person || "?").slice(0, 1))}</span>`}
+          <span class="aw-who">
+            <b>${esc(a.nick || a.person)}</b>
+            <span class="pom-sub">${esc(a.person && a.nick ? a.person : "")}${t ? " · " + esc(t.abbr) : ""}${a.note ? " · " + esc(a.note) : ""}</span>
+          </span>
+        </div>`;
+      }).join("") : `<div class="aw-vacant">공석 <span>— 정규시즌 종료 후 발표</span></div>`;
+      return `
+      <div class="aw-block">
+        <div class="aw-head"><b>${title}</b><span>${desc}</span></div>
+        ${body}
+      </div>`;
+    }
+
+    function renderSeasonAwards() {
+      document.getElementById("season-awards").innerHTML =
+        awardCard("season_mvp", "정규시즌 MVP", "2026 정규시즌") +
+        awardCard("all_lck", "ALL-LCK Team", "포지션별 최고 선수") +
+        awardCard("head_coach", "Head Coach of the Year", "올해의 감독") +
+        awardCard("rookie", "Rookie of the Year", "올해의 신인");
+    }
+
+    // ── 베스트 세레모니 (주차별) ──
+    function renderCeremony() {
+      const list = awardsByCat("ceremony");
+      const byWeek = {};
+      list.forEach(a => (byWeek[a.ord] = byWeek[a.ord] || []).push(a));
+      const weeks = Object.keys(byWeek).sort((a, b) => a - b);
+      document.getElementById("ceremony-body").innerHTML = weeks.length ? `
+        <table class="award-table">
+          <thead><tr><th style="width:56px">주차</th><th>수상자</th><th style="width:90px">소속</th><th style="width:70px">포지션</th></tr></thead>
+          <tbody>
+            ${weeks.map(wk => byWeek[wk].map((a, i) => {
+              const p = a.player_id ? getPlayer(a.player_id) : null;
+              const t = TEAM_MAP[a.team];
+              return `<tr>
+                ${i === 0 ? `<td rowspan="${byWeek[wk].length}" class="aw-week">${wk}주</td>` : ""}
+                <td>${p ? `<a href="player.html?id=${p.id}"><b>${esc(a.nick || a.person)}</b></a>` : `<b>${esc(a.nick || a.person)}</b>`}
+                  <span class="pom-sub" style="margin-left:6px">${esc(a.person && a.nick ? a.person : "")}</span></td>
+                <td>${t ? `${teamLogoHTML(t, 16)} ${esc(t.abbr)}` : `<span style="color:var(--text-dim);font-size:11px">${esc(a.note)}</span>`}</td>
+                <td>${esc(p ? p.pos : "")}</td>
+              </tr>`;
+            }).join("")).join("")}
+          </tbody>
+        </table>` : `<div class="empty-note">아직 등록된 세레모니 수상이 없습니다</div>`;
+    }
+
+    // ── 질레트 펜타킬 ──
+    function renderPentakill() {
+      const list = awardsByCat("pentakill");
+      document.getElementById("pentakill-body").innerHTML = list.length ? `
+        <table class="award-table">
+          <thead><tr><th style="width:44px">#</th><th>선수</th><th style="width:120px">챔피언</th><th style="width:90px">상대</th><th style="width:100px">기록일</th><th>경기</th></tr></thead>
+          <tbody>
+            ${list.map(a => {
+              const p = a.player_id ? getPlayer(a.player_id) : null;
+              const t = TEAM_MAP[a.team];
+              return `<tr>
+                <td class="aw-week">${a.ord}</td>
+                <td>${p ? `<a href="player.html?id=${p.id}"><b>${esc(a.nick || a.person)}</b></a>` : `<b>${esc(a.nick || a.person)}</b>`}
+                  <span class="pom-sub" style="margin-left:6px">${t ? teamLogoHTML(t, 14) + " " + esc(t.abbr) : ""}</span></td>
+                <td>${a.champ ? ddChampHTML(a.champ) : `<span style="color:var(--text-dim);font-size:11px">미등록</span>`}</td>
+                <td>${TEAM_MAP[a.opp_team] ? teamLogoHTML(TEAM_MAP[a.opp_team], 16) + " " + esc(TEAM_MAP[a.opp_team].abbr) : "-"}</td>
+                <td style="font-variant-numeric:tabular-nums">${esc(a.at_date)}</td>
+                <td style="color:var(--text-sub)">${esc(a.note)}</td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>` : `<div class="empty-note">아직 등록된 펜타킬 기록이 없습니다</div>`;
+    }
+
+    renderPOM();
+    renderSeasonAwards();
+    renderCeremony();
+    renderPentakill();
+    setupSidebarStandings();
+    renderFooter();
+    ddInit().then(ok => { if (ok) renderPentakill(); }); // 챔피언 아이콘 로드 후 다시 그림
+  });
+  </script>
+</body>
+</html>

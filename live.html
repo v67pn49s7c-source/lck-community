@@ -187,6 +187,7 @@
         ratedCount ? `내 평가 ${ratedCount}명 완료` : "아직 평가하지 않음";
 
       const pog = pogForMatch(match.id);
+      const pom = pomForMatch(match.id); // LCK 공식 경기 MVP
       const played = playedPidsForMatch(match.id); // 경기 상세 기록이 있으면 출전 선수만
       const rows = fanRatingRows(match);
       const tA = TEAM_MAP[match.a], tB = TEAM_MAP[match.b];
@@ -214,6 +215,7 @@
         <div class="frate fv-cell ${dir} ${isPog ? "pog" : ""}">
           <div class="fr-head">
             <a class="fr-player" href="player.html?id=${p.id}"><span class="fv-teamtag" style="color:${team.color}">${team.abbr}</span> <b>${esc(p.nick)}</b></a>
+            ${pom && pom.player_id === p.id ? `<span class="chip-pom" title="LCK 공식 경기 MVP · ${pom.pts}pt">POM<em> +${pom.pts}pt</em></span>` : ""}
             ${isPog ? `<span class="fr-pog">👑<em> 팬 선정 POG</em></span>` : ""}
             ${respect ? `<span class="fr-respect">상대 팬도 인정</span>` : ""}
             <span class="fr-badge ${s.all ? tierOf(s.all.avg) : "none"}">${s.all ? s.all.avg.toFixed(1) : "—"}</span>
