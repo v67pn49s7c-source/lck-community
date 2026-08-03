@@ -271,7 +271,7 @@ async function initWritePage() {
     BOARD_CATS.filter(c => c !== "전체" && c !== "공지").map(c => `<option>${c}</option>`).join("");
   document.getElementById("write-nick").value = getNick();
 
-  form.addEventListener("submit", e => {
+  form.addEventListener("submit", async e => {
     e.preventDefault();
     const nick = document.getElementById("write-nick").value.trim();
     const team = document.getElementById("write-team").value || null;
@@ -280,7 +280,24 @@ async function initWritePage() {
     const body = document.getElementById("write-body").value.trim();
     if (!nick || !title || !body) return;
     setNick(nick);
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "등록 중..."; }
+    const fail = msg => {
+      alert(msg);
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "등록"; }
+    };
+
     const pid = addPost({ team, cat, title, body, nick, match_id: matchId });
+    // 저장이 끝난 뒤에만 이동 (이동하면 진행 중인 요청이 끊기는 문제 방지)
+    const { error } = await addPost.lastSave;
+    if (error) {
+      deletePost(pid); // 캐시 원복
+      fail(error.message.includes("row-level security")
+        ? "이 게시판에 글을 쓸 권한이 없습니다. 응원팀 팬 회원만 작성할 수 있어요."
+        : "글 등록에 실패했습니다: " + error.message);
+      return;
+    }
     // 투표 첨부 (회원)
     if (Auth.session && document.getElementById("poll-attach")?.checked) {
       const options = document.getElementById("poll-options").value
@@ -293,6 +310,8 @@ async function initWritePage() {
           multi: document.getElementById("poll-multi").checked,
           closes_at: closes ? closes + ":00+09:00" : null,
         });
+        const pr = await createPoll.lastSave;
+        if (pr.error) alert("글은 등록됐지만 투표 생성에 실패했습니다: " + pr.error.message);
       } else if (options.length) {
         alert("투표 보기는 2개 이상이어야 해서 투표 없이 글만 등록했습니다.");
       }

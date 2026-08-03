@@ -233,10 +233,11 @@ function addPost(p) {
   p.id = "p" + Date.now();
   p.ts = Date.now(); p.views = 0; p.up = 0; p.comments = [];
   Cache.posts.unshift(p);
-  sb.from("posts").insert({
+  // 저장 완료를 기다려야 하는 호출자를 위해 프로미스를 노출
+  addPost.lastSave = sb.from("posts").insert({
     id: p.id, team: p.team, cat: p.cat, title: p.title, body: p.body, nick: p.nick,
     author_team: p.author_team, match_id: p.match_id || null,
-  }).then(r => sbErr(r.error, "addPost"));
+  }).then(r => { sbErr(r.error, "addPost"); return r; });
   return p.id;
 }
 function postsForMatch(matchId) {
@@ -430,10 +431,10 @@ function pollOpen(poll) { return !poll.closes_at || new Date(poll.closes_at) > n
 function createPoll(p) {
   p.id = p.id || "poll" + Date.now() + Math.random().toString(36).slice(2, 6);
   Cache.polls.push(p);
-  sb.from("polls").insert({
+  createPoll.lastSave = sb.from("polls").insert({
     id: p.id, match_id: p.match_id || null, phase: p.phase || null, post_id: p.post_id || null,
     question: p.question, options: p.options, multi: !!p.multi, closes_at: p.closes_at || null,
-  }).then(r => sbErr(r.error, "createPoll"));
+  }).then(r => { sbErr(r.error, "createPoll"); return r; });
   return p.id;
 }
 
