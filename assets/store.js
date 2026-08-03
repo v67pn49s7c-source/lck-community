@@ -359,10 +359,19 @@ function fanSplitForPlayer(playerId, matchId, ownTeam, oppTeam) {
     : null;
   return { all: stat(g.all), home: stat(g.home), opp: stat(g.opp), neu: stat(g.neu) };
 }
-// 경기 POG: 전체 평균 1위 선수 (동률이면 참여자 많은 쪽)
+// 경기에 실제 출전한 선수 id 집합 (경기 상세 기록 기준 · 기록 없으면 빈 집합)
+function playedPidsForMatch(matchId) {
+  const det = Cache.details[matchId];
+  const played = new Set();
+  ((det && det.sets) || []).forEach(s => (s.players || []).forEach(p => { if (p.pid) played.add(p.pid); }));
+  return played;
+}
+// 경기 POG: 전체 평균 1위 선수 (동률이면 참여자 많은 쪽 · 출전 기록이 있으면 출전 선수만)
 function pogForMatch(matchId) {
+  const played = playedPidsForMatch(matchId);
   const by = {};
   Cache.ratings.filter(r => r.match_id === matchId).forEach(r => {
+    if (played.size && !played.has(r.player_id)) return;
     const s = by[r.player_id] = by[r.player_id] || { sum: 0, n: 0 };
     s.sum += r.score; s.n++;
   });

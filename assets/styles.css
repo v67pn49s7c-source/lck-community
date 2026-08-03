@@ -613,6 +613,10 @@ table.detail-table tr:last-child td { border-bottom: none; }
 .dt-items, .dt-runes { font-size: var(--fs-xs); line-height: 1.5; }
 
 /* ── 팬심 평점 ── */
+.frate-grid { display: grid; grid-template-columns: 1fr 1fr; }
+.frate-grid > div + div { border-left: 1px solid var(--line); }
+.frate-grid .rr-scores { min-width: 0; }
+.frate-grid .rr-btn { flex: 1 1 0; min-width: 0; max-width: 26px; }
 .frate { padding: 9px 14px 11px; border-bottom: 1px solid var(--line); }
 .frate.pog {
   background: linear-gradient(90deg, rgba(245, 185, 66, .08), transparent 70%);
@@ -812,6 +816,12 @@ table.detail-table tr:last-child td { border-bottom: none; }
   .stat-cards { grid-template-columns: repeat(2, 1fr); }
   .predict-match { grid-template-columns: 1fr; }
   table.board-table .col-views, table.board-table .col-date { display: none; }
+}
+
+/* 좁은 화면: 팬심 평점 한 줄 배치 */
+@media (max-width: 720px) {
+  .frate-grid { grid-template-columns: 1fr; }
+  .frate-grid > div + div { border-left: none; border-top: 1px solid var(--line); }
 }
 
 /* 좁은 화면: 경기 행 압축 (시간 · 팀 · 예측%) */

@@ -52,7 +52,10 @@
         <section class="card" id="rating-card" style="display:none">
           <div class="card-head">
             <h2 class="card-title">팬심 평점 <span class="sub">아군·상대·중립 팬이 나눠 매기는 10점 평점</span></h2>
-            <span class="card-more" id="rating-status"></span>
+            <span style="display:flex;align-items:center;gap:12px">
+              <span class="card-more" id="rating-status"></span>
+              <button class="card-more" id="rating-share" style="font-weight:700">📷 결과 카드 저장</button>
+            </span>
           </div>
           <div id="rating-body"></div>
         </section>
@@ -199,11 +202,13 @@
         ratedCount ? `내 평가 ${ratedCount}명 완료` : "아직 평가하지 않음";
 
       const pog = pogForMatch(match.id);
+      const played = playedPidsForMatch(match.id); // 경기 상세 기록이 있으면 출전 선수만
       const tierOf = a => a >= 9 ? "t9" : a >= 8 ? "t8" : a >= 7 ? "t7" : a >= 6 ? "t6" : "t5";
 
       const teamBlock = (teamId, oppId) => {
         const t = TEAM_MAP[teamId], o = TEAM_MAP[oppId];
-        const players = teamPlayers(teamId);
+        let players = teamPlayers(teamId);
+        if (played.size) players = players.filter(p => played.has(p.id));
         return `
         <div class="detail-team-head" style="--team-color:${t.color}">${teamLogoHTML(t, 20)} <b>${t.abbr}</b></div>
         ${players.map(p => {
@@ -242,15 +247,22 @@
       };
 
       document.getElementById("rating-body").innerHTML =
-        teamBlock(match.a, match.b) + teamBlock(match.b, match.a) +
+        `<div class="frate-grid">
+          <div>${teamBlock(match.a, match.b)}</div>
+          <div>${teamBlock(match.b, match.a)}</div>
+        </div>` +
         `<div class="admin-note">평점은 즉시 저장되며 바로 반영됩니다 (1인 1표, 다시 누르면 수정).
-          아군·상대 구분은 로그인 회원의 응원팀 설정 기준이며, 비회원·응원팀 미설정은 중립으로 집계됩니다.</div>`;
+          아군·상대 구분은 로그인 회원의 응원팀 설정 기준이며, 비회원·응원팀 미설정은 중립으로 집계됩니다.${
+          played.size ? " 경기 상세에 기록된 출전 선수만 표시됩니다." : ""}</div>`;
 
       document.querySelectorAll(".rr-btn").forEach(b => b.addEventListener("click", () => {
         setRating(match.id, b.dataset.pid, Number(b.dataset.score));
         renderRatingPanel();
       }));
     }
+    document.getElementById("rating-share").addEventListener("click", () => {
+      if (match) shareRatingCard(match);
+    });
 
     // 사이드: 다가오는 경기 목록
     function renderUpcoming() {
