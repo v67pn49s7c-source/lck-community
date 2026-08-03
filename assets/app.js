@@ -306,8 +306,8 @@ function scheduleHTML(matches, opts) {
         ? `${pogPl ? `<span class="chip-pog" title="팬 선정 POG · ${pog.n}명 평가">👑 ${esc(pogPl.nick)} <b>${pog.avg.toFixed(1)}</b></span>` : ""}
            ${opts.showStage ? `<span class="chip-stage">${esc(shortStage(m.stage))}</span>` : ""}`
         : `<div class="odds" title="승부예측 비율${pct.n ? ` · ${pct.n}명 참여` : " (예상)"}">
-            <span class="odds-pill"><b>${pct.a}%</b></span>
-            <span class="odds-pill"><b>${pct.b}%</b></span>
+            <span class="odds-pill"><b>${Math.round(pct.a)}%</b></span>
+            <span class="odds-pill"><b>${Math.round(pct.b)}%</b></span>
           </div>`;
       return `
       <a class="match-row" href="live.html?match=${m.id}">
@@ -624,6 +624,7 @@ function renderHotPosts() {
       ${t ? `<span class="tag-team" style="--tag-color:${t.color}">${teamLogoHTML(t, 16)} ${t.abbr}</span>`
           : `<span class="tag-team no-logo">전체</span>`}
       <span class="tag-cat">${esc(p.cat)}</span>
+      ${getPollByPost(p.id) ? `<span title="투표가 있는 글">🗳️</span>` : ""}
       <span class="post-title">${esc(p.title)}</span>
       <span class="post-meta"><span class="up">▲ ${p.up}</span><span class="cmt">💬 ${p.comments.length}</span><span>${fmtAgo(p.ts)}</span></span>
     </a>`;

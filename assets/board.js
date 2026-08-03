@@ -43,6 +43,7 @@ function renderBoardList(el, state) {
       <td class="col-title">
         <a href="post.html?id=${p.id}">
           ${!state.teamId && t ? teamLogoHTML(t, 16) : ""}
+          ${getPollByPost(p.id) ? `<span class="poll-ic" title="투표가 있는 글">🗳️</span>` : ""}
           <span class="title-text">${esc(p.title)}</span>
           ${p.comments.length ? `<span class="cmt-count">[${p.comments.length}]</span>` : ""}
         </a>
@@ -182,8 +183,8 @@ async function initPostPage() {
           <span>추천 ${cur.up}</span>
         </div>
       </div>
-      ${poll ? `<div class="poll-box" id="post-poll" style="border-bottom:1px solid var(--line)"></div>` : ""}
       <div class="post-content">${esc(cur.body)}</div>
+      ${poll ? `<div class="poll-box" id="post-poll" style="border-top:1px solid var(--line)"></div>` : ""}
       <div class="post-actions" style="flex-wrap:wrap">
         ${REACTION_KINDS.map(k => `
           <button class="btn-secondary rx-btn ${myRx.has(k.kind) ? "on" : ""}" data-kind="${k.kind}"

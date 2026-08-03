@@ -24,7 +24,7 @@ function voterId() {
 
 const Cache = {
   tournaments: [], matches: [], records: [], players: [],
-  posts: [], predictions: [], ratings: [], details: {}, chat: {}, settings: {},
+  posts: [], predictions: [], ratings: [], details: {}, settings: {},
   polls: [], pollVotes: [], reactions: [], commentLikes: [], founding: [], profiles: [],
 };
 
@@ -435,33 +435,6 @@ function canPostToTeam(teamId) {
   if (!teamId) return true; // 전체 게시판은 누구나
   if (Auth.profile?.is_admin) return true;
   return Auth.profile?.fav_team === teamId;
-}
-
-// ── 응원 한마디 (선수 페이지 · 실시간) ──
-async function loadChat(room) {
-  const { data, error } = await sb.from("chat_messages")
-    .select("*").eq("room", room).order("created_at", { ascending: false }).limit(100);
-  sbErr(error, "loadChat");
-  Cache.chat[room] = (data || []).reverse().map(c => ({ nick: c.nick, body: c.body, author_team: c.author_team || null, ts: Date.parse(c.created_at) }));
-}
-function getChat(room) { return Cache.chat[room] || []; }
-function addChat(room, nick, body) {
-  if (Auth.profile) nick = Auth.profile.nick;
-  const author_team = Auth.profile?.fav_team || null;
-  (Cache.chat[room] = Cache.chat[room] || []).push({ nick, body, author_team, ts: Date.now(), mine: true });
-  sb.from("chat_messages").insert({ room, nick, body, author_team }).then(r => sbErr(r.error, "addChat"));
-}
-function subscribeChat(room, onMessage) {
-  sb.channel("chat-" + room)
-    .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages", filter: "room=eq." + room }, payload => {
-      const c = payload.new;
-      const list = Cache.chat[room] = Cache.chat[room] || [];
-      // 내가 방금 보낸 메시지의 중복 수신 방지
-      const dup = list.some(x => x.mine && x.nick === c.nick && x.body === c.body && Math.abs(x.ts - Date.parse(c.created_at)) < 15000);
-      if (!dup) list.push({ nick: c.nick, body: c.body, author_team: c.author_team || null, ts: Date.parse(c.created_at) });
-      onMessage();
-    })
-    .subscribe();
 }
 
 // ── 경기 상세 ──

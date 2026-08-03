@@ -183,7 +183,7 @@
         <div class="admin-note" style="border-top:none">
           모든 데이터는 <b>Supabase 서버(서울)</b>에 저장되어 모든 방문자에게 공유됩니다.
           운영 데이터(대회·경기·전적·선수·상세)는 관리자 로그인 상태에서만 수정할 수 있고,
-          글·댓글·응원 한마디·예측·평점은 방문자 누구나 참여할 수 있습니다.<br>
+          글·댓글·예측·평점은 방문자 누구나 참여할 수 있습니다.<br>
           데이터 백업·복구·계정 관리는 Supabase 대시보드(supabase.com)에서 할 수 있습니다.
         </div>
       </section>
@@ -549,6 +549,7 @@
               <span style="width:110px; display:flex; align-items:center; gap:5px; font-weight:700">
                 ${teamLogoHTML(t, 16)} ${esc(p.nick)}</span>
               <input class="dc" placeholder="챔피언" value="${esc(row.champ || "")}" style="width:90px">
+              <input class="dsp" placeholder="스펠 (예: 점멸,점화)" value="${esc(row.spell || "")}" style="width:110px">
               <input class="score dk2" type="number" min="0" placeholder="K" value="${row.k ?? ""}">
               <input class="score dd" type="number" min="0" placeholder="D" value="${row.d ?? ""}">
               <input class="score da" type="number" min="0" placeholder="A" value="${row.a ?? ""}">
@@ -568,6 +569,7 @@
         const players = [...document.querySelectorAll(".dt-row")].map(row => ({
           pid: row.dataset.pid,
           champ: row.querySelector(".dc").value.trim(),
+          spell: row.querySelector(".dsp").value.trim(),
           k: +row.querySelector(".dk2").value || 0,
           d: +row.querySelector(".dd").value || 0,
           a: +row.querySelector(".da").value || 0,

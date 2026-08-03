@@ -611,6 +611,13 @@ table.detail-table tr:last-child td { border-bottom: none; }
 .dt-kda b { color: var(--text); }
 .dt-kda em { font-style: normal; color: var(--accent); }
 .dt-items, .dt-runes { font-size: var(--fs-xs); line-height: 1.5; }
+/* Data Dragon 인게임 아이콘 (챔피언·스펠·아이템·룬) */
+.dd-ic { width: 22px; height: 22px; vertical-align: middle; border: 1px solid var(--line); background: #000; margin: 1px 2px 1px 0; }
+.dd-ic.rune { border-radius: 50%; background: var(--bg-soft); }
+.dd-ic.champ { width: 24px; height: 24px; }
+.dd-nm { vertical-align: middle; }
+.dd-miss { font-size: var(--fs-xs); color: var(--text-dim); margin-right: 4px; }
+.poll-ic { flex-shrink: 0; font-size: 12px; }
 
 /* ── 팬심 평점 (후푸식 좌우 미러 배치) ── */
 .frate-vs { display: grid; grid-template-columns: 1fr 48px 1fr; }
@@ -680,6 +687,7 @@ table.detail-table tr:last-child td { border-bottom: none; }
   font-variant-numeric: tabular-nums;
 }
 .fr-cut { display: inline-flex; align-items: center; font-weight: 700; }
+.fr-cut em, .fr-pog em { font-style: normal; }
 .fr-cut i { width: 7px; height: 7px; margin-right: 5px; background: var(--text-dim); flex-shrink: 0; }
 .fr-gap { color: var(--text-dim); }
 .fr-mine { display: flex; align-items: center; gap: 8px; margin-top: 7px; flex-wrap: wrap; }
@@ -841,24 +849,36 @@ table.detail-table tr:last-child td { border-bottom: none; }
   .user-chip { max-width: 72px; }
   .team-grid { grid-template-columns: repeat(2, 1fr); }
   .stat-cards { grid-template-columns: repeat(2, 1fr); }
-  .predict-match { grid-template-columns: 1fr; }
+  /* 승부예측: 모바일에서도 좌우 배치 유지 */
+  .predict-match { grid-template-columns: 1fr auto 1fr; gap: 6px; padding: 10px 8px; }
+  .predict-match .pm-info { font-size: 10px; line-height: 1.5; }
+  .pm-btn { padding: 6px 7px; font-size: 12px; gap: 5px; }
   table.board-table .col-views, table.board-table .col-date { display: none; }
+  /* 팀 게시판 메뉴: 슬라이드 대신 5개씩 2줄 그리드 (전 팀 노출) */
+  .team-strip-inner { display: grid; grid-template-columns: repeat(5, 1fr); overflow: visible; }
+  .team-link { min-width: 0; padding: 7px 2px 5px; }
+  .team-link .team-abbr { font-size: 10px; }
 }
 
-/* 좁은 화면: 팬심 평점 한 줄 배치 (팀 태그로 소속 구분) */
+/* 좁은 화면: 팬심 평점 좌우 배치 유지 + 내용 간략화 (라벨 숨기고 점·숫자만) */
 @media (max-width: 720px) {
-  .frate-vs { grid-template-columns: 1fr; }
-  .fv-teamhead, .fv-vs { display: none; }
-  .fv-teamtag { display: inline; }
-  .fv-pos { flex-direction: row; gap: 6px; padding: 5px 14px; background: var(--bg-soft); justify-content: flex-start; }
-  .fv-pos svg { width: 15px; height: 15px; }
-  .fv-pos span { font-size: 10px; }
-  .fv-cell.right .fr-head { flex-direction: row; }
-  .fv-cell.right .fr-badge { margin-left: auto; margin-right: 0; }
-  .fv-cell.right .fr-cuts { justify-content: flex-start; }
-  .fv-cell.right .fr-mine { flex-direction: row; }
-  .fv-cell.right.pog { background: linear-gradient(90deg, rgba(245, 185, 66, .08), transparent 70%); box-shadow: inset 3px 0 0 #f5b942; }
-  .fv-cell.empty { display: none; }
+  .frate-vs { grid-template-columns: 1fr 32px 1fr; }
+  .fv-teamhead { padding: 7px 8px; font-size: 12px; gap: 5px; }
+  .frate { padding: 7px 8px 9px; }
+  .fv-pos svg { width: 16px; height: 16px; }
+  .fv-pos span { display: none; }
+  .fr-head { gap: 5px; min-height: 22px; }
+  .fr-player b { font-size: 12px; }
+  .fr-badge { min-width: 34px; font-size: 12px; padding: 2px 6px; }
+  .fr-pog { padding: 2px 5px; }
+  .fr-pog em { display: none; }
+  .fr-respect { display: none; }
+  .fr-cuts { gap: 7px; font-size: 9px; margin-top: 4px; }
+  .fr-cut em { display: none; }
+  .fr-gap { display: none; }
+  .fr-mine { gap: 4px; margin-top: 5px; }
+  .frate-vs .rr-btn { height: 20px; font-size: 9px; }
+  .rr-my { width: 26px; font-size: 11px; }
 }
 
 /* 좁은 화면: 경기 행 압축 (시간 · 팀 · 예측%) */
@@ -868,7 +888,11 @@ table.detail-table tr:last-child td { border-bottom: none; }
   .match-teams { grid-template-columns: minmax(0, 1fr) 54px minmax(0, 1fr); gap: 4px; }
   .match-side { font-size: 12px; gap: 4px; overflow: hidden; }
   .match-score { font-size: 12px; }
-  .odds { flex-direction: column; gap: 3px; align-items: stretch; }
-  .odds-pill { padding: 1px 6px; font-size: 10px; justify-content: center; }
+  /* 예측 비율: 가로 두 알약 고정 폭 — 행 높이·정렬 일정하게 */
+  .odds { flex-direction: row; gap: 4px; }
+  .odds-pill { width: 40px; padding: 2px 0; font-size: 10px; justify-content: center; }
+  .match-right { min-width: 86px; }
+  .chip-pog { font-size: 9px; max-width: 86px; }
+  .chip-pog b { overflow: hidden; }
   .day-label { padding: 6px 10px 3px; }
 }

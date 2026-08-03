@@ -33,14 +33,6 @@
           <div id="fanpulse-body"></div>
         </section>
 
-        <section class="card" id="discuss-card" style="display:none">
-          <div class="card-head">
-            <h2 class="card-title">경기 토론</h2>
-            <a class="btn-primary" id="discuss-write" href="#" style="font-size:12px; padding:5px 14px">글쓰기</a>
-          </div>
-          <div id="discuss-body"></div>
-        </section>
-
         <section class="card" id="details-card" style="display:none">
           <div class="card-head">
             <h2 class="card-title">경기 상세 <span class="sub">KDA · 아이템 · 룬</span></h2>
@@ -84,6 +76,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
   <script src="assets/store.js"></script>
   <script src="assets/app.js"></script>
+  <script src="assets/ddragon.js"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("라이브", null);
@@ -125,23 +118,6 @@
         document.getElementById("poll-" + p.id), p, { teamA: match.a, teamB: match.b }));
     }
 
-    // ── 경기 토론 글 ──
-    function renderDiscuss() {
-      if (!match) return;
-      const card = document.getElementById("discuss-card");
-      card.style.display = "";
-      document.getElementById("discuss-write").href = "write.html?match=" + match.id;
-      const posts = postsForMatch(match.id).sort((a, b) => b.ts - a.ts).slice(0, 8);
-      document.getElementById("discuss-body").innerHTML = posts.length
-        ? posts.map(p => `
-          <a class="post-row" href="post.html?id=${p.id}">
-            <span class="tag-cat">${esc(p.cat)}</span>
-            <span class="post-title">${esc(p.title)}</span>
-            <span class="post-meta"><span class="up">▲ ${p.up}</span><span class="cmt">💬 ${p.comments.length}</span><span>${fmtAgo(p.ts)}</span></span>
-          </a>`).join("")
-        : `<div class="empty-note">이 경기 관련 첫 글을 남겨 보세요!</div>`;
-    }
-
     // ── 경기 상세 (세트별 KDA·아이템·룬) ──
     let curSet = 0;
     function renderDetails() {
@@ -168,18 +144,19 @@
           ${winner === teamId ? `<span class="cat-chip notice">세트 승</span>` : ""}
         </div>
         <table class="detail-table">
-          <thead><tr><th>선수</th><th>챔피언</th><th>KDA</th><th>CS</th><th>골드</th><th>아이템</th><th>룬</th></tr></thead>
+          <thead><tr><th>선수</th><th>챔피언</th><th>스펠</th><th>KDA</th><th>CS</th><th>골드</th><th>아이템</th><th>룬</th></tr></thead>
           <tbody>
             ${list.map(p => {
               const pl = getPlayer(p.pid);
               return `<tr>
                 <td class="dt-player">${pl ? `<a href="player.html?id=${pl.id}">${esc(pl.nick)}</a><span class="pos">${esc(pl.pos)}</span>` : esc(p.pid)}</td>
-                <td class="dt-champ">${esc(p.champ)}</td>
+                <td class="dt-champ">${ddChampHTML(p.champ)}</td>
+                <td class="dt-spell">${ddSpellHTML(p.spell)}</td>
                 <td class="dt-kda"><b>${p.k}</b> / <em>${p.d}</em> / ${p.a}</td>
                 <td>${p.cs}</td>
                 <td>${p.gold}k</td>
-                <td class="dt-items">${esc(p.items)}</td>
-                <td class="dt-runes">${esc(p.runes)}</td>
+                <td class="dt-items">${ddItemsHTML(p.items)}</td>
+                <td class="dt-runes">${ddRunesHTML(p.runes)}</td>
               </tr>`;
             }).join("")}
           </tbody>
@@ -210,10 +187,10 @@
       // 포지션 아이콘 (자체 제작 SVG)
       const POS_ICONS = {
         "탑": `<svg viewBox="0 0 24 24"><path d="M3 3v18l5-5V8h8l5-5H3z"/><rect x="13" y="13" width="7" height="7" opacity=".4"/></svg>`,
-        "정글": `<svg viewBox="0 0 24 24"><path d="M12 2c1.8 3.4 2.7 7.1 2.7 11 0 3.1-.9 6.1-2.7 9-1.8-2.9-2.7-5.9-2.7-9 0-3.9.9-7.6 2.7-11z"/><path d="M5.5 5.5c2.2 1.8 3.7 4.1 4.4 6.9-1.9-.9-3.4-2.3-4.5-4.1-.2-.9-.2-1.9.1-2.8z" opacity=".5"/><path d="M18.5 5.5c.3.9.3 1.9.1 2.8-1.1 1.8-2.6 3.2-4.5 4.1.7-2.8 2.2-5.1 4.4-6.9z" opacity=".5"/></svg>`,
+        "정글": `<svg viewBox="0 0 24 24"><path d="M12 22c-1.4-3.2-2.1-6.5-2.1-9.9 0-3.5.7-6.9 2.1-10.1 1.4 3.2 2.1 6.6 2.1 10.1 0 3.4-.7 6.7-2.1 9.9z"/><path d="M4.5 6.5c2.4 1.2 4.2 3 5.4 5.4.7 1.5 1.1 3.2 1.2 5-2.2-.9-3.9-2.4-5.2-4.4-1-1.8-1.5-3.8-1.4-6z" opacity=".55"/><path d="M19.5 6.5c.1 2.2-.4 4.2-1.4 6-1.3 2-3 3.5-5.2 4.4.1-1.8.5-3.5 1.2-5 1.2-2.4 3-4.2 5.4-5.4z" opacity=".55"/></svg>`,
         "미드": `<svg viewBox="0 0 24 24"><path d="M3 21v-6L15 3h6v6L9 21H3z"/><path d="M3 3h5L3 8V3z" opacity=".4"/><path d="M21 21h-5l5-5v5z" opacity=".4"/></svg>`,
         "원딜": `<svg viewBox="0 0 24 24"><path d="M21 21V3l-5 5v8H8l-5 5h18z"/><rect x="4" y="4" width="7" height="7" opacity=".4"/></svg>`,
-        "서폿": `<svg viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.4 8.7-8 11-4.6-2.3-8-6-8-11V5l8-3z"/><path d="M12 6v11.7c2.6-1.5 4.5-3.7 4.5-6.7V7.7L12 6z" opacity=".35"/></svg>`,
+        "서폿": `<svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 1.5c3.2 0 5.8 2.4 5.8 5.4S15.2 12.3 12 12.3 6.2 9.9 6.2 6.9 8.8 1.5 12 1.5zm0 3.4a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/><path d="M9.9 13.2c.7.2 1.4.3 2.1.3s1.4-.1 2.1-.3l1.5 9.3-3.6-2.2-3.6 2.2 1.5-9.3z" opacity=".7"/></svg>`,
       };
       const posIcon = pos => POS_ICONS[pos] || "";
 
@@ -229,15 +206,15 @@
         <div class="frate fv-cell ${dir} ${isPog ? "pog" : ""}">
           <div class="fr-head">
             <a class="fr-player" href="player.html?id=${p.id}"><span class="fv-teamtag" style="color:${team.color}">${team.abbr}</span> <b>${esc(p.nick)}</b></a>
-            ${isPog ? `<span class="fr-pog">👑 팬 선정 POG</span>` : ""}
+            ${isPog ? `<span class="fr-pog">👑<em> 팬 선정 POG</em></span>` : ""}
             ${respect ? `<span class="fr-respect">상대 팬도 인정</span>` : ""}
             <span class="fr-badge ${s.all ? tierOf(s.all.avg) : "none"}">${s.all ? s.all.avg.toFixed(1) : "—"}</span>
           </div>
           ${s.all ? `
           <div class="fr-cuts">
-            <span class="fr-cut"><i style="background:${team.color}"></i>아군 ${s.home ? s.home.avg.toFixed(1) : "—"}</span>
-            <span class="fr-cut"><i style="background:${opp.color}"></i>상대 ${s.opp ? s.opp.avg.toFixed(1) : "—"}</span>
-            <span class="fr-cut"><i></i>중립 ${s.neu ? s.neu.avg.toFixed(1) : "—"}</span>
+            <span class="fr-cut"><i style="background:${team.color}"></i><em>아군 </em>${s.home ? s.home.avg.toFixed(1) : "—"}</span>
+            <span class="fr-cut"><i style="background:${opp.color}"></i><em>상대 </em>${s.opp ? s.opp.avg.toFixed(1) : "—"}</span>
+            <span class="fr-cut"><i></i><em>중립 </em>${s.neu ? s.neu.avg.toFixed(1) : "—"}</span>
             ${gap != null ? `<span class="fr-gap">팬심 온도차 ${gap > 0 ? "+" : ""}${gap.toFixed(1)}</span>` : ""}
             <span class="fr-gap">${s.all.n}명 참여</span>
           </div>` : `
@@ -291,8 +268,8 @@
 
     renderBanner();
     renderFanPulse();
-    renderDiscuss();
     renderDetails();
+    ddInit().then(ok => { if (ok) renderDetails(); }); // 아이템·룬·스펠 아이콘 로드 후 다시 그림
     renderRatingPanel();
     renderUpcoming();
     setupSidebarStandings();
