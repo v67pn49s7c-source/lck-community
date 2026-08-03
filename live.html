@@ -51,26 +51,12 @@
 
         <section class="card" id="rating-card" style="display:none">
           <div class="card-head">
-            <h2 class="card-title">선수 평점 <span class="sub">10점 만점 · 경기 종료 후 참여</span></h2>
+            <h2 class="card-title">팬심 평점 <span class="sub">아군·상대·중립 팬이 나눠 매기는 10점 평점</span></h2>
             <span class="card-more" id="rating-status"></span>
           </div>
           <div id="rating-body"></div>
         </section>
 
-        <section class="card">
-          <div class="card-head">
-            <h2 class="card-title">응원방 <span class="sub" id="chat-sub"></span></h2>
-            <span class="card-more">도배·비방 시 제재됩니다</span>
-          </div>
-          <div class="chat-box">
-            <div class="chat-messages" id="chat-messages"></div>
-            <form class="chat-form" id="chat-form">
-              <input class="nick" placeholder="닉네임" maxlength="12" required>
-              <input class="body" placeholder="응원 메시지를 입력하세요" maxlength="200" required autocomplete="off">
-              <button class="btn-primary" type="submit">전송</button>
-            </form>
-          </div>
-        </section>
       </div>
 
       <aside class="stack">
@@ -121,7 +107,6 @@
           <div style="font-size:11px;color:var(--text-dim);margin-top:4px">${esc(match.label || match.stage || "")}</div>
         </div>
         <div class="lb-team">${slotLogoHTML(match.b, 52)}<span>${slotName(match.b)}</span></div>`;
-      document.getElementById("chat-sub").textContent = `${slotName(match.a)} vs ${slotName(match.b)}`;
     }
 
     // ── 팬심지수 (경기별 투표 + 팬덤별 결과) ──
@@ -201,7 +186,7 @@
       document.getElementById("details-body").innerHTML = half(aList, match.a) + half(bList, match.b);
     }
 
-    // ── 선수 평점 (경기 종료 후) ──
+    // ── 팬심 평점 (경기 종료 후 · 아군/상대/중립 분리 + POG) ──
     function renderRatingPanel() {
       if (!match) return;
       const card = document.getElementById("rating-card");
@@ -213,61 +198,59 @@
       document.getElementById("rating-status").textContent =
         ratedCount ? `내 평가 ${ratedCount}명 완료` : "아직 평가하지 않음";
 
-      const teamBlock = (teamId) => {
-        const t = TEAM_MAP[teamId];
+      const pog = pogForMatch(match.id);
+      const tierOf = a => a >= 9 ? "t9" : a >= 8 ? "t8" : a >= 7 ? "t7" : a >= 6 ? "t6" : "t5";
+
+      const teamBlock = (teamId, oppId) => {
+        const t = TEAM_MAP[teamId], o = TEAM_MAP[oppId];
         const players = teamPlayers(teamId);
         return `
         <div class="detail-team-head" style="--team-color:${t.color}">${teamLogoHTML(t, 20)} <b>${t.abbr}</b></div>
         ${players.map(p => {
           const my = myRatings[p.id];
-          const comm = communityAvgForPlayer(p.id, match.id);
+          const s = fanSplitForPlayer(p.id, match.id, teamId, oppId);
+          const isPog = pog && pog.pid === p.id;
+          const respect = s.opp && s.opp.n >= 2 && s.opp.avg >= 8;
+          const gap = (s.home && s.opp) ? Math.round((s.home.avg - s.opp.avg) * 10) / 10 : null;
           return `
-          <div class="rating-row">
-            <a class="rr-player" href="player.html?id=${p.id}"><span class="pos">${esc(p.pos)}</span> <b>${esc(p.nick)}</b>
-              ${comm ? `<br><span style="font-size:10px;color:var(--text-dim)">평균 ${comm.avg} (${comm.n}명)</span>` : ""}</a>
-            <div class="rr-scores">
-              ${Array.from({ length: 10 }, (_, i) => i + 1).map(n =>
-                `<button class="rr-btn ${my === n ? "active" : ""} ${my != null && n <= my ? "filled" : ""}"
-                  data-pid="${p.id}" data-score="${n}">${n}</button>`).join("")}
+          <div class="frate ${isPog ? "pog" : ""}">
+            <div class="fr-head">
+              <a class="fr-player" href="player.html?id=${p.id}"><span class="pos">${esc(p.pos)}</span> <b>${esc(p.nick)}</b></a>
+              ${isPog ? `<span class="fr-pog">👑 팬 선정 POG</span>` : ""}
+              ${respect ? `<span class="fr-respect">상대 팬도 인정</span>` : ""}
+              <span class="fr-badge ${s.all ? tierOf(s.all.avg) : "none"}">${s.all ? s.all.avg.toFixed(1) : "—"}</span>
             </div>
-            <span class="rr-my">${my != null ? my.toFixed(0) + "점" : "-"}</span>
+            ${s.all ? `
+            <div class="fr-cuts">
+              <span class="fr-cut"><i style="background:${t.color}"></i>아군 ${s.home ? s.home.avg.toFixed(1) : "—"}</span>
+              <span class="fr-cut"><i style="background:${o.color}"></i>상대 ${s.opp ? s.opp.avg.toFixed(1) : "—"}</span>
+              <span class="fr-cut"><i></i>중립 ${s.neu ? s.neu.avg.toFixed(1) : "—"}</span>
+              ${gap != null ? `<span class="fr-gap">팬심 온도차 ${gap > 0 ? "+" : ""}${gap.toFixed(1)}</span>` : ""}
+              <span class="fr-gap">${s.all.n}명 참여</span>
+            </div>` : `
+            <div class="fr-cuts"><span class="fr-gap">아직 평가가 없습니다 — 첫 평점을 남겨 보세요</span></div>`}
+            <div class="fr-mine">
+              <div class="rr-scores">
+                ${Array.from({ length: 10 }, (_, i) => i + 1).map(n =>
+                  `<button class="rr-btn ${my === n ? "active" : ""} ${my != null && n <= my ? "filled" : ""}"
+                    data-pid="${p.id}" data-score="${n}">${n}</button>`).join("")}
+              </div>
+              <span class="rr-my">${my != null ? my.toFixed(0) + "점" : "-"}</span>
+            </div>
           </div>`;
         }).join("")}`;
       };
 
       document.getElementById("rating-body").innerHTML =
-        teamBlock(match.a) + teamBlock(match.b) +
-        `<div class="admin-note">평점은 즉시 저장되며, 전체 팬 평균에 반영됩니다 (1인 1표, 다시 누르면 수정).</div>`;
+        teamBlock(match.a, match.b) + teamBlock(match.b, match.a) +
+        `<div class="admin-note">평점은 즉시 저장되며 바로 반영됩니다 (1인 1표, 다시 누르면 수정).
+          아군·상대 구분은 로그인 회원의 응원팀 설정 기준이며, 비회원·응원팀 미설정은 중립으로 집계됩니다.</div>`;
 
       document.querySelectorAll(".rr-btn").forEach(b => b.addEventListener("click", () => {
         setRating(match.id, b.dataset.pid, Number(b.dataset.score));
         renderRatingPanel();
       }));
     }
-
-    // 응원 채팅 (Supabase 실시간 — 모든 방문자 공유)
-    function renderChat() {
-      if (!match) return;
-      const el = document.getElementById("chat-messages");
-      const list = getChat(match.id);
-      el.innerHTML =
-        `<div class="chat-msg sys">응원방에 입장했습니다. 매너 있는 응원 부탁드려요!</div>` +
-        list.map(m => `<div class="chat-msg"><b>${nickHTML(m.nick, m.author_team)}</b>${esc(m.body)}</div>`).join("");
-      el.scrollTop = el.scrollHeight;
-    }
-
-    document.getElementById("chat-form").addEventListener("submit", e => {
-      e.preventDefault();
-      if (!match) return;
-      const nick = e.target.querySelector(".nick").value.trim();
-      const body = e.target.querySelector(".body").value.trim();
-      if (!nick || !body) return;
-      setNick(nick);
-      addChat(match.id, nick, body);
-      e.target.querySelector(".body").value = "";
-      renderChat();
-    });
-    document.querySelector("#chat-form .nick").value = getNick();
 
     // 사이드: 다가오는 경기 목록
     function renderUpcoming() {
@@ -290,12 +273,6 @@
     renderUpcoming();
     setupSidebarStandings();
     renderFooter();
-    if (match) {
-      await loadChat(match.id);
-      renderChat();
-      subscribeChat(match.id, renderChat);
-    }
-  
   });
   </script>
 </body>

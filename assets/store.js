@@ -341,6 +341,40 @@ function communityAvgForPlayer(playerId, matchId) {
   const voters = new Set(list.map(r => r.voter)).size;
   return { avg: Math.round(list.reduce((s, x) => s + x.score, 0) / list.length * 10) / 10, n: voters };
 }
+// 팬심 평점: 한 경기·한 선수의 평점을 아군 팬·상대 팬·중립으로 나눠 평균
+// (평가자가 로그인 회원이면 profiles.fav_team으로 소속 팬덤을 판별, 비회원은 중립)
+function fanSplitForPlayer(playerId, matchId, ownTeam, oppTeam) {
+  const favOf = {};
+  Cache.profiles.forEach(p => { favOf[p.id] = p.fav_team || null; });
+  const g = { all: [], home: [], opp: [], neu: [] };
+  Cache.ratings.filter(r => r.match_id === matchId && r.player_id === playerId).forEach(r => {
+    g.all.push(r.score);
+    const fav = favOf[r.voter] || null;
+    if (fav === ownTeam) g.home.push(r.score);
+    else if (fav === oppTeam) g.opp.push(r.score);
+    else g.neu.push(r.score);
+  });
+  const stat = list => list.length
+    ? { avg: Math.round(list.reduce((s, x) => s + x, 0) / list.length * 10) / 10, n: list.length }
+    : null;
+  return { all: stat(g.all), home: stat(g.home), opp: stat(g.opp), neu: stat(g.neu) };
+}
+// 경기 POG: 전체 평균 1위 선수 (동률이면 참여자 많은 쪽)
+function pogForMatch(matchId) {
+  const by = {};
+  Cache.ratings.filter(r => r.match_id === matchId).forEach(r => {
+    const s = by[r.player_id] = by[r.player_id] || { sum: 0, n: 0 };
+    s.sum += r.score; s.n++;
+  });
+  let best = null;
+  Object.keys(by).forEach(pid => {
+    const avg = by[pid].sum / by[pid].n;
+    if (!best || avg > best.avg + 1e-9 || (Math.abs(avg - best.avg) < 1e-9 && by[pid].n > best.n))
+      best = { pid, avg: Math.round(avg * 10) / 10, n: by[pid].n };
+  });
+  return best;
+}
+
 // 선수의 경기별 평점 목록 (최신 경기 순)
 function matchRatingsForPlayer(playerId) {
   const me = voterId();
@@ -369,7 +403,7 @@ function canPostToTeam(teamId) {
   return Auth.profile?.fav_team === teamId;
 }
 
-// ── 응원 채팅 (실시간) ──
+// ── 응원 한마디 (선수 페이지 · 실시간) ──
 async function loadChat(room) {
   const { data, error } = await sb.from("chat_messages")
     .select("*").eq("room", room).order("created_at", { ascending: false }).limit(100);
