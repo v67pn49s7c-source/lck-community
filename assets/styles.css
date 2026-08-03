@@ -940,6 +940,9 @@ table.award-table td a:hover b { color: var(--accent); }
 .site-footer .container { font-size: var(--fs-xs); color: var(--text-dim); line-height: 1.8; }
 .site-footer b { color: var(--text-sub); }
 .site-footer a { text-decoration: underline; }
+.foot-disclaimer { max-width: 780px; }
+.foot-disclaimer.en { color: color-mix(in srgb, var(--text-dim) 78%, transparent); margin-top: 6px; }
+.foot-links { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 
 /* ── 반응형 ── */
 @media (max-width: 960px) {

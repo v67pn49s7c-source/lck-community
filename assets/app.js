@@ -150,10 +150,21 @@ function renderFooter() {
   f.className = "site-footer";
   f.innerHTML = `
     <div class="container">
-      <b>The Nexus</b>는 Riot Games 및 LCK와 무관한 <b>비공식 팬 프로젝트</b>입니다.
-      모든 예측 참여는 무료이며 포인트는 환전·거래할 수 없습니다.<br>
-      팀명·로고에 대한 권리는 각 구단 및 Riot Games에 있습니다.
-      · <a href="terms.html">이용약관</a> · 문의: report@lcklounge.example · <a href="admin.html">관리자</a>
+      <p class="foot-disclaimer">
+        <b>THE NEXUS</b>는 독립적으로 운영되는 비공식 팬 커뮤니티입니다.
+        Riot Games, LCK 및 각 참가 구단과 제휴·후원·승인 관계가 없습니다.
+        Riot Games, League of Legends, LCK 및 관련 명칭·로고·상표는 각 권리자에게 귀속됩니다.
+      </p>
+      <p class="foot-disclaimer en" lang="en">
+        THE NEXUS is an independent, unofficial fan community. It is not affiliated with,
+        sponsored by, or endorsed by Riot Games, LCK, or any participating team.
+        Riot Games, League of Legends, LCK, and all associated names, logos, and trademarks
+        are the property of their respective owners.
+      </p>
+      <p class="foot-links">
+        모든 예측 참여는 무료이며 포인트는 환전·거래할 수 없습니다.
+        · <a href="terms.html">이용약관</a> · 문의: report@lcklounge.example · <a href="admin.html">관리자</a>
+      </p>
     </div>`;
   document.body.appendChild(f);
 }
