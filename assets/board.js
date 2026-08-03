@@ -239,7 +239,7 @@ async function initPostPage() {
 
 // ── 글쓰기 페이지 ──
 async function initWritePage() {
-  await storeReady;
+  await storeFresh; // 글쓴이 닉네임·권한은 정확해야 하므로 서버 확인까지 기다린다
   renderHeader("커뮤니티", null);
   const params = new URLSearchParams(location.search);
   const preTeam = params.get("team") || "";

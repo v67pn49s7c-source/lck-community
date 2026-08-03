@@ -68,14 +68,28 @@ async function ddInit() {
   } catch (e) { console.error("[ddragon]", e); return false; }
 }
 
-// 챔피언: 아이콘 + 이름 (CommunityDragon 최신 초상화 — 리메이크 반영이 가장 빠름)
+// 이미지 한 장이 실패해도 대체 주소로 한 번 더 시도 (error는 버블링하지 않으므로 캡처 단계)
+document.addEventListener("error", e => {
+  const img = e.target;
+  if (img.tagName !== "IMG" || !img.dataset.fallback) return;
+  const fb = img.dataset.fallback;
+  delete img.dataset.fallback; // 무한 반복 방지
+  img.src = fb;
+}, true);
+
+// 챔피언: 아이콘 + 이름
+// 기본은 Data Dragon (아이템·룬과 같은 서버라 연결을 재사용해 빠르고, 누락이 없다).
+// 실패하면 CommunityDragon으로 한 번 더 시도한다 (리메이크 직후 초상화가 빠르게 반영되는 쪽).
 function ddChampHTML(name) {
   name = (name || "").trim();
   if (!name) return "";
   const id = ddLookup(DD.champs, name);
-  return id
-    ? `<img class="dd-ic champ" src="https://cdn.communitydragon.org/latest/champion/${id}/square" alt="${esc(name)}" title="${esc(name)}" loading="lazy"> <span class="dd-nm">${esc(name)}</span>`
-    : esc(name);
+  if (!id) return esc(name);
+  const cdrag = `https://cdn.communitydragon.org/latest/champion/${id}/square`;
+  const src = DD.ver ? `${DD_CDN}/${DD.ver}/img/champion/${id}.png` : cdrag;
+  const fb = src === cdrag ? "" : ` data-fallback="${cdrag}"`;
+  return `<img class="dd-ic champ" src="${src}"${fb} alt="${esc(name)}" title="${esc(name)}"`
+    + ` width="24" height="24" decoding="async"> <span class="dd-nm">${esc(name)}</span>`;
 }
 // 소환사 주문: "점멸, 점화" / "점멸/텔레포트" 등 구분자 자유
 function ddSpellHTML(str) {
@@ -85,7 +99,7 @@ function ddSpellHTML(str) {
   return parts.map(nm => {
     const f = ddLookup(DD.spells, nm);
     return f
-      ? `<img class="dd-ic" src="${DD_CDN}/${DD.ver}/img/spell/${f}" alt="${esc(nm)}" title="${esc(nm)}" loading="lazy">`
+      ? `<img class="dd-ic" src="${DD_CDN}/${DD.ver}/img/spell/${f}" alt="${esc(nm)}" title="${esc(nm)}" width="22" height="22" decoding="async">`
       : `<span class="dd-miss" title="이름이 정확하지 않아요">${esc(nm)}</span>`;
   }).join("");
 }
@@ -97,7 +111,7 @@ function ddItemsHTML(str) {
   return parts.map(nm => {
     const id = ddLookup(DD.items, nm);
     return id
-      ? `<img class="dd-ic" src="${DD_CDN}/${DD.ver}/img/item/${id}.png" alt="${esc(nm)}" title="${esc(nm)}" loading="lazy">`
+      ? `<img class="dd-ic" src="${DD_CDN}/${DD.ver}/img/item/${id}.png" alt="${esc(nm)}" title="${esc(nm)}" width="22" height="22" decoding="async">`
       : `<span class="dd-miss" title="이름이 정확하지 않아요">${esc(nm)}</span>`;
   }).join("");
 }
@@ -207,7 +221,7 @@ function openDDPicker(kind, input) {
   };
 
   const iconOf = x =>
-    kind === "champ" ? `https://cdn.communitydragon.org/latest/champion/${x.id}/square` :
+    kind === "champ" ? `${DD_CDN}/${D.ver}/img/champion/${x.id}.png` :
     kind === "item" ? `${DD_CDN}/${D.ver}/img/item/${x.id}.png` :
     `${DD_CDN}/${D.ver}/img/spell/${x.file}`;
 
@@ -286,7 +300,7 @@ function ddRunesHTML(str) {
   return parts.map(nm => {
     const ic = ddLookup(DD.runes, nm);
     return ic
-      ? `<img class="dd-ic rune" src="${DD_CDN}/img/${ic}" alt="${esc(nm)}" title="${esc(nm)}" loading="lazy">`
+      ? `<img class="dd-ic rune" src="${DD_CDN}/img/${ic}" alt="${esc(nm)}" title="${esc(nm)}" width="22" height="22" decoding="async">`
       : `<span class="dd-miss" title="이름이 정확하지 않아요">${esc(nm)}</span>`;
   }).join("");
 }

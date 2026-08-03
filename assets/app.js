@@ -90,12 +90,13 @@ function applyTheme(theme) {
 // ── 헤더 / 푸터 ──
 const NAV_MENUS = [
   ["홈", "index.html"], ["경기", "matches.html"], ["순위", "standings.html"], ["승부예측", "predict.html"],
-  ["라이브", "live.html"], ["커뮤니티", "community.html"], ["팀", "teams.html"], ["선수", "players.html"],
+  ["오늘의 경기", "live.html"], ["커뮤니티", "community.html"], ["팀", "teams.html"], ["선수", "players.html"],
   ["수상", "awards.html"], ["랭킹", "ranking.html"],
 ];
 
 function renderHeader(activeMenu, activeTeamId) {
   document.body.classList.add("app-ready"); // 데이터 로드 완료 → 화면 표시
+  window.__readyMs = Math.round(performance.now()); // 로딩 체감 측정용
   const header = document.createElement("div");
   header.innerHTML = `
   <header class="site-header">
@@ -139,6 +140,13 @@ function renderHeader(activeMenu, activeTeamId) {
     await sbSignOut();
     location.reload();
   });
+
+  // 좁은 화면에서 메뉴가 가로로 밀려 있을 때, 지금 보고 있는 메뉴를 보이게
+  const activeLink = header.querySelector(".main-nav a.active");
+  if (activeLink) {
+    const nav = header.querySelector(".main-nav");
+    nav.scrollLeft = Math.max(0, activeLink.offsetLeft - (nav.clientWidth - activeLink.offsetWidth) / 2);
+  }
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');

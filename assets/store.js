@@ -1,6 +1,6 @@
 // ── 데이터 계층 (Supabase 연동) ──────────────────────────
 // 모든 데이터는 Supabase(서울 리전)에 저장되어 모든 방문자가 공유한다.
-// 페이지 로드 시 storeInit()이 전체 데이터를 한 번 받아 캐시에 두고,
+// 페이지 로드 시 fetchAll()이 전체 데이터를 한 번에 받아 캐시에 두고,
 // 화면 코드는 기존과 동일하게 동기 함수로 읽는다. 쓰기는 낙관적으로
 // 캐시를 먼저 고치고 서버에 비동기 저장한다.
 
@@ -8,7 +8,7 @@ const SB_URL = "https://ckbxvhdvhczpxtgkpbsv.supabase.co";
 const SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrYnh2aGR2aGN6cHh0Z2twYnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2NzQ5NzUsImV4cCI6MjEwMTI1MDk3NX0.TbCe1ybebiLNsUegL4s1ZbGa-TZsyPPWj9xzxMAPssU";
 const sb = window.supabase.createClient(SB_URL, SB_ANON);
 
-// 로그인 상태 (storeInit에서 채움)
+// 로그인 상태 (fetchAll에서 채움)
 const Auth = { session: null, profile: null };
 
 // 방문자 id (예측·평점 1인 1표 식별용) — 로그인 시 계정 id, 아니면 브라우저 익명 id
@@ -30,19 +30,64 @@ const Cache = {
 
 function sbErr(e, what) { if (e) console.error("[supabase]", what, e.message); }
 
-// ── 초기 로드 ──
-async function storeInit() {
-  // 로그인 세션 + 프로필
-  try {
-    const { data: { session } } = await sb.auth.getSession();
-    Auth.session = session;
-    if (session) {
-      const { data: prof } = await sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
-      Auth.profile = prof || null;
-    }
-  } catch (e) { console.error("[supabase] auth", e); }
+// ── 로컬 스냅샷 ──────────────────────────────────────────
+// 지난 방문에서 받은 데이터를 브라우저에 저장해 두고, 다음 방문에서는 그것을 먼저
+// 그려서 화면을 즉시 띄운다. 서버 데이터는 뒤에서 받아 와 달라진 게 있으면 알린다.
+// (서버가 서울에 있어 한 번 다녀오는 데만 0.3~1초씩 걸리므로 체감 차이가 크다)
+const SNAP_KEY = "nexus_snap_v1";
+const LOGO_KEY = "nexus_logos_v1";
+let snapshotUsed = false;
 
-  const [t, m, r, pl, po, co, pr, ra, de, st] = await Promise.all([
+function snapshotSave() {
+  try {
+    const { settings, ...rest } = Cache;
+    // 로고(데이터 URL, 수십 KB)는 따로 보관해 스냅샷을 가볍게 유지
+    const light = {};
+    Object.entries(settings).forEach(([k, v]) => { if (!k.startsWith("logo_")) light[k] = v; });
+    localStorage.setItem(SNAP_KEY, JSON.stringify({
+      t: Date.now(), c: { ...rest, settings: light },
+      a: Auth.profile ? { id: Auth.profile.id, nick: Auth.profile.nick, fav_team: Auth.profile.fav_team, is_admin: !!Auth.profile.is_admin } : null,
+      s: Auth.session ? { user: { id: Auth.session.user.id, email: Auth.session.user.email } } : null,
+    }));
+  } catch (e) { /* 용량 초과 등은 무시 — 스냅샷은 있으면 좋은 것 */ }
+}
+
+function snapshotLoad() {
+  try {
+    const raw = localStorage.getItem(SNAP_KEY);
+    if (!raw) return false;
+    const snap = JSON.parse(raw);
+    if (!snap || !snap.c || !snap.c.matches) return false;
+    Object.assign(Cache, snap.c);
+    // 헤더의 로그인 표시·내 투표 표시가 깜빡이지 않게 (실제 인증은 서버가 다시 확인한다)
+    if (snap.a) Auth.profile = snap.a;
+    if (snap.s) Auth.session = snap.s;
+    const logos = JSON.parse(localStorage.getItem(LOGO_KEY) || "{}");
+    Object.assign(Cache.settings, logos);
+    return true;
+  } catch (e) { return false; }
+}
+
+// 로고는 크기가 커서(수십 KB) 첫 화면을 막지 않도록 따로, 나중에 받는다
+async function loadLogosLater() {
+  const { data } = await sb.from("site_settings").select("key,value").like("key", "logo_%");
+  if (!data) return;
+  const logos = Object.fromEntries(data.map(x => [x.key, x.value]));
+  Object.assign(Cache.settings, logos);
+  try { localStorage.setItem(LOGO_KEY, JSON.stringify(logos)); } catch {}
+  // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-mobile.png"); });
+}
+
+// ── 초기 로드 ──
+// 예전에는 (로그인 조회) → (테이블 10개) → (테이블 8개) 순으로 세 번 기다렸다.
+// 서버 왕복이 세 번 = 그만큼 흰 화면. 지금은 한 번에 모두 요청한다.
+async function fetchAll() {
+  const [auth, t, m, r, pl, po, co, pr, ra, de, st,
+         pq, pv, rx, cl, ff, pf, pm, aw] = await Promise.all([
+    sb.auth.getSession().catch(e => { console.error("[supabase] auth", e); return { data: {} }; }),
     sb.from("tournaments").select("*"),
     sb.from("matches").select("*").order("at"),
     sb.from("stage_records").select("*").order("ord"),
@@ -52,13 +97,8 @@ async function storeInit() {
     sb.from("predictions").select("*"),
     sb.from("ratings").select("*"),
     sb.from("match_details").select("*").order("set_index"),
-    sb.from("site_settings").select("*"),
-  ]);
-  [t, m, r, pl, po, co, pr, ra, de].forEach((res, i) => sbErr(res.error, "load#" + i));
-  Cache.settings = Object.fromEntries((st.data || []).map(x => [x.key, x.value]));
-
-  // 팬심지수 관련 (테이블이 아직 없으면 조용히 빈 값)
-  const [pq, pv, rx, cl, ff, pf, pm, aw] = await Promise.all([
+    // 로고(logo_*)는 무거워서 제외 — loadLogosLater()가 따로 받는다
+    sb.from("site_settings").select("key,value").not("key", "like", "logo_%"),
     sb.from("polls").select("*").order("created_at"),
     sb.from("poll_votes").select("*"),
     sb.from("reactions").select("*"),
@@ -68,6 +108,21 @@ async function storeInit() {
     sb.from("pom_awards").select("*"),
     sb.from("awards").select("*").order("ord"),
   ]);
+  [t, m, r, pl, po, co, pr, ra, de].forEach((res, i) => sbErr(res.error, "load#" + i));
+
+  Auth.session = (auth.data && auth.data.session) || null;
+  if (Auth.session) {
+    // is_admin은 공개 목록(profiles select)에 넣지 않는다 — 내 것만 따로 확인
+    const { data: prof } = await sb.from("profiles").select("*").eq("id", Auth.session.user.id).maybeSingle();
+    Auth.profile = prof || null;
+  } else {
+    Auth.profile = null;
+  }
+
+  const prevLogos = {};
+  Object.entries(Cache.settings || {}).forEach(([k, v]) => { if (k.startsWith("logo_")) prevLogos[k] = v; });
+  Cache.settings = { ...prevLogos, ...Object.fromEntries((st.data || []).map(x => [x.key, x.value])) };
+
   Cache.pom = pm.data || [];
   Cache.awards = aw.data || [];
   Cache.polls = pq.data || [];
@@ -106,6 +161,33 @@ async function storeInit() {
     const d = Cache.details[row.match_id] = Cache.details[row.match_id] || { sets: [] };
     d.sets.push({ _idx: row.set_index, win: row.win, players: row.players || [] });
   });
+}
+
+// "새로고침하면 볼 게 있는가"를 판단하는 요약값.
+// 조회수·득표수처럼 수시로 바뀌는 값은 일부러 제외한다 (그러지 않으면 들어올 때마다 알림이 뜬다)
+function cacheFingerprint() {
+  try {
+    return [
+      Cache.matches.map(m => `${m.id}${m.status}${m.scoreA}${m.scoreB}${m.at}`).join(","),
+      Cache.posts.length, Cache.posts[0] ? Cache.posts[0].id : "-",
+      Cache.posts.reduce((n, p) => n + p.comments.length, 0),
+      Object.keys(Cache.details).length,
+      Cache.players.length, Cache.polls.length, Cache.awards.length,
+      Cache.pom.length, Cache.records.length,
+      Auth.session ? "in" : "out",
+    ].join("|");
+  } catch { return ""; }
+}
+
+// 새 데이터가 있다는 안내 (화면을 마음대로 새로 그리면 쓰던 내용이 날아가므로 알림만)
+function showRefreshToast() {
+  if (document.getElementById("nx-refresh")) return;
+  const el = document.createElement("div");
+  el.id = "nx-refresh";
+  el.className = "nx-toast";
+  el.innerHTML = `<span>새로운 소식이 있어요</span><button type="button">새로고침</button>`;
+  el.querySelector("button").addEventListener("click", () => location.reload());
+  document.body.appendChild(el);
 }
 
 // ── 대회 ──
@@ -643,6 +725,28 @@ async function claimFounding(team) {
   return { no: data };
 }
 
+// ── 중계 링크 ────────────────────────────────────────────
+// 치지직·SOOP은 채널 주소가 고정이라 한 번 등록하면 모든 경기에 자동으로 붙는다.
+// 유튜브처럼 경기마다 주소가 다른 경우를 위해 경기별 덮어쓰기도 둔다.
+// 저장 형태: { default: {chzzk, soop, youtube}, matches: { "m12": {youtube: "..."} } }
+const STREAM_PLATFORMS = [
+  { key: "chzzk", name: "치지직", note: "국내 중계" },
+  { key: "soop", name: "SOOP", note: "국내 중계" },
+  { key: "youtube", name: "유튜브", note: "해외 중계" },
+];
+function getStreamConfig() {
+  try { return JSON.parse(getSetting("streams") || "{}") || {}; } catch { return {}; }
+}
+function saveStreamConfig(cfg) { setSetting("streams", JSON.stringify(cfg)); }
+// 해당 경기에서 실제로 보여 줄 링크들 (경기별 설정이 기본 설정을 덮어씀)
+function streamsForMatch(matchId) {
+  const cfg = getStreamConfig();
+  const merged = { ...(cfg.default || {}), ...(((cfg.matches || {})[matchId]) || {}) };
+  return STREAM_PLATFORMS
+    .map(p => ({ ...p, url: (merged[p.key] || "").trim() }))
+    .filter(p => /^https?:\/\//i.test(p.url));
+}
+
 // ── 사이트 설정 · 로고 ──
 function getSetting(key) { return Cache.settings[key] || ""; }
 function setSetting(key, value) {
@@ -722,5 +826,20 @@ async function completeProfile(nick, favTeam) {
   return { ok: true };
 }
 
-// 페이지들은 storeReady를 기다린 뒤 렌더링한다
-const storeReady = storeInit();
+// ── 부팅 ─────────────────────────────────────────────────
+// storeReady : 화면을 그려도 되는 시점 (스냅샷이 있으면 즉시)
+// storeFresh : 서버에서 받은 최신 데이터가 반영된 시점 (로그인 판정처럼 정확해야 할 때)
+snapshotUsed = snapshotLoad();
+
+const storeFresh = (async () => {
+  const before = snapshotUsed ? cacheFingerprint() : null;
+  await fetchAll();
+  snapshotSave();
+  loadLogosLater().catch(() => {});
+  if (snapshotUsed && before !== cacheFingerprint()) showRefreshToast();
+})();
+
+const storeReady = snapshotUsed ? Promise.resolve() : storeFresh;
+
+// 페이지를 떠날 때 (투표·평점 등 방금 바꾼 내용까지) 스냅샷 갱신
+addEventListener("pagehide", snapshotSave);

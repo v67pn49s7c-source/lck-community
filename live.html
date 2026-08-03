@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>라이브 — The Nexus</title>
+  <title>오늘의 경기 — The Nexus</title>
   <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
   <meta property="og:title" content="The Nexus — LCK 팬 커뮤니티">
   <meta property="og:description" content="경기마다 팬심지수 투표! 전체·양 팀 팬·중립의 여론을 비교해 보세요.">
@@ -11,7 +11,9 @@
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
-  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
+  <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
+  <link rel="stylesheet" href="assets/styles.css?v=20260803h">
 </head>
 <body>
   <main class="page">
@@ -19,10 +21,11 @@
       <div class="stack">
         <section class="card">
           <div class="card-head">
-            <h2 class="card-title" id="live-title">라이브</h2>
+            <h2 class="card-title" id="live-title">오늘의 경기</h2>
             <span class="card-more" id="live-when"></span>
           </div>
           <div class="live-banner" id="live-banner"></div>
+          <div class="stream-links" id="stream-links" style="display:none"></div>
         </section>
 
         <section class="card" id="fanpulse-card" style="display:none">
@@ -72,14 +75,14 @@
     </div>
   </main>
 
-  <script src="assets/data.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-  <script src="assets/store.js"></script>
-  <script src="assets/app.js"></script>
-  <script src="assets/ddragon.js"></script>
+  <script src="assets/data.js?v=20260803h"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260803h"></script>
+  <script src="assets/store.js?v=20260803h"></script>
+  <script src="assets/app.js?v=20260803h"></script>
+  <script src="assets/ddragon.js?v=20260803h"></script>
   <script>
   storeReady.then(async () => {
-    renderHeader("라이브", null);
+    renderHeader("오늘의 경기", null);
 
     // 대상 경기: URL 지정 > LIVE 중 > 다음 경기
     const qid = new URLSearchParams(location.search).get("match");
@@ -93,7 +96,7 @@
       }
       const live = match.status === "live", done = match.status === "done";
       document.getElementById("live-title").textContent =
-        live ? "라이브" : done ? "경기 종료" : "경기 예정";
+        live ? "지금 경기 중" : done ? "경기 종료" : "경기 예정";
       document.getElementById("live-when").textContent = fmtWhen(match.at);
       el.innerHTML = `
         <div class="lb-team">${slotLogoHTML(match.a, 52)}<span>${slotName(match.a)}</span></div>
@@ -103,6 +106,20 @@
           <div style="font-size:11px;color:var(--text-dim);margin-top:4px">${esc(match.label || match.stage || "")}</div>
         </div>
         <div class="lb-team">${slotLogoHTML(match.b, 52)}<span>${slotName(match.b)}</span></div>`;
+      renderStreams();
+    }
+
+    // ── 중계 링크 (관리자 메뉴에서 등록한 채널 주소) ──
+    // 끝난 경기에는 생중계 링크를 걸지 않는다 (다시보기와 혼동되므로)
+    function renderStreams() {
+      const el = document.getElementById("stream-links");
+      if (!el) return;
+      const links = (match && match.status !== "done") ? streamsForMatch(match.id) : [];
+      if (!links.length) { el.innerHTML = ""; el.style.display = "none"; return; }
+      el.style.display = "";
+      el.innerHTML = `<span class="sl-label">${match.status === "live" ? "지금 중계 중" : "중계 보기"}</span>`
+        + links.map(l => `<a class="sl-btn ${l.key}" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">
+             ${esc(l.name)}<em>${esc(l.note)}</em></a>`).join("");
     }
 
     // ── 팬심지수 (경기별 투표 + 팬덤별 결과) ──
@@ -143,6 +160,7 @@
           ${t ? teamLogoHTML(t, 20) : ""} <b>${slotName(teamId)}</b>
           ${winner === teamId ? `<span class="cat-chip notice">세트 승</span>` : ""}
         </div>
+        <div class="table-scroll">
         <table class="detail-table">
           <thead><tr><th>선수</th><th>챔피언</th><th>스펠</th><th>KDA</th><th>CS</th><th>골드</th><th>아이템</th><th>룬</th></tr></thead>
           <tbody>
@@ -160,7 +178,8 @@
               </tr>`;
             }).join("")}
           </tbody>
-        </table>`;
+        </table>
+        </div>`;
       };
       // 챔피언이 기록된(=출전한) 선수만, 소속 팀 기준으로 나눠서 표시
       const playersInSet = set.players.filter(p => (p.champ || "").trim());
@@ -246,9 +265,13 @@
           <div class="fv-vs">VS</div>
           <div class="fv-teamhead right" style="--team-color:${tB.color}"><b>${tB.abbr}</b> ${teamLogoHTML(tB, 20)}</div>
           ${rows.map(r =>
-            cell(r.a, tA, tB, "left") +
-            `<div class="fv-pos">${posIcon(r.pos)}<span>${esc(r.pos)}</span></div>` +
-            cell(r.b, tB, tA, "right")).join("")}
+            // fv-row는 넓은 화면에서 display:contents (그리드 그대로), 좁은 화면에서는
+            // 포지션 라벨 + 두 팀 카드가 세로로 묶이는 단위가 된다
+            `<div class="fv-row">` +
+              cell(r.a, tA, tB, "left") +
+              `<div class="fv-pos">${posIcon(r.pos)}<span>${esc(r.pos)}</span></div>` +
+              cell(r.b, tB, tA, "right") +
+            `</div>`).join("")}
         </div>` +
         `<div class="admin-note">평점은 즉시 저장되며 바로 반영됩니다 (1인 1표, 다시 누르면 수정).
           아군·상대 구분은 로그인 회원의 응원팀 설정 기준이며, 비회원·응원팀 미설정은 중립으로 집계됩니다.${

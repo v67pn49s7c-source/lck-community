@@ -11,7 +11,9 @@
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
-  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
+  <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
+  <link rel="stylesheet" href="assets/styles.css?v=20260803h">
 </head>
 <body>
   <main class="page">
@@ -164,6 +166,20 @@
         </div>
       </section>
 
+      <!-- 중계 링크 -->
+      <section class="card" style="margin-bottom:14px">
+        <div class="card-head">
+          <h2 class="card-title">중계 링크 <span class="sub">오늘의 경기 페이지에 뜨는 "중계 보기" 버튼</span></h2>
+        </div>
+        <div class="admin-list" id="stream-list"></div>
+        <div class="admin-note">
+          치지직·SOOP처럼 <b>채널 주소가 늘 같은 곳</b>은 여기 한 번만 넣으면 이후 모든 경기에 자동으로 붙습니다.
+          유튜브처럼 경기마다 주소가 다를 때만 아래 "이 경기만 다르게"에 넣으세요 (비워 두면 위 기본 주소를 씁니다).<br>
+          끝난 경기에는 중계 버튼이 표시되지 않습니다.
+        </div>
+        <div class="admin-list" id="stream-match-box"></div>
+      </section>
+
       <!-- 로고 관리 -->
       <section class="card" style="margin-bottom:14px">
         <div class="card-head">
@@ -190,13 +206,13 @@
     </div>
   </main>
 
-  <script src="assets/data.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-  <script src="assets/store.js"></script>
-  <script src="assets/app.js"></script>
-  <script src="assets/ddragon.js"></script>
+  <script src="assets/data.js?v=20260803h"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260803h"></script>
+  <script src="assets/store.js?v=20260803h"></script>
+  <script src="assets/app.js?v=20260803h"></script>
+  <script src="assets/ddragon.js?v=20260803h"></script>
   <script>
-  storeReady.then(async () => {
+  storeFresh.then(async () => {
     renderHeader(null, null);
 
     // ── 관리자 로그인 게이트 ──
@@ -640,6 +656,74 @@
       });
     }
 
+    // ── 중계 링크 관리 ──
+    function renderStreamAdmin() {
+      const cfg = getStreamConfig();
+      const def = cfg.default || {};
+      const PLACE = {
+        chzzk: "예: https://chzzk.naver.com/live/…  (치지직 LCK 채널 주소)",
+        soop: "예: https://www.sooplive.co.kr/…  (SOOP LCK 채널 주소)",
+        youtube: "예: https://www.youtube.com/@…/live  (해외 중계 채널)",
+      };
+      document.getElementById("stream-list").innerHTML = STREAM_PLATFORMS.map(p => `
+        <div class="admin-item" data-key="${p.key}">
+          <span style="width:150px; font-weight:700">${p.name}<br><span class="muted">${p.note}</span></span>
+          <input class="st-url" value="${esc(def[p.key] || "")}" placeholder="${PLACE[p.key]}" style="flex:1; min-width:220px">
+          ${def[p.key] ? `<a class="btn-secondary" href="${esc(def[p.key])}" target="_blank" rel="noopener noreferrer">열어보기</a>` : ""}
+        </div>`).join("")
+        + `<div class="admin-item"><button class="btn-primary" id="st-save">기본 중계 주소 저장</button></div>`;
+
+      document.getElementById("st-save").addEventListener("click", () => {
+        const next = { ...cfg, default: {} };
+        document.querySelectorAll("#stream-list .admin-item[data-key]").forEach(row => {
+          next.default[row.dataset.key] = row.querySelector(".st-url").value.trim();
+        });
+        saveStreamConfig(next);
+        alert("저장했습니다. 오늘의 경기 페이지에 바로 반영됩니다.");
+        renderStreamAdmin();
+      });
+
+      // 경기별 덮어쓰기 (예정·진행 중인 경기만)
+      const ms = sortedMatches().filter(m => m.status !== "done");
+      const box = document.getElementById("stream-match-box");
+      if (!ms.length) { box.innerHTML = `<div class="admin-item"><span class="muted">예정된 경기가 없습니다</span></div>`; return; }
+      const cur = box.dataset.mid && ms.some(m => m.id === box.dataset.mid) ? box.dataset.mid : ms[0].id;
+      box.dataset.mid = cur;
+      const over = (cfg.matches || {})[cur] || {};
+      box.innerHTML = `
+        <div class="admin-item">
+          <span style="width:150px; font-weight:700">이 경기만 다르게</span>
+          <select id="st-match" style="min-width:240px">
+            ${ms.map(m => `<option value="${m.id}" ${m.id === cur ? "selected" : ""}>
+              ${fmtWhen(m.at)} · ${slotName(m.a)} vs ${slotName(m.b)}</option>`).join("")}
+          </select>
+        </div>
+        ${STREAM_PLATFORMS.map(p => `
+        <div class="admin-item" data-key="${p.key}">
+          <span style="width:150px">${p.name}</span>
+          <input class="st-murl" value="${esc(over[p.key] || "")}" placeholder="비워 두면 기본 주소 사용" style="flex:1; min-width:220px">
+        </div>`).join("")}
+        <div class="admin-item"><button class="btn-primary" id="st-msave">이 경기 주소 저장</button></div>`;
+
+      document.getElementById("st-match").addEventListener("change", e => {
+        box.dataset.mid = e.target.value;
+        renderStreamAdmin();
+      });
+      document.getElementById("st-msave").addEventListener("click", () => {
+        const c = getStreamConfig();
+        const matches = { ...(c.matches || {}) };
+        const one = {};
+        box.querySelectorAll(".admin-item[data-key]").forEach(row => {
+          const v = row.querySelector(".st-murl").value.trim();
+          if (v) one[row.dataset.key] = v;
+        });
+        if (Object.keys(one).length) matches[cur] = one; else delete matches[cur];
+        saveStreamConfig({ ...c, matches });
+        alert("저장했습니다.");
+        renderStreamAdmin();
+      });
+    }
+
     // ── 팬심지수 자동 생성 (경기마다 투표·사전 토론 글 동기화) ──
     function syncFanPulse() {
       let made = 0;
@@ -705,6 +789,7 @@
       renderPlayers();
       renderDetailEditor();
       renderLogoAdmin();
+      renderStreamAdmin();
     }
     renderAll();
     renderFooter();
