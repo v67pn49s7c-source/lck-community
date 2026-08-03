@@ -1021,7 +1021,7 @@ table.award-table td a:hover b { color: var(--accent); }
 
 /* 좁은 화면: 팬심 평점 좌우 배치 유지 + 내용 간략화 (라벨 숨기고 점·숫자만) */
 @media (max-width: 720px) {
-  .frate-vs { grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr); }
+  .frate-vs { grid-template-columns: minmax(0, 1fr) 30px minmax(0, 1fr); }
   .fv-teamhead { padding: 7px 8px; font-size: 12px; gap: 5px; }
   .frate { padding: 7px 8px 9px; }
   .fv-pos svg { width: 16px; height: 16px; }
@@ -1032,51 +1032,39 @@ table.award-table td a:hover b { color: var(--accent); }
   .fr-pog { padding: 2px 5px; }
   .fr-pog em, .chip-pom em { display: none; }
   .fr-respect { display: none; }
-  .fr-cuts { gap: 7px; font-size: 9px; margin-top: 4px; }
+  /* 아군·상대·중립은 색 점과 값만 (라벨·참여 인원·온도차는 생략) */
+  .fr-cuts { gap: 6px; font-size: 9px; margin-top: 3px; }
   .fr-cut em { display: none; }
+  .fr-cut i { width: 5px; height: 5px; margin-right: 3px; }
   .fr-gap { display: none; }
+  /* 평점 버튼: 좌우 대칭을 유지하려면 한 칸이 좁아지므로 5개씩 두 줄로 접는다
+     (한 줄에 열 개를 넣으면 버튼이 8~20px까지 눌려 누르기 어렵다) */
   .fr-mine { gap: 4px; margin-top: 5px; }
-  .frate-vs .rr-btn { height: 20px; font-size: 9px; }
-  .rr-my { width: 26px; font-size: 11px; }
+  .frate-vs .rr-scores { flex-wrap: wrap; gap: 2px; }
+  .frate-vs .rr-btn { flex: 1 0 17%; max-width: 44px; height: 24px; font-size: 10px; }
+  /* 오른쪽 팀은 바깥쪽(오른쪽) 끝에 맞춰 좌우가 거울처럼 보이게 */
+  .frate-vs .fv-cell.right .rr-scores { justify-content: flex-end; }
+  .rr-my { display: none; }
 }
 
-/* 휴대폰: 팬심 평점을 세로로 (포지션 라벨 → 양 팀 카드).
-   좌우 미러 배치는 10칸 평점 버튼이 8px까지 눌려 누를 수 없게 되므로 세로로 편다 */
+/* 휴대폰 */
 @media (max-width: 560px) {
-  .frate-vs { display: block; }
-  .fv-teamhead, .fv-vs { display: none; }
-  /* 포지션 라벨(탑·정글…)이 두 팀 카드보다 위에 오도록 order로 끌어올린다 */
-  .fv-row { display: flex; flex-direction: column; border-bottom: 1px solid var(--line); }
-  .fv-row .fv-pos { order: -1; }
-  .fv-row:last-child { border-bottom: none; }
   /* 카드 제목줄: 좁으면 설명·부가 버튼이 다음 줄로 */
   .card-head { flex-wrap: wrap; gap: 6px 10px; }
   .card-title { flex: 1 0 auto; }
   .card-title .sub { display: none; }
-  .fv-teamtag { display: inline; }
-  .fv-pos {
-    flex-direction: row; justify-content: flex-start; gap: 6px;
-    padding: 6px 10px; background: var(--bg-soft);
-    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
-  }
-  .fv-pos svg { width: 14px; height: 14px; }
-  .fv-pos span { display: inline; font-size: 10px; }
-  .frate { border-bottom: none; padding: 9px 10px 11px; }
+  /* 팬심 평점: 좌우 대칭 유지 + 더 압축 */
+  .frate-vs { grid-template-columns: minmax(0, 1fr) 26px minmax(0, 1fr); }
+  .fv-teamhead { padding: 6px 8px; font-size: 11px; gap: 4px; }
+  .fv-teamhead .team-logo { width: 16px !important; height: 16px !important; }
+  .fv-vs { font-size: 9px; }
+  .frate { padding: 7px 7px 9px; }
   .frate.empty { display: none; }
-  /* 세로 배치에서는 오른쪽 팀도 왼쪽 정렬 (미러 해제) */
-  .fv-cell.right .fr-head, .fv-cell.right .fr-mine { flex-direction: row; }
-  .fv-cell.right .fr-cuts { justify-content: flex-start; }
-  .fv-cell.right .fr-badge { margin-left: auto; margin-right: 0; }
-  .fv-cell.right.pog {
-    background: linear-gradient(90deg, rgba(245, 185, 66, .08), transparent 70%);
-    box-shadow: inset 3px 0 0 #f5b942;
-  }
-  /* 폭이 넉넉해졌으니 평점 버튼을 다시 누를 수 있는 크기로 */
-  .frate-vs .rr-btn { max-width: none; height: 28px; font-size: 12px; }
-  .fr-player b { font-size: 13px; }
-  .fr-badge { min-width: 40px; font-size: 13px; }
-  .fr-respect, .fr-gap { display: none; }
-  .fr-cuts .fr-gap:last-child { display: inline; }
+  .fv-pos svg { width: 15px; height: 15px; }
+  .fr-head { gap: 4px; min-height: 20px; }
+  .fr-badge { min-width: 30px; padding: 2px 5px; }
+  .fr-pog, .chip-pom { padding: 1px 4px; font-size: 9px; }
+  .frate-vs .rr-btn { max-width: none; }
   /* 경기 상세: 챔피언 이름은 아이콘으로 충분. 칸은 줄바꿈 없이 두고,
      그래도 넘치면 표 안에서만 가로로 밀린다 (.table-scroll) */
   table.detail-table th, table.detail-table td { padding: 6px 5px; white-space: nowrap; }
