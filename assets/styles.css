@@ -1235,6 +1235,11 @@ table.award-table td a:hover b { color: var(--accent); }
 .fh-side.right { justify-content: flex-end; }
 .fh-mid { text-align: center; display: flex; flex-direction: column; gap: 2px; }
 .fh-mid em { font-style: normal; font-weight: 800; color: var(--text-dim); }
+/* 배지는 .fh-mid em/span 규칙에 색·크기를 뺏기지 않도록 명시한다 */
+.fh-mid .live-badge {
+  display: inline-block; color: #fff; background: var(--accent);
+  font-size: var(--fs-xs); font-weight: 800;
+}
 .fh-mid span { font-size: var(--fs-xs); color: var(--text-dim); }
 .fh-predict { display: flex; align-items: center; gap: 8px; padding: 0 14px 13px; flex-wrap: wrap; }
 .fh-note { font-size: var(--fs-sm); color: var(--text-sub); margin-right: auto; }
@@ -1276,3 +1281,12 @@ table.award-table td a:hover b { color: var(--accent); }
 }
 .pred-mark.hit { background: color-mix(in srgb, var(--blue) 18%, transparent); color: var(--blue); }
 .pred-mark.miss { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+
+/* 승부예측 카드의 공유 버튼 — 손가락으로 누를 수 있는 크기 확보 */
+.pm-share {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 32px; min-height: 32px; padding: 4px 6px; margin-left: 4px;
+  font-size: 14px; line-height: 1; vertical-align: middle;
+  border: 1px solid var(--line); background: var(--bg-soft);
+}
+.pm-share:hover { border-color: var(--accent); }

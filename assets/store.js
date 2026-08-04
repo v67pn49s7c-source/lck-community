@@ -159,8 +159,17 @@ async function fetchAll() {
     up: x.up, views: x.views, ts: Date.parse(x.created_at), comments: commentsByPost[x.id] || [],
   }));
 
-  Cache.predictions = pr.data || [];
-  Cache.ratings = ra.data || [];
+  // 스냅샷 화면에서 방금 누른 내 표가 이 응답에 없을 수 있다(요청이 클릭보다 먼저 나감).
+  // 통째로 갈아끼우면 사라져 보이므로, 서버에 아직 없는 내 표만 살려 둔다.
+  const keepMine = (fresh, mine, key) => {
+    const has = new Set((fresh || []).map(key));
+    return (fresh || []).concat(mine.filter(x => !has.has(key(x))));
+  };
+  const me = voterId();
+  Cache.predictions = keepMine(pr.data, Cache.predictions.filter(p => p.voter === me),
+    x => x.match_id + "|" + x.voter);
+  Cache.ratings = keepMine(ra.data, Cache.ratings.filter(r => r.voter === me),
+    x => x.match_id + "|" + x.player_id + "|" + x.voter);
 
   Cache.details = {};
   (de.data || []).forEach(row => {
@@ -458,9 +467,10 @@ function myPredictionStats() {
   const votes = getVotes();
   let total = 0, hit = 0;
   Cache.matches.forEach(m => {
-    if (m.status === "done" && votes[m.id]) {
+    const winner = matchWinner(m);
+    if (winner && votes[m.id]) {
       total++;
-      if (votes[m.id] === (m.scoreA > m.scoreB ? "a" : "b")) hit++;
+      if (votes[m.id] === winner) hit++;
     }
   });
   const pending = Object.keys(votes).length - total;
@@ -645,10 +655,28 @@ function getFavTeam() {
 function setFavTeamLocal(teamId) {
   localStorage.setItem("nexus_fav_team", teamId || "");
 }
+// 회원은 프로필에도 저장해야 실제로 바뀐다 (getFavTeam이 프로필을 우선하므로)
+function setFavTeam(teamId) {
+  setFavTeamLocal(teamId);
+  if (Auth.profile) {
+    Auth.profile.fav_team = teamId || null;
+    sb.from("profiles").update({ fav_team: teamId || null })
+      .eq("id", Auth.profile.id).then(r => sbErr(r.error, "setFavTeam"));
+  }
+}
 
 // ── 팬 여권: 내 시즌 기록 집계 ─────────────────────────────
 // 예측·평점·투표를 한 사람(voterId) 기준으로 모은다. 회원은 계정 기준이라
 // 기기가 바뀌어도 이어지고, 비회원은 이 브라우저에서의 기록이다.
+// 승자 판정을 한 곳으로 — 스코어가 덜 채워졌거나 동점이면 "채점 불가"(null)
+// (관리자가 status=done으로 두고 한쪽 스코어만 넣거나 1:1을 남겨둘 수 있다)
+function matchWinner(m) {
+  if (!m || m.status !== "done") return null;
+  if (m.scoreA == null || m.scoreB == null) return null;
+  if (m.scoreA === m.scoreB) return null;        // 동점 = LCK엔 없지만 입력 실수로 가능
+  return m.scoreA > m.scoreB ? "a" : "b";
+}
+
 function matchParticipationOf(voter) {
   const ids = new Set();
   Cache.predictions.forEach(p => { if (p.voter === voter) ids.add(p.match_id); });
@@ -670,10 +698,10 @@ function myFanRecord() {
   const myPreds = Cache.predictions.filter(p => p.voter === me);
   let predDone = 0, predHits = 0;
   const history = [];
-  doneMatches.slice().reverse().forEach(m => {
+  doneMatches.forEach(m => {
     const p = myPreds.find(x => x.match_id === m.id);
-    if (!p || m.scoreA == null || m.scoreB == null) return;
-    const winner = m.scoreA > m.scoreB ? "a" : "b";
+    const winner = matchWinner(m);
+    if (!p || !winner) return;
     const hit = p.side === winner;
     predDone++; if (hit) predHits++;
     history.push({ match: m, side: p.side, hit });
@@ -684,13 +712,13 @@ function myFanRecord() {
   Cache.polls.filter(p => p.phase === "pre" && p.match_id).forEach(poll => {
     const v = Cache.pollVotes.find(x => x.poll_id === poll.id && x.voter === me);
     const m = Cache.matches.find(x => x.id === poll.match_id);
-    if (!v || !m || m.status !== "done" || m.scoreA == null) return;
+    if (!v || !matchWinner(m)) return;             // 채점 가능한 경기만
     const idx = (v.choices || [])[0];
     const picked = (poll.options || [])[idx];
     if (picked == null) return;
     scoreTried++;
     const A = TEAM_MAP[m.a], B = TEAM_MAP[m.b];
-    const winAbbr = m.scoreA > m.scoreB ? (A && A.abbr) : (B && B.abbr);
+    const winAbbr = matchWinner(m) === "a" ? (A && A.abbr) : (B && B.abbr);
     const hi = Math.max(m.scoreA, m.scoreB), lo = Math.min(m.scoreA, m.scoreB);
     if (String(picked).trim() === `${winAbbr} ${hi}:${lo} 승`) scoreHits++;
   });
@@ -728,6 +756,8 @@ function myFanRecord() {
   const rec = {
     voter: me, fav,
     matches: participated.size,
+    // 개근 판정은 "종료된 경기를 실제로 참여했는가"로 (예정 경기 예측이 섞이면 안 된다)
+    doneParticipated: doneMatches.filter(m => participated.has(m.id)).length,
     doneTotal: doneMatches.length,
     predDone, predHits,
     accuracy: predDone ? Math.round((predHits / predDone) * 100) : null,
@@ -747,7 +777,7 @@ function fanBadges(rec) {
   if (rec.scoreHits >= 2) out.push({ icon: "🔮", name: "스코어 스나이퍼", desc: `세트 스코어 ${rec.scoreHits}회 적중` });
   if (rec.pogVotes >= 5) out.push({ icon: "👑", name: "POG 개표인", desc: `MVP 투표 ${rec.pogVotes}회` });
   if (rec.ratedPlayers >= 10) out.push({ icon: "💯", name: "평점 마스터", desc: `선수 ${rec.ratedPlayers}명 평가` });
-  if (rec.doneTotal >= 5 && rec.matches >= rec.doneTotal) out.push({ icon: "🏟️", name: "개근 팬", desc: "이번 시즌 전 경기 참여" });
+  if (rec.doneTotal >= 5 && rec.doneParticipated >= rec.doneTotal) out.push({ icon: "🏟️", name: "개근 팬", desc: "이번 시즌 전 경기 참여" });
   return out;
 }
 
@@ -760,8 +790,8 @@ function fandomAccuracy() {
     const team = teamOf[p.voter];
     if (!team) return;
     const m = Cache.matches.find(x => x.id === p.match_id);
-    if (!m || m.status !== "done" || m.scoreA == null) return;
-    const winner = m.scoreA > m.scoreB ? "a" : "b";
+    const winner = matchWinner(m);
+    if (!winner) return;
     const t = (acc[team] = acc[team] || { team, n: 0, hits: 0 });
     t.n++; if (p.side === winner) t.hits++;
   });
@@ -1138,7 +1168,14 @@ async function sbSignUp(email, password, nick, favTeam) {
   }
   return { session: data.session };
 }
-async function sbSignOut() { await sb.auth.signOut(); }
+async function sbSignOut() {
+  await sb.auth.signOut();
+  // 스냅샷에 로그인 상태가 남으면 다음 방문에서 이전 회원의 팀·기록이 보인다
+  Auth.session = null;
+  Auth.profile = null;
+  try { localStorage.removeItem(SNAP_KEY); } catch {}
+  snapshotSave();
+}
 // 로그인은 됐지만 프로필이 없는 회원용 (이메일 확인을 거친 가입 등)
 async function completeProfile(nick, favTeam) {
   if (!Auth.session) return { error: { message: "로그인이 필요합니다." } };

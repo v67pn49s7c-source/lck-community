@@ -228,13 +228,15 @@ function radarBarsHTML(axes) {
 // ── 응원팀 온보딩 + 내 팀 중심 홈 히어로 ────────────────────
 // 첫 방문: "어느 팀을 응원하시나요?" → 선택하면 홈 상단이 내 팀 다음 경기와
 // 예측 중심으로 바뀐다. 팬 여권(내 기록)으로 이어지는 입구이기도 하다.
+let fanHeroChoosing = false;   // '변경'을 눌러 팀 선택 화면을 강제로 연 상태
+
 function renderFanHero() {
   const el = document.getElementById("fan-hero");
   if (!el) return;
   const fav = getFavTeam();
 
-  // ① 아직 안 물어봤다 → 팀 고르기
-  if (fav === null) {
+  // ① 아직 안 물어봤거나, 변경을 누른 경우 → 팀 고르기
+  if (fav === null || fanHeroChoosing) {
     el.style.display = "";
     el.innerHTML = `
       <div class="onboard">
@@ -249,11 +251,13 @@ function renderFanHero() {
         <button type="button" class="onboard-skip" id="onboard-skip">중립으로 볼게요</button>
       </div>`;
     el.querySelectorAll(".onboard-team").forEach(b => b.addEventListener("click", () => {
-      setFavTeamLocal(b.dataset.team);
+      fanHeroChoosing = false;
+      setFavTeam(b.dataset.team);       // 회원은 프로필에도 저장된다
       renderFanHero();
     }));
     el.querySelector("#onboard-skip").addEventListener("click", () => {
-      setFavTeamLocal("");
+      fanHeroChoosing = false;
+      setFavTeam("");
       renderFanHero();
     });
     return;
@@ -268,7 +272,7 @@ function renderFanHero() {
         <button type="button" class="btn-secondary" id="onboard-open">팀 고르기</button>
       </div>`;
     el.querySelector("#onboard-open").addEventListener("click", () => {
-      localStorage.removeItem("nexus_fav_team");
+      fanHeroChoosing = true;
       renderFanHero();
     });
     return;
@@ -279,8 +283,13 @@ function renderFanHero() {
   if (!t) { el.style.display = "none"; return; }
   el.style.display = "";
 
-  const next = sortedMatches().find(m =>
+  // 예측 위젯과 같은 규칙: 진행 중 > 아직 안 온 경기 > (없으면) 첫 미종료 경기
+  const mine = sortedMatches().filter(m =>
     m.status !== "done" && (m.a === fav || m.b === fav) && knownTeams(m));
+  const nowMs = Date.now();
+  const next = mine.find(m => m.status === "live")
+    || mine.find(m => new Date(m.at) > nowMs)
+    || mine[0];
   const rec = myFanRecord();
   const my = next ? getVotes()[next.id] : null;
 
@@ -293,13 +302,13 @@ function renderFanHero() {
     matchHTML = `
       <a class="fh-match" href="live.html?match=${q(next.id)}">
         <span class="fh-side">${teamLogoHTML(A, 34)} <b>${esc(A.abbr)}</b></span>
-        <span class="fh-mid">${live ? `<em class="live-badge">● LIVE</em>` : `<em>VS</em><span>${fmtWhen(next.at)}</span>`}</span>
+        <span class="fh-mid">${live ? `<span class="live-badge">● LIVE</span>` : `<em>VS</em><span>${fmtWhen(next.at)}</span>`}</span>
         <span class="fh-side right"><b>${esc(B.abbr)}</b> ${teamLogoHTML(B, 34)}</span>
       </a>
       <div class="fh-predict">
         ${my
           ? `<span class="fh-note"><b style="color:var(--accent)">${esc((my === "a" ? A : B).abbr)} 승리</b> 예측 중 ·
-               ${esc(t.abbr)} 팬 확신도 ${usPct}%${pct.n ? ` (${pct.n}명)` : ""}</span>
+               전체 예측 중 ${esc(t.abbr)} 승리 ${usPct}%${pct.n ? ` · ${pct.n}명 참여` : ""}</span>
              <button type="button" class="btn-secondary" id="fh-share">📷 예측 카드</button>`
           : `<span class="fh-note">아직 예측 전 — 누가 이길까요?</span>
              <button type="button" class="btn-secondary fh-vote" data-side="a">${esc(A.abbr)} 승</button>
@@ -326,7 +335,7 @@ function renderFanHero() {
     </div>`;
 
   el.querySelector("#fh-change").addEventListener("click", () => {
-    localStorage.removeItem("nexus_fav_team");
+    fanHeroChoosing = true;
     renderFanHero();
   });
   el.querySelectorAll(".fh-vote").forEach(b => b.addEventListener("click", e => {
