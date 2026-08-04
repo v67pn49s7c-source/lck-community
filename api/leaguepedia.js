@@ -89,9 +89,12 @@ module.exports = async (req, res) => {
         lpMatchId: mid, a: teamMap[t1] || null, b: teamMap[t2] || null,
         aName: t1, bName: t2, at: val(g, "DateTime UTC"), sets: [], scoreA: 0, scoreB: 0,
       });
-      const winnerIsA = String(val(g, "Winner")) === "1";
-      if (winnerIsA) m.scoreA++; else m.scoreB++;
-      m.sets.push({ gid, win: winnerIsA ? "a" : "b", n: Number(val(g, "N GameInMatch")) || m.sets.length + 1, players: [] });
+      // ⚠ 세트마다 블루/레드 진영이 바뀐다(1세트 HLE-KT, 2세트 KT-HLE).
+      //   그래서 "그 세트의 Team1이 이겼나"가 아니라 "이긴 팀 이름이 경기의 A팀인가"로 판단해야 한다.
+      const winnerName = String(val(g, "Winner")) === "1" ? t1 : t2;
+      const winIsMatchA = winnerName === m.aName;
+      if (winIsMatchA) m.scoreA++; else m.scoreB++;
+      m.sets.push({ gid, win: winIsMatchA ? "a" : "b", n: Number(val(g, "N GameInMatch")) || m.sets.length + 1, players: [] });
     });
 
     rows.forEach(r => {
