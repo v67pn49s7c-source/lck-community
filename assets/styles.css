@@ -951,6 +951,30 @@ table.award-table td a:hover b { color: var(--accent); }
 .doc b { color: var(--text); }
 .doc .doc-note { margin-top: 18px; font-size: var(--fs-sm); color: var(--text-dim); }
 
+/* ── 모바일 하단 탭바 ── */
+.tab-bar { display: none; }
+@media (max-width: 720px) {
+  .tab-bar {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 120;
+    background: color-mix(in srgb, var(--card) 94%, transparent);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .tab-bar a {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; padding: 8px 2px 7px; min-height: 52px;
+    font-size: 10px; font-weight: 700; color: var(--text-dim);
+  }
+  .tab-bar a svg { width: 21px; height: 21px; }
+  .tab-bar a.active { color: var(--accent); }
+  /* 탭바에 가려지지 않게 본문 아래 여백 */
+  body.has-tab-bar .site-footer { padding-bottom: 76px; }
+  /* 위쪽 가로 메뉴는 탭바에 없는 메뉴만 남겨 짧게 */
+  .main-nav { mask-image: linear-gradient(90deg, #000 88%, transparent); }
+}
+
 /* ── 관리자 화면: 왼쪽 메뉴 + 한 번에 한 섹션 (설정 화면 방식) ── */
 .admin-shell { display: grid; grid-template-columns: 176px minmax(0, 1fr); gap: 14px; align-items: start; }
 .admin-nav {

@@ -173,6 +173,41 @@ function renderHeader(activeMenu, activeTeamId) {
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
   if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-mobile.png");
+
+  renderTabBar(activeMenu);
+}
+
+// ── 모바일 하단 탭바 ──────────────────────────────────────
+// 휴대폰에서는 위쪽 가로 메뉴가 손이 닿기 불편하고 10개가 밀려 있어 잘 안 보인다.
+// 자주 쓰는 다섯 곳만 엄지 닿는 자리에 고정한다.
+const TAB_BAR = [
+  { menu: "홈", href: "index.html", label: "홈",
+    icon: `<path d="M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>` },
+  { menu: "경기", href: "matches.html", label: "경기", alt: ["오늘의 경기", "순위"],
+    icon: `<rect x="3" y="4.5" width="18" height="17" rx="2"/><path d="M8 2.5v4M16 2.5v4M3 10h18"/>` },
+  { menu: "승부예측", href: "predict.html", label: "예측", alt: ["랭킹"],
+    icon: `<path d="M12 3l2.6 5.6 6.4.8-4.7 4.3 1.3 6.3L12 17l-5.6 3 1.3-6.3L3 9.4l6.4-.8z"/>` },
+  { menu: "커뮤니티", href: "community.html", label: "커뮤니티", alt: ["팀"],
+    icon: `<path d="M21 12a8 8 0 1 1-3.2-6.4L21 4l-1 4.2A8 8 0 0 1 21 12z"/><path d="M8 11h8M8 14.5h5"/>` },
+  { menu: null, href: "login.html", label: "MY", alt: ["선수", "수상"],
+    icon: `<circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/>` },
+];
+
+function renderTabBar(activeMenu) {
+  document.getElementById("tab-bar")?.remove();
+  const nav = document.createElement("nav");
+  nav.id = "tab-bar";
+  nav.className = "tab-bar";
+  nav.innerHTML = TAB_BAR.map(t => {
+    const on = t.menu === activeMenu || (t.alt || []).includes(activeMenu);
+    return `<a href="${t.href}" class="${on ? "active" : ""}" aria-label="${esc(t.label)}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${t.icon}</svg>
+      <span>${esc(t.label)}</span>
+    </a>`;
+  }).join("");
+  document.body.appendChild(nav);
+  document.body.classList.add("has-tab-bar");
 }
 
 function renderFooter() {
@@ -190,6 +225,9 @@ function renderFooter() {
         sponsored by, or endorsed by Riot Games, LCK, or any participating team.
         Riot Games, League of Legends, LCK, and all associated names, logos, and trademarks
         are the property of their respective owners.
+      </p>
+      <p class="foot-disclaimer en" lang="en">
+        Some content is provided courtesy of Leaguepedia, under a CC-BY-SA 3.0 license.
       </p>
       <p class="foot-links">
         모든 예측 참여는 무료이며 포인트는 환전·거래할 수 없습니다.
