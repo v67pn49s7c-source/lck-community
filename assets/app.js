@@ -64,13 +64,31 @@ function fmtDayKey(iso) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" })
     .format(new Date(iso));
 }
+
+// 사이트의 모든 시각은 보는 사람 위치와 상관없이 한국 시간(KST) 기준으로 표시한다.
+// (브라우저 기본 함수는 기기 시간대를 따라가서, 해외에서 보면 다른 시각이 찍힌다)
+const KST_PARTS_FMT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit",
+  hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+});
+function kstParts(ts) {
+  const out = {};
+  KST_PARTS_FMT.formatToParts(new Date(ts)).forEach(p => { out[p.type] = p.value; });
+  return out;
+}
+function fmtMD(ts) { const p = kstParts(ts); return `${p.month}.${p.day}`; }            // 08.04
+function fmtHM(ts) { const p = kstParts(ts); return `${p.hour}:${p.minute}`; }          // 14:30
+function fmtFullKST(ts) {                                                              // 2026. 08. 04. 14:30 KST
+  const p = kstParts(ts);
+  return `${p.year}. ${p.month}. ${p.day}. ${p.hour}:${p.minute} KST`;
+}
+
 function fmtAgo(ts) {
   const d = Date.now() - ts;
   if (d < 60e3) return "방금";
   if (d < 3600e3) return Math.floor(d / 60e3) + "분 전";
   if (d < 86400e3) return Math.floor(d / 3600e3) + "시간 전";
-  const dt = new Date(ts);
-  return `${String(dt.getMonth() + 1).padStart(2, "0")}.${String(dt.getDate()).padStart(2, "0")}`;
+  return fmtMD(ts);
 }
 
 // 배당률 → 예상 승률

@@ -10,11 +10,9 @@ function boardPosts(teamId) {
   return all.filter(p => !p.team);
 }
 
+// 오늘 글이면 시:분, 아니면 월.일 — 모두 한국 시간(KST) 기준
 function fmtBoardDate(ts) {
-  const d = new Date(ts), now = new Date();
-  if (d.toDateString() === now.toDateString())
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-  return `${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+  return fmtDayKey(ts) === fmtDayKey(Date.now()) ? fmtHM(ts) : fmtMD(ts);
 }
 
 // state: {teamId, cat, page, query}
@@ -180,7 +178,7 @@ async function initPostPage() {
         <h1>${esc(cur.title)}</h1>
         <div class="post-view-meta">
           <b>${nickHTML(cur.nick, cur.author_team)}</b>
-          <span>${new Date(cur.ts).toLocaleString("ko-KR")}</span>
+          <span>${fmtFullKST(cur.ts)}</span>
           <span>조회 ${cur.views}</span>
           <span>추천 ${cur.up}</span>
         </div>
