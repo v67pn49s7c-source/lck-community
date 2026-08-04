@@ -548,9 +548,15 @@ function awardsByCat(cat) {
 }
 function addAward(a) {
   Cache.awards.push(a);
-  sb.from("awards").insert(a).select().then(r => {
+  // 저장 결과(서버가 매긴 id 포함)를 호출자가 기다릴 수 있게 프로미스를 돌려준다
+  return sb.from("awards").insert(a).select().then(r => {
     sbErr(r.error, "addAward");
+    if (r.error) {
+      Cache.awards = Cache.awards.filter(x => x !== a); // 거부되면 화면에서도 되돌린다
+      return { error: r.error };
+    }
     if (r.data && r.data[0]) Object.assign(a, r.data[0]);
+    return { data: a };
   });
 }
 function deleteAward(id) {

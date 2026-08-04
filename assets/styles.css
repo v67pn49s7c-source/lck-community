@@ -948,6 +948,41 @@ table.award-table td a:hover b { color: var(--accent); }
 .doc b { color: var(--text); }
 .doc .doc-note { margin-top: 18px; font-size: var(--fs-sm); color: var(--text-dim); }
 
+/* ── 관리자 화면: 왼쪽 메뉴 + 한 번에 한 섹션 (설정 화면 방식) ── */
+.admin-shell { display: grid; grid-template-columns: 176px minmax(0, 1fr); gap: 14px; align-items: start; }
+.admin-nav {
+  position: sticky; top: 66px; display: flex; flex-direction: column; gap: 2px;
+  background: var(--card); border: 1px solid var(--line); padding: 7px;
+}
+.admin-nav button {
+  text-align: left; padding: 9px 11px; font-size: var(--fs-sm); font-weight: 700;
+  color: var(--text-sub); border-left: 3px solid transparent;
+}
+.admin-nav button:hover { color: var(--text); background: var(--card-hover); }
+.admin-nav button.active {
+  color: var(--accent); background: var(--accent-soft); border-left-color: var(--accent);
+}
+.admin-panel { display: none; }
+.admin-panel.active { display: block; }
+/* 제목 + 분류 탭이 한 줄에 안 들어가면 탭을 아랫줄로 (제목이 세로로 접히지 않게) */
+.admin-panel .card-head { flex-wrap: wrap; gap: 8px 12px; }
+.admin-panel .card-title { white-space: nowrap; }
+
+@media (max-width: 720px) {
+  .admin-shell { grid-template-columns: 1fr; gap: 10px; }
+  /* 좁은 화면에서는 위쪽 가로 스크롤 메뉴로 */
+  .admin-nav {
+    position: sticky; top: 56px; z-index: 20;
+    flex-direction: row; overflow-x: auto; scrollbar-width: none; padding: 5px;
+  }
+  .admin-nav::-webkit-scrollbar { display: none; }
+  .admin-nav button {
+    flex: 0 0 auto; padding: 7px 11px; border-left: 0; border-bottom: 2px solid transparent;
+    white-space: nowrap;
+  }
+  .admin-nav button.active { border-left: 0; border-bottom-color: var(--accent); }
+}
+
 /* ── 중계 링크 버튼 ── */
 .stream-links {
   display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
