@@ -1,5 +1,12 @@
 -- ── POM 포인트 · 시즌 수상 테이블 (The Nexus) ──────────────
 -- Supabase 대시보드 → SQL Editor에 전체 붙여넣고 Run 한 번이면 끝.
+-- 2026-08-04 수정: 값 사이 쉼표·끝 세미콜론이 주석(-- 이름,) 안에 들어가 있어
+--   구문 오류로 실행되지 않던 것을 바로잡음. 운영 DB에 두 테이블이 없던 원인.
+
+-- 관리자 판별 함수 (다른 SQL을 아직 실행하지 않았어도 동작하게)
+create or replace function is_admin() returns boolean
+language sql stable security definer set search_path = public as
+$$ select coalesce((select is_admin from profiles where id = auth.uid()), false) $$;
 
 -- 1) POM (Player of the Match) 포인트 — 경기당 100pt
 create table if not exists pom_awards (
@@ -49,43 +56,43 @@ create policy "admin_write_awards" on awards for all to authenticated using (is_
 -- POM 누적 포인트 (LCK 공식 집계 이월 · 우리 로스터에 없는 LazyFeel·Rich 제외)
 delete from pom_awards where match_id is null;
 insert into pom_awards (player_id, pts, label) values
-  ('gen-chovy', 900, '2026 정규시즌 누적 이월')  -- Chovy,
-  ('hle-zeka', 700, '2026 정규시즌 누적 이월')  -- Zeka,
-  ('bfx-taeyoon-1785696794062', 500, '2026 정규시즌 누적 이월')  -- Taeyoon,
-  ('kt-bdd', 400, '2026 정규시즌 누적 이월')  -- Bdd,
-  ('t1-keria', 400, '2026 정규시즌 누적 이월')  -- Keria,
-  ('t1-oner', 400, '2026 정규시즌 누적 이월')  -- Oner,
-  ('kt-perfect', 400, '2026 정규시즌 누적 이월')  -- PerfecT,
-  ('ns-scout-1785696751182', 400, '2026 정규시즌 누적 이월')  -- Scout,
-  ('dk-showmaker', 400, '2026 정규시즌 누적 이월')  -- ShowMaker,
-  ('bro-teddy-1785696850962', 400, '2026 정규시즌 누적 이월')  -- Teddy,
-  ('krx-aiming-1785696472017', 300, '2026 정규시즌 누적 이월')  -- Aiming,
-  ('kt-cuzz-1785696455823', 300, '2026 정규시즌 누적 이월')  -- Cuzz,
-  ('t1-faker', 300, '2026 정규시즌 누적 이월')  -- Faker,
-  ('hle-kanavi-1785696306601', 300, '2026 정규시즌 누적 이월')  -- Kanavi,
-  ('dk-lucid', 300, '2026 정규시즌 누적 이월')  -- Lucid,
-  ('t1-peyz-1785696354910', 300, '2026 정규시즌 누적 이월')  -- Peyz,
-  ('dk-smash', 300, '2026 정규시즌 누적 이월')  -- Smash,
-  ('krx-ucal', 300, '2026 정규시즌 누적 이월')  -- Ucal,
-  ('hle-delight', 200, '2026 정규시즌 누적 이월')  -- Delight,
-  ('bro-gideon-1785696832175', 200, '2026 정규시즌 누적 이월')  -- GIDEON,
-  ('gen-kiin', 200, '2026 정규시즌 누적 이월')  -- Kiin,
-  ('gen-ruler', 200, '2026 정규시즌 누적 이월')  -- Ruler,
-  ('dk-siwoo', 200, '2026 정규시즌 누적 이월')  -- Siwoo,
-  ('hle-zeus', 200, '2026 정규시즌 누적 이월')  -- Zeus,
-  ('gen-canyon', 100, '2026 정규시즌 누적 이월')  -- Canyon,
-  ('dk-career-1785696394105', 100, '2026 정규시즌 누적 이월')  -- Career,
-  ('bfx-clear', 100, '2026 정규시즌 누적 이월')  -- Clear,
-  ('t1-doran', 100, '2026 정규시즌 누적 이월')  -- Doran,
-  ('kt-effort-1785755537491', 100, '2026 정규시즌 누적 이월')  -- Effort,
-  ('hle-gumayusi-1785696329218', 100, '2026 정규시즌 누적 이월')  -- Gumayusi,
-  ('bfx-kellin', 100, '2026 정규시즌 누적 이월')  -- Kellin,
-  ('ns-lehends', 100, '2026 정규시즌 누적 이월')  -- Lehends,
-  ('dns-pyosik-1785696707312', 100, '2026 정규시즌 누적 이월')  -- Pyosik,
-  ('bfx-raptor', 100, '2026 정규시즌 누적 이월')  -- Raptor,
-  ('dns-sharvel-1785756268044', 100, '2026 정규시즌 누적 이월')  -- Sharvel,
-  ('ns-sponge-1785696742452', 100, '2026 정규시즌 누적 이월')  -- Sponge,
-  ('krx-willer-1785696540742', 100, '2026 정규시즌 누적 이월')  -- Willer;
+  ('gen-chovy', 900, '2026 정규시즌 누적 이월'),  -- Chovy
+  ('hle-zeka', 700, '2026 정규시즌 누적 이월'),  -- Zeka
+  ('bfx-taeyoon-1785696794062', 500, '2026 정규시즌 누적 이월'),  -- Taeyoon
+  ('kt-bdd', 400, '2026 정규시즌 누적 이월'),  -- Bdd
+  ('t1-keria', 400, '2026 정규시즌 누적 이월'),  -- Keria
+  ('t1-oner', 400, '2026 정규시즌 누적 이월'),  -- Oner
+  ('kt-perfect', 400, '2026 정규시즌 누적 이월'),  -- PerfecT
+  ('ns-scout-1785696751182', 400, '2026 정규시즌 누적 이월'),  -- Scout
+  ('dk-showmaker', 400, '2026 정규시즌 누적 이월'),  -- ShowMaker
+  ('bro-teddy-1785696850962', 400, '2026 정규시즌 누적 이월'),  -- Teddy
+  ('krx-aiming-1785696472017', 300, '2026 정규시즌 누적 이월'),  -- Aiming
+  ('kt-cuzz-1785696455823', 300, '2026 정규시즌 누적 이월'),  -- Cuzz
+  ('t1-faker', 300, '2026 정규시즌 누적 이월'),  -- Faker
+  ('hle-kanavi-1785696306601', 300, '2026 정규시즌 누적 이월'),  -- Kanavi
+  ('dk-lucid', 300, '2026 정규시즌 누적 이월'),  -- Lucid
+  ('t1-peyz-1785696354910', 300, '2026 정규시즌 누적 이월'),  -- Peyz
+  ('dk-smash', 300, '2026 정규시즌 누적 이월'),  -- Smash
+  ('krx-ucal', 300, '2026 정규시즌 누적 이월'),  -- Ucal
+  ('hle-delight', 200, '2026 정규시즌 누적 이월'),  -- Delight
+  ('bro-gideon-1785696832175', 200, '2026 정규시즌 누적 이월'),  -- GIDEON
+  ('gen-kiin', 200, '2026 정규시즌 누적 이월'),  -- Kiin
+  ('gen-ruler', 200, '2026 정규시즌 누적 이월'),  -- Ruler
+  ('dk-siwoo', 200, '2026 정규시즌 누적 이월'),  -- Siwoo
+  ('hle-zeus', 200, '2026 정규시즌 누적 이월'),  -- Zeus
+  ('gen-canyon', 100, '2026 정규시즌 누적 이월'),  -- Canyon
+  ('dk-career-1785696394105', 100, '2026 정규시즌 누적 이월'),  -- Career
+  ('bfx-clear', 100, '2026 정규시즌 누적 이월'),  -- Clear
+  ('t1-doran', 100, '2026 정규시즌 누적 이월'),  -- Doran
+  ('kt-effort-1785755537491', 100, '2026 정규시즌 누적 이월'),  -- Effort
+  ('hle-gumayusi-1785696329218', 100, '2026 정규시즌 누적 이월'),  -- Gumayusi
+  ('bfx-kellin', 100, '2026 정규시즌 누적 이월'),  -- Kellin
+  ('ns-lehends', 100, '2026 정규시즌 누적 이월'),  -- Lehends
+  ('dns-pyosik-1785696707312', 100, '2026 정규시즌 누적 이월'),  -- Pyosik
+  ('bfx-raptor', 100, '2026 정규시즌 누적 이월'),  -- Raptor
+  ('dns-sharvel-1785756268044', 100, '2026 정규시즌 누적 이월'),  -- Sharvel
+  ('ns-sponge-1785696742452', 100, '2026 정규시즌 누적 이월'),  -- Sponge
+  ('krx-willer-1785696540742', 100, '2026 정규시즌 누적 이월');  -- Willer
 
 -- 베스트 세레모니 · 질레트 펜타킬
 delete from awards where cat in ('ceremony','pentakill');
