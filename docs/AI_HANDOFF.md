@@ -59,7 +59,31 @@
 - **조회수·추천수가 서버에 저장되지 않던 문제**도 같은 파일에서 수정
   (posts에 UPDATE 정책이 아예 없었음 → views·up 두 칸만 갱신 가능하도록 컬럼 권한 부여).
 
+### 서버 계층 도입 · MINION 벤치마킹 반영 (2026-08-04)
+
+경쟁 사이트(minion-mu-five.vercel.app) 분석 후 반영. 그쪽은 Next.js 서버 렌더링 +
+Leaguepedia(CC-BY-SA) 데이터 + 직접 만든 SVG 레이더가 핵심이었다.
+
+- **api/ 폴더 신설 = 첫 서버 코드.** Vercel이 `api/*.js`를 자동으로 서버 함수로 잡는다.
+  - `_lib.js` — Supabase service_role 호출 + 관리자 확인(로그인 토큰을 서버가 직접 검증)
+  - `leaguepedia.js` — 경기·세트·선수 기록 수집 (미리보기 → 이름 연결 → 저장)
+  - `team-feed.js` — 팀 공식 유튜브 RSS (10분 캐시)
+  - **필요 환경변수**: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, (선택) `ADMIN_TASK_TOKEN`
+    → 없으면 500과 함께 안내 문구. 설정 전까지 나머지 사이트는 정상 동작.
+- **선수 육각형 지표**: `radarSVG()`/`radarBarsHTML()`(app.js) + `playerAggregate`/`radarData`(store.js).
+  축 6개(KDA·킬관여·CS·골드·팬평점·POM)를 같은 포지션 안에서 0~100 백분위로 환산.
+  팬평점·POM은 우리만 가진 축이라 경쟁 사이트가 못 따라오는 부분.
+- **대회 필터칩** + 시즌 요약 + 사용 챔피언 표 (선수 페이지)
+- **모바일 하단 탭바** (≤720px)
+- 푸터에 Leaguepedia CC-BY-SA 출처 표기
+
 ### 아직 남은 것 (다음 단계)
+
+- **투표·평점 원본 비공개화 (보안 핵심, 미완)**: 지금도 `predictions`/`ratings`/
+  `poll_votes`/`reactions`의 모든 행이 공개 조회된다. 서버 계층이 생겼으니
+  ① `/api/aggregates`가 집계 + 본인 표만 돌려주게 만들고
+  ② 화면 코드를 그쪽으로 갈아끼운 뒤
+  ③ 원시 테이블의 공개 SELECT를 막는 순서로 진행할 것. 화면 수정 범위가 넓어 분리함.
 
 - **비회원 표 덮어쓰기**: 회원 행은 SQL로 보호되지만, 비회원 행은 `voter`가 브라우저가 만든
   문자열이라 서버가 소유권을 증명할 수 없습니다. 완전 차단하려면
