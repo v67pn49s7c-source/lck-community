@@ -174,6 +174,9 @@ function cacheFingerprint() {
       Object.keys(Cache.details).length,
       Cache.players.length, Cache.polls.length, Cache.awards.length,
       Cache.pom.length, Cache.records.length,
+      // 설정값(중계 링크 등)도 바뀌면 알림 — 로고는 용량만 크고 내용이 자주 바뀌지 않아 제외
+      Object.entries(Cache.settings || {}).filter(([k]) => !k.startsWith("logo_"))
+        .map(([k, v]) => k + "=" + String(v).length).sort().join(","),
       Auth.session ? "in" : "out",
     ].join("|");
   } catch { return ""; }

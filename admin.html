@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260804c">
+  <link rel="stylesheet" href="assets/styles.css?v=20260804d">
 </head>
 <body>
   <main class="page">
@@ -234,11 +234,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260804c"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260804c"></script>
-  <script src="assets/store.js?v=20260804c"></script>
-  <script src="assets/app.js?v=20260804c"></script>
-  <script src="assets/ddragon.js?v=20260804c"></script>
+  <script src="assets/data.js?v=20260804d"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260804d"></script>
+  <script src="assets/store.js?v=20260804d"></script>
+  <script src="assets/app.js?v=20260804d"></script>
+  <script src="assets/ddragon.js?v=20260804d"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -738,7 +738,7 @@
       document.getElementById("award-form").innerHTML = `
         <div class="row">
           <label style="max-width:110px">${kind.ordLabel}
-            <input id="aw-ord" type="number" min="1" value="${nextOrd}" required>
+            <input id="aw-ord" type="number" value="${nextOrd}" data-next="${nextOrd}">
           </label>
           <label>선수
             <select id="aw-player">
@@ -813,8 +813,16 @@
         }));
 
       document.getElementById("award-note").innerHTML =
-        (kind.note ? esc(kind.note) + "<br>" : "")
+        `<div id="aw-msg"></div>`
+        + (kind.note ? esc(kind.note) + "<br>" : "")
         + `추가·삭제는 바로 저장되며 <a href="awards.html" style="text-decoration:underline">수상 페이지</a>에 즉시 반영됩니다.`;
+    }
+
+    // 저장 결과를 패널 안에 남긴다 (알림창은 놓치기 쉬워서)
+    function awardMsg(text, ok) {
+      const el = document.getElementById("aw-msg");
+      if (!el) return;
+      el.innerHTML = `<b style="color:${ok ? "var(--blue)" : "var(--accent)"}">${esc(text)}</b>`;
     }
 
     document.getElementById("award-form").addEventListener("submit", e => {
@@ -825,21 +833,31 @@
       const person = p ? (p.name || "") : (document.getElementById("aw-person")?.value.trim() || "");
       const nick = p ? p.nick : (document.getElementById("aw-nick")?.value.trim() || "");
       const team = p ? p.team : (document.getElementById("aw-team")?.value || "");
-      if (!p && !person && !nick) { alert("선수를 고르거나 이름을 입력해 주세요."); return; }
-      addAward({
+      if (!p && !person && !nick) {
+        awardMsg("선수를 고르거나, 선수가 아니면 이름을 입력해 주세요.", false);
+        return;
+      }
+      const ordEl = document.getElementById("aw-ord");
+      const row = {
         cat: kind.key,
-        ord: Number(document.getElementById("aw-ord").value) || 0,
+        ord: Number(ordEl.value) || Number(ordEl.dataset.next) || 1, // 비워 둬도 막지 않고 다음 번호로
         player_id: pid || null,
         person, nick, team,
         champ: document.getElementById("aw-champ")?.value.trim() || "",
         opp_team: document.getElementById("aw-opp")?.value || "",
         at_date: document.getElementById("aw-date")?.value.trim() || "",
         note: document.getElementById("aw-note").value.trim(),
-      }).then(r => {
-        if (r.error) alert("저장에 실패했습니다: " + r.error.message);
+      };
+      const label = `${row.ord}${kind.ordSuffix} ${row.nick || row.person}`;
+      addAward(row).then(r => {
         renderAwardAdmin(); // 서버가 매긴 id를 받은 뒤 다시 그린다 (삭제 버튼용)
+        if (r.error) {
+          console.error("[award]", row, r.error);
+          awardMsg("저장하지 못했습니다 — " + r.error.message, false);
+        } else {
+          awardMsg(`저장했습니다: ${label}`, true);
+        }
       });
-      renderAwardAdmin();
     });
 
     // ── 중계 링크 관리 ──
