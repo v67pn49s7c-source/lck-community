@@ -30,6 +30,11 @@ const Cache = {
 
 function sbErr(e, what) { if (e) console.error("[supabase]", what, e.message); }
 
+// 서버에 아직 함수가 없을 때 (SQL 파일 실행 전) 나는 오류인지
+function isMissingFunction(e) {
+  return !!e && (e.code === "PGRST202" || /function .* does not exist|Could not find the function/i.test(e.message || ""));
+}
+
 // ── 로컬 스냅샷 ──────────────────────────────────────────
 // 지난 방문에서 받은 데이터를 브라우저에 저장해 두고, 다음 방문에서는 그것을 먼저
 // 그려서 화면을 즉시 띄운다. 서버 데이터는 뒤에서 받아 와 달라진 게 있으면 알린다.
@@ -316,18 +321,53 @@ function deletePlayer(id) {
 // ── 게시글 ──
 function getPosts() { return Cache.posts; }
 function getPost(id) { return Cache.posts.find(p => p.id === id); }
-function addPost(p) {
+// 글쓰기 — 서버 함수(create_post)로 보낸다. 비회원은 pw(4자 이상)가 필수이며
+// 비밀번호는 아무도 못 읽는 별도 표에 해시로만 저장된다 (수정·삭제할 때 확인용).
+function addPost(p, pw) {
   if (Auth.profile) p.nick = Auth.profile.nick; // 회원은 고정 닉네임 사용
   p.author_team = Auth.profile?.fav_team || null;
   p.id = "p" + Date.now();
   p.ts = Date.now(); p.views = 0; p.up = 0; p.comments = [];
   Cache.posts.unshift(p);
   // 저장 완료를 기다려야 하는 호출자를 위해 프로미스를 노출
-  addPost.lastSave = sb.from("posts").insert({
-    id: p.id, team: p.team, cat: p.cat, title: p.title, body: p.body, nick: p.nick,
-    author_team: p.author_team, match_id: p.match_id || null,
-  }).then(r => { sbErr(r.error, "addPost"); return r; });
+  addPost.lastSave = sb.rpc("create_post", {
+    p_id: p.id, p_team: p.team || null, p_cat: p.cat, p_title: p.title, p_body: p.body,
+    p_nick: p.nick, p_match_id: p.match_id || null, p_pw: pw || null,
+  }).then(r => {
+    // 서버에 함수가 아직 없으면(SQL 미적용) 예전 방식으로 저장해 글쓰기가 막히지 않게 한다
+    if (r.error && isMissingFunction(r.error)) {
+      console.warn("[store] create_post 함수 없음 — 예전 방식으로 저장 (schema11_post_edit.sql 실행 필요)");
+      return sb.from("posts").insert({
+        id: p.id, team: p.team, cat: p.cat, title: p.title, body: p.body, nick: p.nick,
+        author_team: p.author_team, match_id: p.match_id || null,
+      });
+    }
+    sbErr(r.error, "addPost");
+    return r;
+  });
   return p.id;
+}
+
+// 글 수정 (비회원은 비밀번호, 회원은 본인 글, 관리자는 전부)
+function editPost(id, pw, title, body) {
+  return sb.rpc("update_post", { p_id: id, p_pw: pw || null, p_title: title, p_body: body })
+    .then(r => {
+      sbErr(r.error, "editPost");
+      if (!r.error) {
+        const p = Cache.posts.find(x => x.id === id);
+        if (p) { p.title = title; p.body = body; }
+      }
+      return r;
+    });
+}
+
+// 글 삭제 (같은 규칙)
+function removePost(id, pw) {
+  return sb.rpc("delete_post", { p_id: id, p_pw: pw || null }).then(r => {
+    sbErr(r.error, "removePost");
+    if (!r.error) Cache.posts = Cache.posts.filter(x => x.id !== id);
+    return r;
+  });
 }
 function postsForMatch(matchId) {
   return Cache.posts.filter(p => p.match_id === matchId);
@@ -342,24 +382,43 @@ function deletePost(id) {
   Cache.posts = Cache.posts.filter(p => p.id !== id);
   sb.from("posts").delete().eq("id", id).then(r => sbErr(r.error, "deletePost"));
 }
-function addComment(postId, nick, body) {
+function addComment(postId, nick, body, pw) {
   if (Auth.profile) nick = Auth.profile.nick;
   const author_team = Auth.profile?.fav_team || null;
   const p = Cache.posts.find(x => x.id === postId);
   const optimistic = { nick, body, author_team, ts: Date.now() };
   if (p) p.comments.push(optimistic);
   // 저장 결과를 호출자가 확인할 수 있게 프로미스를 돌려준다
-  return sb.from("comments").insert({ post_id: postId, nick, body, author_team })
-    .select().single().then(r => {
+  return sb.rpc("create_comment", { p_post_id: postId, p_nick: nick, p_body: body, p_pw: pw || null })
+    .then(r => {
+      if (r.error && isMissingFunction(r.error)) { // SQL 미적용 시 예전 방식
+        console.warn("[store] create_comment 함수 없음 — 예전 방식으로 저장");
+        return sb.from("comments").insert({ post_id: postId, nick, body, author_team })
+          .select().single().then(r2 => ({ error: r2.error, data: r2.data && r2.data.id }));
+      }
+      return r;
+    })
+    .then(r => {
       sbErr(r.error, "addComment");
       if (r.error) {
         // 서버가 거부하면 화면에서도 되돌린다 (저장된 것처럼 남지 않게)
         if (p) p.comments = p.comments.filter(c => c !== optimistic);
         return { error: r.error };
       }
-      if (r.data && optimistic.id == null) optimistic.id = r.data.id; // 댓글 추천용 서버 id
+      if (r.data && optimistic.id == null) optimistic.id = r.data; // 서버가 매긴 댓글 id
       return { data: r.data };
     });
+}
+
+// 댓글 삭제 (비회원은 비밀번호, 회원은 본인 댓글, 관리자는 전부)
+function removeComment(commentId, pw) {
+  return sb.rpc("delete_comment", { p_id: commentId, p_pw: pw || null }).then(r => {
+    sbErr(r.error, "removeComment");
+    if (!r.error) {
+      Cache.posts.forEach(p => { p.comments = p.comments.filter(c => c.id !== commentId); });
+    }
+    return r;
+  });
 }
 
 // ── 승부예측 ──

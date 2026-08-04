@@ -160,6 +160,8 @@ async function initPostPage() {
           ${c.id != null ? `<button class="c-like ${myCommentLike(c.id) ? "liked" : ""}" data-cid="${esc(c.id)}"
             style="margin-left:auto;color:${myCommentLike(c.id) ? "var(--accent)" : "var(--text-dim)"};font-size:11px;font-weight:700">
             ▲ ${likes}</button>` : ""}
+          ${c.id != null ? `<button class="c-del" data-cid="${esc(c.id)}"
+            style="color:var(--text-dim);font-size:11px">삭제</button>` : ""}
         </div>
         <div class="c-body">${esc(c.body)}</div>
       </div>`;
@@ -192,6 +194,10 @@ async function initPostPage() {
             ${k.emoji} ${k.label} ${rc[k.kind] || 0}</button>`).join("")}
         <button class="vote-btn" id="btn-up">▲ 추천 ${cur.up}</button>
         <a class="btn-secondary" href="${t ? "team.html?team=" + t.id : "community.html"}">목록</a>
+        <span style="margin-left:auto; display:flex; gap:8px">
+          <button class="btn-secondary" id="btn-edit">수정</button>
+          <button class="btn-danger" id="btn-del">삭제</button>
+        </span>
       </div>
       <div class="comments-head">댓글 <em>${cur.comments.length}</em></div>
       <div id="comment-list">
@@ -199,6 +205,7 @@ async function initPostPage() {
       </div>
       <form class="comment-form" id="comment-form">
         <input class="nick" placeholder="닉네임" value="${esc(getNick())}" required maxlength="12" ${Auth.profile ? "readonly" : ""}>
+        ${Auth.session ? "" : `<input class="pw" type="password" placeholder="비밀번호(4자 이상)" required minlength="4" maxlength="20" autocomplete="new-password" style="max-width:150px">`}
         <input class="body" placeholder="댓글을 입력하세요 (비방·혐오 표현은 제재됩니다)" required maxlength="300">
         <button class="btn-primary" type="submit">등록</button>
       </form>`;
@@ -226,17 +233,67 @@ async function initPostPage() {
       e.preventDefault();
       const nick = e.target.querySelector(".nick").value.trim();
       const body = e.target.querySelector(".body").value.trim();
+      const pw = e.target.querySelector(".pw")?.value || "";
       if (!nick || !body) return;
+      if (!Auth.session && pw.length < 4) { alert("비밀번호를 4자 이상 입력해 주세요. (댓글 삭제에 씁니다)"); return; }
       setNick(nick);
-      addComment(id, nick, body).then(r => {
-        if (r && r.error) {
-          alert(r.error.message.includes("row-level security")
-            ? "댓글을 등록할 수 없습니다. 닉네임에 운영자·관리자 같은 표현은 쓸 수 없어요."
-            : "댓글 등록에 실패했습니다: " + r.error.message);
-        }
+      addComment(id, nick, body, pw).then(r => {
+        if (r && r.error) alert("댓글을 등록하지 못했습니다.\n" + (r.error.message || ""));
         render();
       });
       render();
+    });
+
+    // ── 댓글 삭제 (비회원은 비밀번호) ──
+    el.querySelectorAll(".c-del").forEach(b => b.addEventListener("click", () => {
+      const cid = Number(b.dataset.cid);
+      const pw = Auth.session ? "" : prompt("댓글을 쓸 때 정한 비밀번호를 입력하세요.");
+      if (!Auth.session && !pw) return;
+      if (!confirm("이 댓글을 삭제할까요?")) return;
+      removeComment(cid, pw).then(r => {
+        if (r.error) alert("삭제하지 못했습니다.\n" + (r.error.message || ""));
+        render();
+      });
+    }));
+
+    // ── 글 수정 (제목·내용) ──
+    el.querySelector("#btn-edit").addEventListener("click", () => {
+      const pw = Auth.session ? "" : prompt("글을 쓸 때 정한 비밀번호를 입력하세요.");
+      if (!Auth.session && !pw) return;
+      const box = el.querySelector(".post-content");
+      const c = getPost(id);
+      box.innerHTML = `
+        <form id="edit-form" class="write-form" style="gap:10px">
+          <input id="edit-title" value="${esc(c.title)}" maxlength="80" required>
+          <textarea id="edit-body" required style="min-height:200px">${esc(c.body)}</textarea>
+          <div class="row" style="justify-content:flex-end; flex:0">
+            <button class="btn-secondary" type="button" id="edit-cancel">취소</button>
+            <button class="btn-primary" type="submit">저장</button>
+          </div>
+        </form>`;
+      box.querySelector("#edit-cancel").addEventListener("click", render);
+      box.querySelector("#edit-form").addEventListener("submit", ev => {
+        ev.preventDefault();
+        const title = box.querySelector("#edit-title").value.trim();
+        const body = box.querySelector("#edit-body").value.trim();
+        if (!title || !body) return;
+        editPost(id, pw, title, body).then(r => {
+          if (r.error) { alert("수정하지 못했습니다.\n" + (r.error.message || "")); return; }
+          document.title = `${title} — The Nexus`;
+          render();
+        });
+      });
+    });
+
+    // ── 글 삭제 ──
+    el.querySelector("#btn-del").addEventListener("click", () => {
+      const pw = Auth.session ? "" : prompt("글을 쓸 때 정한 비밀번호를 입력하세요.");
+      if (!Auth.session && !pw) return;
+      if (!confirm("이 글을 삭제할까요? 되돌릴 수 없습니다.")) return;
+      removePost(id, pw).then(r => {
+        if (r.error) { alert("삭제하지 못했습니다.\n" + (r.error.message || "")); return; }
+        location.href = t ? "team.html?team=" + t.id : "community.html";
+      });
     });
   };
   render();
@@ -279,6 +336,17 @@ async function initWritePage() {
     BOARD_CATS.filter(c => c !== "전체" && c !== "공지").map(c => `<option>${c}</option>`).join("");
   document.getElementById("write-nick").value = getNick();
 
+  // 회원은 계정으로 본인 글을 확인할 수 있어 비밀번호가 필요 없다
+  const pwWrap = document.getElementById("write-pw-wrap");
+  const pwInput = document.getElementById("write-pw");
+  const pwHint = document.getElementById("write-pw-hint");
+  if (Auth.session) {
+    pwWrap.style.display = "none";
+    pwHint.textContent = "로그인 상태라 비밀번호 없이 내 글을 수정·삭제할 수 있습니다.";
+  } else {
+    pwInput.required = true;
+  }
+
   form.addEventListener("submit", async e => {
     e.preventDefault();
     const nick = document.getElementById("write-nick").value.trim();
@@ -296,14 +364,16 @@ async function initWritePage() {
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "등록"; }
     };
 
-    const pid = addPost({ team, cat, title, body, nick, match_id: matchId });
+    const pw = document.getElementById("write-pw").value;
+    if (!Auth.session && pw.length < 4) { fail("비밀번호를 4자 이상 입력해 주세요. (글 수정·삭제에 씁니다)"); return; }
+    if (!Auth.session) sessionStorage.setItem("lck_pw_hint", "1");
+
+    const pid = addPost({ team, cat, title, body, nick, match_id: matchId }, pw);
     // 저장이 끝난 뒤에만 이동 (이동하면 진행 중인 요청이 끊기는 문제 방지)
     const { error } = await addPost.lastSave;
     if (error) {
-      deletePost(pid); // 캐시 원복
-      fail(error.message.includes("row-level security")
-        ? "글을 등록할 수 없습니다.\n· 팀 게시판은 그 팀 팬 회원만 쓸 수 있어요.\n· 닉네임에 운영자·관리자 같은 표현은 쓸 수 없어요."
-        : "글 등록에 실패했습니다: " + error.message);
+      Cache.posts = Cache.posts.filter(x => x.id !== pid); // 화면 캐시만 원복 (서버엔 안 들어갔음)
+      fail("글을 등록하지 못했습니다.\n" + (error.message || ""));
       return;
     }
     // 투표 첨부 (회원)

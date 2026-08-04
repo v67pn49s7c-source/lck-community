@@ -404,6 +404,9 @@ table.board-table tr.notice .col-title { font-weight: 700; }
 .write-form .row > * { flex: 1; }
 .write-form textarea { min-height: 240px; resize: vertical; line-height: 1.7; }
 .form-label { font-size: var(--fs-sm); font-weight: 700; color: var(--text-sub); margin-bottom: -4px; }
+.form-hint { font-size: var(--fs-xs); color: var(--text-dim); margin-top: -4px; }
+/* 댓글 삭제 버튼 (수정·삭제 지원) */
+.comment-row .c-del:hover { color: var(--accent); }
 
 .btn-primary {
   padding: 7px 18px;

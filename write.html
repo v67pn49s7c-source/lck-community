@@ -12,7 +12,7 @@
   <meta name="twitter:card" content="summary">
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260804d">
+  <link rel="stylesheet" href="assets/styles.css?v=20260804e">
 </head>
 <body>
   <main class="page">
@@ -36,7 +36,13 @@
                 <div class="form-label">분류</div>
                 <select id="write-cat" style="width:100%"></select>
               </div>
+              <div id="write-pw-wrap">
+                <div class="form-label">비밀번호</div>
+                <input id="write-pw" type="password" placeholder="4자 이상" minlength="4" maxlength="20"
+                  autocomplete="new-password" style="width:100%">
+              </div>
             </div>
+            <div class="form-hint" id="write-pw-hint">비밀번호는 이 글을 수정·삭제할 때 씁니다. 잊어버리면 되돌릴 수 없어요.</div>
             <input id="write-title" placeholder="제목을 입력하세요" required maxlength="80">
             <textarea id="write-body" placeholder="내용을 입력하세요. 비방·혐오 표현, 불법 베팅·중계 링크는 제재됩니다." required></textarea>
 
@@ -83,11 +89,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260804d"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260804d"></script>
-  <script src="assets/store.js?v=20260804d"></script>
-  <script src="assets/app.js?v=20260804d"></script>
-  <script src="assets/board.js?v=20260804d"></script>
+  <script src="assets/data.js?v=20260804e"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260804e"></script>
+  <script src="assets/store.js?v=20260804e"></script>
+  <script src="assets/app.js?v=20260804e"></script>
+  <script src="assets/board.js?v=20260804e"></script>
   <script>initWritePage();</script>
 </body>
 </html>
