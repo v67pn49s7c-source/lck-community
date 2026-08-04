@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260804i">
+  <link rel="stylesheet" href="assets/styles.css?v=20260804j">
 </head>
 <body>
   <main class="page">
@@ -31,6 +31,7 @@
         <button type="button" data-tab="players">선수</button>
         <button type="button" data-tab="details">경기 상세</button>
         <button type="button" data-tab="awards">수상</button>
+        <button type="button" data-tab="import">데이터 수집</button>
         <button type="button" data-tab="streams">중계 링크</button>
         <button type="button" data-tab="logos">로고</button>
         <button type="button" data-tab="info">안내</button>
@@ -192,6 +193,44 @@
         <div class="admin-note" id="award-note"></div>
       </section>
 
+      <!-- 데이터 수집 (Leaguepedia) -->
+      <section class="card admin-panel" data-tab="import">
+        <div class="card-head">
+          <h2 class="card-title">데이터 수집 <span class="sub">Leaguepedia에서 경기·선수 기록 가져오기</span></h2>
+        </div>
+        <form class="admin-form" id="lp-form">
+          <div class="row">
+            <label style="flex:2">Leaguepedia 대회 페이지
+              <input id="lp-page" placeholder="LCK/2026 Season/Rounds 3-4" value="LCK/2026 Season/Rounds 3-4">
+            </label>
+            <label>우리 대회
+              <select id="lp-tid"></select>
+            </label>
+            <div style="display:flex; align-items:flex-end; gap:8px">
+              <button class="btn-secondary" type="button" id="lp-preview">미리보기</button>
+              <button class="btn-primary" type="button" id="lp-apply">가져오기</button>
+            </div>
+          </div>
+        </form>
+        <div class="admin-list" id="lp-result"></div>
+        <div class="admin-list" id="lp-alias"></div>
+        <div class="admin-note">
+          <b>미리보기</b>를 먼저 눌러 몇 경기가 잡히는지, 이름을 못 알아본 팀·선수가 있는지 확인하세요.
+          모르는 이름이 나오면 아래에서 우리 팀·선수와 연결한 뒤 <b>가져오기</b>를 누릅니다.
+          같은 경기를 다시 가져와도 덮어쓰기라 중복되지 않습니다.<br>
+          데이터 출처: Leaguepedia (CC-BY-SA 3.0) — 푸터에 출처를 표기하고 있습니다.
+        </div>
+
+        <div class="card-head" style="border-top:1px solid var(--line); margin-top:14px">
+          <h2 class="card-title">팀 채널 <span class="sub">팀별 공식 유튜브 채널 id</span></h2>
+        </div>
+        <div class="admin-list" id="yt-list"></div>
+        <div class="admin-note">
+          유튜브 채널 주소가 <code>youtube.com/channel/UCxxxx</code> 형태면 뒤의 <b>UC…</b>가 채널 id입니다.
+          <code>@이름</code> 형태라면 채널 페이지 소스에서 찾거나, 영상 하나를 열어 채널을 눌러 확인하세요.
+        </div>
+      </section>
+
       <!-- 중계 링크 -->
       <section class="card admin-panel" data-tab="streams">
         <div class="card-head">
@@ -235,11 +274,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260804i"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260804i"></script>
-  <script src="assets/store.js?v=20260804i"></script>
-  <script src="assets/app.js?v=20260804i"></script>
-  <script src="assets/ddragon.js?v=20260804i"></script>
+  <script src="assets/data.js?v=20260804j"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260804j"></script>
+  <script src="assets/store.js?v=20260804j"></script>
+  <script src="assets/app.js?v=20260804j"></script>
+  <script src="assets/ddragon.js?v=20260804j"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -861,6 +900,114 @@
       });
     });
 
+    // ── 데이터 수집 (Leaguepedia) ──
+    // 서버 함수(/api/leaguepedia)가 대신 받아 온다. 브라우저에서 직접 부르면
+    // Leaguepedia 호출 제한에 바로 막히고, 우리 DB에 쓸 권한도 없다.
+    async function callApi(path) {
+      const token = Auth.session && Auth.session.access_token;
+      const r = await fetch(path, token ? { headers: { authorization: "Bearer " + token } } : {});
+      const j = await r.json().catch(() => ({ error: "응답을 읽지 못했습니다" }));
+      if (!r.ok) throw new Error(j.error || ("서버 오류 " + r.status));
+      return j;
+    }
+
+    let lpLast = null;
+    function renderImportAdmin() {
+      const sel = document.getElementById("lp-tid");
+      if (sel) sel.innerHTML = getTournaments().map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join("");
+      renderYoutubeAdmin();
+    }
+
+    function lpMsg(html) { document.getElementById("lp-result").innerHTML = `<div class="admin-item">${html}</div>`; }
+
+    async function lpRun(apply) {
+      const page = document.getElementById("lp-page").value.trim();
+      const tid = document.getElementById("lp-tid").value;
+      if (!page) { lpMsg("대회 페이지를 입력하세요."); return; }
+      lpMsg(apply ? "가져오는 중… (경기 수에 따라 10초 이상 걸릴 수 있습니다)" : "확인하는 중…");
+      try {
+        const q = `/api/leaguepedia?page=${encodeURIComponent(page)}&tid=${encodeURIComponent(tid)}${apply ? "&apply=1" : ""}`;
+        const j = await callApi(q);
+        lpLast = j;
+        lpMsg(`<span><b>${j.경기수}경기 · ${j.세트수}세트</b> 확인
+          ${j.저장함 ? `· <b style="color:var(--blue)">저장 완료 (경기 ${j.저장된경기} · 세트 ${j.저장된세트})</b>` : "· 아직 저장하지 않았습니다"}
+          ${j.모르는팀.length ? `<br><span style="color:var(--accent)">모르는 팀 ${j.모르는팀.length}개</span>` : ""}
+          ${j.모르는선수.length ? `<br><span style="color:var(--accent)">모르는 선수 ${j.모르는선수.length}명</span>` : ""}</span>`);
+        renderAliasEditor(j);
+        if (j.저장함) { alert("가져왔습니다. 새로고침하면 경기·선수 기록에 반영됩니다."); }
+      } catch (e) {
+        lpMsg(`<span style="color:var(--accent)">실패: ${esc(e.message)}</span>`);
+      }
+    }
+
+    // 못 알아본 이름을 우리 팀·선수와 연결하는 표
+    function renderAliasEditor(j) {
+      const box = document.getElementById("lp-alias");
+      const teams = j.모르는팀 || [], players = j.모르는선수 || [];
+      if (!teams.length && !players.length) { box.innerHTML = ""; return; }
+      const teamOpts = `<option value="">— 연결 안 함 —</option>` +
+        TEAMS.map(t => `<option value="${esc(t.id)}">${esc(t.abbr)} (${esc(t.name)})</option>`).join("");
+      const playerOpts = `<option value="">— 연결 안 함 —</option>` + TEAMS.map(t =>
+        `<optgroup label="${esc(t.abbr)}">${teamPlayers(t.id).map(p =>
+          `<option value="${esc(p.id)}">${esc(p.nick)} (${esc(p.pos)})</option>`).join("")}</optgroup>`).join("");
+      box.innerHTML =
+        teams.map(n => `<div class="admin-item" data-lpteam="${esc(n)}">
+            <span style="width:200px; font-weight:700">${esc(n)}</span>
+            <select class="lp-team-sel" style="min-width:220px">${teamOpts}</select>
+          </div>`).join("") +
+        players.map(n => `<div class="admin-item" data-lpplayer="${esc(n)}">
+            <span style="width:200px">${esc(n)}</span>
+            <select class="lp-player-sel" style="min-width:260px">${playerOpts}</select>
+          </div>`).join("") +
+        `<div class="admin-item"><button class="btn-primary" type="button" id="lp-alias-save">연결 저장</button>
+          <span class="muted">저장한 뒤 다시 "미리보기"를 누르면 반영됩니다</span></div>`;
+
+      document.getElementById("lp-alias-save").addEventListener("click", () => {
+        let cfg = {};
+        try { cfg = JSON.parse(getSetting("lp_aliases") || "{}"); } catch {}
+        cfg.teams = cfg.teams || {}; cfg.players = cfg.players || {};
+        box.querySelectorAll("[data-lpteam]").forEach(row => {
+          const v = row.querySelector(".lp-team-sel").value;
+          if (v) cfg.teams[row.dataset.lpteam] = v;
+        });
+        box.querySelectorAll("[data-lpplayer]").forEach(row => {
+          const v = row.querySelector(".lp-player-sel").value;
+          if (v) cfg.players[row.dataset.lpplayer] = v;
+        });
+        setSetting("lp_aliases", JSON.stringify(cfg));
+        alert("연결을 저장했습니다. 미리보기를 다시 눌러 확인하세요.");
+      });
+    }
+
+    // 팀별 유튜브 채널 id
+    function renderYoutubeAdmin() {
+      let cfg = {};
+      try { cfg = JSON.parse(getSetting("team_youtube") || "{}"); } catch {}
+      const el = document.getElementById("yt-list");
+      if (!el) return;
+      el.innerHTML = TEAMS.map(t => `
+        <div class="admin-item" data-ytteam="${esc(t.id)}">
+          <span style="width:110px; font-weight:700">${teamLogoHTML(t, 18)} ${esc(t.abbr)}</span>
+          <input class="yt-ch" value="${esc(cfg[t.id] || "")}" placeholder="UCxxxxxxxxxxxxxxxxxxxxxx" style="flex:1; min-width:220px">
+        </div>`).join("")
+        + `<div class="admin-item"><button class="btn-primary" type="button" id="yt-save">채널 저장</button></div>`;
+      document.getElementById("yt-save").addEventListener("click", () => {
+        const next = {};
+        el.querySelectorAll("[data-ytteam]").forEach(row => {
+          const v = row.querySelector(".yt-ch").value.trim();
+          if (v) next[row.dataset.ytteam] = v;
+        });
+        setSetting("team_youtube", JSON.stringify(next));
+        alert("저장했습니다. 팀 페이지에 최신 영상이 표시됩니다.");
+      });
+    }
+
+    document.getElementById("lp-preview")?.addEventListener("click", () => lpRun(false));
+    document.getElementById("lp-apply")?.addEventListener("click", () => {
+      if (!confirm("Leaguepedia 기록을 우리 DB에 저장합니다. 같은 경기는 덮어씁니다. 진행할까요?")) return;
+      lpRun(true);
+    });
+
     // ── 중계 링크 관리 ──
     function renderStreamAdmin() {
       const cfg = getStreamConfig();
@@ -996,6 +1143,7 @@
       renderLogoAdmin();
       renderStreamAdmin();
       renderAwardAdmin();
+      renderImportAdmin();
     }
     renderAll();
     initAdminTabs();

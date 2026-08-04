@@ -225,6 +225,28 @@ function radarBarsHTML(axes) {
     </div>`).join("") + `</div>`;
 }
 
+// ── 팀 공식 유튜브 최신 영상 ───────────────────────────────
+// 서버 함수(/api/team-feed)가 유튜브 RSS를 대신 받아 정리해 준다.
+// (브라우저에서 유튜브를 직접 부르면 보안 정책에 막힌다)
+async function renderTeamVideos(teamId) {
+  const card = document.getElementById("yt-card");
+  const box = document.getElementById("yt-feed");
+  if (!card || !box) return;
+  try {
+    const r = await fetch("/api/team-feed?team=" + encodeURIComponent(teamId));
+    if (!r.ok) return;                       // 서버 함수가 아직 없으면 조용히 넘어간다
+    const j = await r.json();
+    const list = (j.videos || []).slice(0, 6);
+    if (!list.length) return;
+    card.style.display = "";
+    box.innerHTML = list.map(v => `
+      <a class="yt-row" href="${esc(v.url)}" target="_blank" rel="noopener noreferrer">
+        <img src="${esc(v.thumb)}" alt="" width="96" height="54" loading="lazy" decoding="async">
+        <span class="yt-title">${esc(v.title)}</span>
+      </a>`).join("");
+  } catch (e) { /* 영상은 없어도 그만 */ }
+}
+
 // ── 모바일 하단 탭바 ──────────────────────────────────────
 // 휴대폰에서는 위쪽 가로 메뉴가 손이 닿기 불편하고 10개가 밀려 있어 잘 안 보인다.
 // 자주 쓰는 다섯 곳만 엄지 닿는 자리에 고정한다.

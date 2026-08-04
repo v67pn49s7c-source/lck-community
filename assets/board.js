@@ -444,6 +444,8 @@ async function initTeamPage() {
   renderHeader("커뮤니티", team.id);
   document.title = `${team.name} 게시판 — The Nexus`;
 
+  renderTeamVideos(team.id);   // 공식 유튜브 최신 영상 (서버 함수가 있을 때만 표시)
+
   const hero = document.getElementById("team-hero");
   hero.style.background = `linear-gradient(120deg, ${team.dark} 0%, #12141b 70%)`;
   hero.innerHTML = `
