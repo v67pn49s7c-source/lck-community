@@ -39,6 +39,26 @@ async function cargo(params, tries) {
 // 공백이 섞인 필드 이름(DateTime UTC)을 쓰기 쉽게 정리
 const val = (row, key) => row[key] ?? row[key.replace(/_/g, " ")] ?? "";
 
+// Leaguepedia는 챔피언 이름을 영어로 준다(Ahri, Pantheon…). 우리 DB는 한글이라
+// Data Dragon에서 한 번 받아 영어 → 한글로 바꿔 저장한다 (아이콘이 붙으려면 한글이어야 함).
+const CHAMP_ALIAS = { nunuwillump: "nunu", wukong: "monkeyking" };
+const normChamp = s => String(s || "").toLowerCase().replace(/[^a-z]/g, "");
+
+async function loadChampNames() {
+  try {
+    const vers = await (await fetch("https://ddragon.leagueoflegends.com/api/versions.json")).json();
+    const data = await (await fetch(`https://ddragon.leagueoflegends.com/cdn/${vers[0]}/data/ko_KR/champion.json`)).json();
+    const byId = {};
+    Object.values(data.data).forEach(ch => { byId[normChamp(ch.id)] = ch.name; });
+    return name => {
+      const k = normChamp(name);
+      return byId[CHAMP_ALIAS[k] || k] || name;   // 못 찾으면 원래 이름 그대로
+    };
+  } catch {
+    return name => name;
+  }
+}
+
 // 팀·선수 이름을 우리 id로 바꾸는 표 (site_settings의 lp_aliases에 저장)
 async function loadAliases() {
   const rows = await sb("site_settings?key=eq.lp_aliases&select=value");
@@ -60,6 +80,7 @@ module.exports = async (req, res) => {
     const aliases = await loadAliases();
     const teamMap = aliases.teams || {};
     const playerMap = aliases.players || {};
+    const champKo = await loadChampNames();   // 영어 챔피언 이름 → 한글
 
     // 1) 세트 단위 경기 결과
     const games = await cargo({
@@ -106,7 +127,7 @@ module.exports = async (req, res) => {
       if (!pid) unknownPlayers.add(link);
       set.players.push({
         pid: pid || null, lpName: link,
-        champ: val(r, "Champion"),
+        champ: champKo(val(r, "Champion")),
         k: Number(val(r, "Kills")) || 0, d: Number(val(r, "Deaths")) || 0, a: Number(val(r, "Assists")) || 0,
         cs: Number(val(r, "CS")) || 0,
         gold: Math.round((Number(val(r, "Gold")) || 0) / 100) / 10, // 12345 → 12.3k
