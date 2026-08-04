@@ -343,14 +343,19 @@ function addComment(postId, nick, body) {
   if (Auth.profile) nick = Auth.profile.nick;
   const author_team = Auth.profile?.fav_team || null;
   const p = Cache.posts.find(x => x.id === postId);
-  if (p) p.comments.push({ nick, body, author_team, ts: Date.now() });
-  sb.from("comments").insert({ post_id: postId, nick, body, author_team })
+  const optimistic = { nick, body, author_team, ts: Date.now() };
+  if (p) p.comments.push(optimistic);
+  // 저장 결과를 호출자가 확인할 수 있게 프로미스를 돌려준다
+  return sb.from("comments").insert({ post_id: postId, nick, body, author_team })
     .select().single().then(r => {
       sbErr(r.error, "addComment");
-      if (r.data && p) { // 서버 id 반영 (댓글 추천용)
-        const c = p.comments[p.comments.length - 1];
-        if (c && c.id == null) c.id = r.data.id;
+      if (r.error) {
+        // 서버가 거부하면 화면에서도 되돌린다 (저장된 것처럼 남지 않게)
+        if (p) p.comments = p.comments.filter(c => c !== optimistic);
+        return { error: r.error };
       }
+      if (r.data && optimistic.id == null) optimistic.id = r.data.id; // 댓글 추천용 서버 id
+      return { data: r.data };
     });
 }
 

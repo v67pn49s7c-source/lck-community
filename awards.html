@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260803k">
+  <link rel="stylesheet" href="assets/styles.css?v=20260804a">
 </head>
 <body>
   <main class="page">
@@ -68,12 +68,12 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260803k"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260803k"></script>
-  <script src="assets/store.js?v=20260803k"></script>
-  <script src="assets/app.js?v=20260803k"></script>
-  <script src="assets/player-photos.js?v=20260803k"></script>
-  <script src="assets/ddragon.js?v=20260803k"></script>
+  <script src="assets/data.js?v=20260804a"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260804a"></script>
+  <script src="assets/store.js?v=20260804a"></script>
+  <script src="assets/app.js?v=20260804a"></script>
+  <script src="assets/player-photos.js?v=20260804a"></script>
+  <script src="assets/ddragon.js?v=20260804a"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("수상", null);
@@ -99,7 +99,7 @@
         const t = TEAM_MAP[x.player.team];
         const medal = x.rank === 1 ? "gold" : x.rank === 2 ? "silver" : x.rank === 3 ? "bronze" : "";
         return `
-        <a class="pom-row ${medal}" href="player.html?id=${x.pid}">
+        <a class="pom-row ${medal}" href="player.html?id=${q(x.pid)}">
           <span class="pom-rank ${medal}">${x.rank}</span>
           ${playerAvatarHTML(x.player, t ? t.color : "var(--accent)", false)}
           <span class="pom-who">
@@ -115,7 +115,7 @@
       document.getElementById("pom-top").innerHTML = all.slice(0, 5).map(x => {
         const t = TEAM_MAP[x.player.team];
         return `
-        <a class="rank-row" href="player.html?id=${x.pid}">
+        <a class="rank-row" href="player.html?id=${q(x.pid)}">
           <span class="no ${x.rank <= 3 ? "top" : ""}">${x.rank}</span>
           <span class="post-title">${esc(x.player.nick)} <span style="color:var(--text-dim);font-weight:400">${esc(t ? t.abbr : "")}</span></span>
           <span class="post-meta">${x.pts.toLocaleString()}pt</span>

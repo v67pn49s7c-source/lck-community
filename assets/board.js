@@ -41,7 +41,7 @@ function renderBoardList(el, state) {
       <td class="col-no">${isNotice ? `<span class="cat-chip notice">공지</span>` : no}</td>
       <td class="col-cat"><span class="cat-chip">${esc(p.cat)}</span></td>
       <td class="col-title">
-        <a href="post.html?id=${p.id}">
+        <a href="post.html?id=${q(p.id)}">
           ${!state.teamId && t ? teamLogoHTML(t, 16) : ""}
           ${getPollByPost(p.id) ? `<span class="poll-ic" title="투표가 있는 글">🗳️</span>` : ""}
           <span class="title-text">${esc(p.title)}</span>
@@ -157,7 +157,7 @@ async function initPostPage() {
           <b>${nickHTML(c.nick, c.author_team)}</b>
           ${c.id === bestId && bestN > 0 ? `<span class="cat-chip notice">BEST</span>` : ""}
           <span>${fmtAgo(c.ts)}</span>
-          ${c.id != null ? `<button class="c-like ${myCommentLike(c.id) ? "liked" : ""}" data-cid="${c.id}"
+          ${c.id != null ? `<button class="c-like ${myCommentLike(c.id) ? "liked" : ""}" data-cid="${esc(c.id)}"
             style="margin-left:auto;color:${myCommentLike(c.id) ? "var(--accent)" : "var(--text-dim)"};font-size:11px;font-weight:700">
             ▲ ${likes}</button>` : ""}
         </div>
@@ -228,7 +228,14 @@ async function initPostPage() {
       const body = e.target.querySelector(".body").value.trim();
       if (!nick || !body) return;
       setNick(nick);
-      addComment(id, nick, body);
+      addComment(id, nick, body).then(r => {
+        if (r && r.error) {
+          alert(r.error.message.includes("row-level security")
+            ? "댓글을 등록할 수 없습니다. 닉네임에 운영자·관리자 같은 표현은 쓸 수 없어요."
+            : "댓글 등록에 실패했습니다: " + r.error.message);
+        }
+        render();
+      });
       render();
     });
   };
@@ -295,7 +302,7 @@ async function initWritePage() {
     if (error) {
       deletePost(pid); // 캐시 원복
       fail(error.message.includes("row-level security")
-        ? "이 게시판에 글을 쓸 권한이 없습니다. 응원팀 팬 회원만 작성할 수 있어요."
+        ? "글을 등록할 수 없습니다.\n· 팀 게시판은 그 팀 팬 회원만 쓸 수 있어요.\n· 닉네임에 운영자·관리자 같은 표현은 쓸 수 없어요."
         : "글 등록에 실패했습니다: " + error.message);
       return;
     }

@@ -4,6 +4,10 @@ function esc(s) {
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+// 주소(URL)에 값을 넣을 때 — DB에서 온 id는 화면 코드가 만든 값이라는 보장이 없다.
+// 따옴표·꺾쇠가 섞여 있으면 링크 태그를 탈출해 스크립트가 되므로 반드시 통과시킨다.
+function q(v) { return encodeURIComponent(String(v ?? "")); }
+
 function teamLogoHTML(team, size) {
   const s = size || 24;
   const cut = Math.max(4, Math.round(s * 0.2));
@@ -333,7 +337,7 @@ function scheduleHTML(matches, opts) {
             <span class="odds-pill"><b>${Math.round(pct.b)}%</b></span>
           </div>`;
       return `
-      <a class="match-row" href="live.html?match=${m.id}">
+      <a class="match-row" href="live.html?match=${q(m.id)}">
         <span class="match-time">${fmtTime(m.at)}</span>
         ${status}
         <div class="match-teams">
@@ -643,7 +647,7 @@ function renderHotPosts() {
   el.innerHTML = posts.map(p => {
     const t = p.team ? TEAM_MAP[p.team] : null;
     return `
-    <a class="post-row" href="post.html?id=${p.id}">
+    <a class="post-row" href="post.html?id=${q(p.id)}">
       ${t ? `<span class="tag-team" style="--tag-color:${t.color}">${teamLogoHTML(t, 16)} ${t.abbr}</span>`
           : `<span class="tag-team no-logo">전체</span>`}
       <span class="tag-cat">${esc(p.cat)}</span>

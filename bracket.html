@@ -12,7 +12,7 @@
   <meta name="twitter:card" content="summary">
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260803k">
+  <link rel="stylesheet" href="assets/styles.css?v=20260804a">
 </head>
 <body>
   <main class="page">
@@ -37,10 +37,10 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260803k"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260803k"></script>
-  <script src="assets/store.js?v=20260803k"></script>
-  <script src="assets/app.js?v=20260803k"></script>
+  <script src="assets/data.js?v=20260804a"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260804a"></script>
+  <script src="assets/store.js?v=20260804a"></script>
+  <script src="assets/app.js?v=20260804a"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("경기", null);
@@ -90,7 +90,7 @@
           <div class="bracket-col-title">${esc(stage)}</div>
           <div class="bracket-col-body">
             ${list.map(m => `
-              <a class="bracket-match" href="live.html?match=${m.id}">
+              <a class="bracket-match" href="live.html?match=${q(m.id)}">
                 <div class="bm-head">
                   <span>${esc(m.label || `${slotName(m.a)} vs ${slotName(m.b)}`)}</span>
                   <span class="bm-date">${fmtShortDate(m.at)}${m.status === "live" ? " · LIVE" : ""}</span>

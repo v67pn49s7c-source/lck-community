@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260803k">
+  <link rel="stylesheet" href="assets/styles.css?v=20260804a">
 </head>
 <body>
   <main class="page">
@@ -75,11 +75,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260803k"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260803k"></script>
-  <script src="assets/store.js?v=20260803k"></script>
-  <script src="assets/app.js?v=20260803k"></script>
-  <script src="assets/ddragon.js?v=20260803k"></script>
+  <script src="assets/data.js?v=20260804a"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260804a"></script>
+  <script src="assets/store.js?v=20260804a"></script>
+  <script src="assets/app.js?v=20260804a"></script>
+  <script src="assets/ddragon.js?v=20260804a"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -130,9 +130,10 @@
       if (!polls.length) { card.style.display = "none"; return; }
       card.style.display = "";
       const body = document.getElementById("fanpulse-body");
-      body.innerHTML = polls.map(p => `<div class="poll-box" id="poll-${p.id}"></div>`).join("");
-      polls.forEach(p => renderPollInto(
-        document.getElementById("poll-" + p.id), p, { teamA: match.a, teamB: match.b }));
+      // DB에서 온 id를 HTML id 속성에 넣지 않는다 (id 값이 태그를 탈출할 수 있음) — 순서로 찾는다
+      body.innerHTML = polls.map(() => `<div class="poll-box"></div>`).join("");
+      const boxes = body.querySelectorAll(".poll-box");
+      polls.forEach((p, i) => renderPollInto(boxes[i], p, { teamA: match.a, teamB: match.b }));
     }
 
     // ── 경기 상세 (세트별 KDA·아이템·룬) ──
@@ -167,7 +168,7 @@
             ${list.map(p => {
               const pl = getPlayer(p.pid);
               return `<tr>
-                <td class="dt-player">${pl ? `<a href="player.html?id=${pl.id}">${esc(pl.nick)}</a><span class="pos">${esc(pl.pos)}</span>` : esc(p.pid)}</td>
+                <td class="dt-player">${pl ? `<a href="player.html?id=${q(pl.id)}">${esc(pl.nick)}</a><span class="pos">${esc(pl.pos)}</span>` : esc(p.pid)}</td>
                 <td class="dt-champ">${ddChampHTML(p.champ)}</td>
                 <td class="dt-spell">${ddSpellHTML(p.spell)}</td>
                 <td class="dt-kda"><b>${p.k}</b> / <em>${p.d}</em> / ${p.a}</td>
@@ -233,7 +234,7 @@
         return `
         <div class="frate fv-cell ${dir} ${isPog ? "pog" : ""}">
           <div class="fr-head">
-            <a class="fr-player" href="player.html?id=${p.id}"><span class="fv-teamtag" style="color:${team.color}">${team.abbr}</span> <b>${esc(p.nick)}</b></a>
+            <a class="fr-player" href="player.html?id=${q(p.id)}"><span class="fv-teamtag" style="color:${team.color}">${team.abbr}</span> <b>${esc(p.nick)}</b></a>
             ${pom && pom.player_id === p.id ? `<span class="chip-pom" title="LCK 공식 경기 MVP · ${pom.pts}pt">POM<em> +${pom.pts}pt</em></span>` : ""}
             ${isPog ? `<span class="fr-pog">👑<em> 팬 선정 POG</em></span>` : ""}
             ${respect ? `<span class="fr-respect">상대 팬도 인정</span>` : ""}
@@ -252,7 +253,7 @@
             <div class="rr-scores">
               ${Array.from({ length: 10 }, (_, i) => i + 1).map(n =>
                 `<button class="rr-btn ${my === n ? "active" : ""} ${my != null && n <= my ? "filled" : ""}"
-                  data-pid="${p.id}" data-score="${n}">${n}</button>`).join("")}
+                  data-pid="${esc(p.id)}" data-score="${n}">${n}</button>`).join("")}
             </div>
             <span class="rr-my">${my != null ? my.toFixed(0) + "점" : "-"}</span>
           </div>
@@ -291,7 +292,7 @@
       const ms = sortedMatches().filter(m => m.status !== "done").slice(0, 6);
       document.getElementById("upcoming-list").innerHTML =
         ms.map(m => `
-          <a class="post-row" href="live.html?match=${m.id}">
+          <a class="post-row" href="live.html?match=${q(m.id)}">
             <span style="display:flex;align-items:center;gap:5px;font-weight:700">${slotLogoHTML(m.a, 18)} ${slotName(m.a)}</span>
             <span style="color:var(--text-dim);font-size:11px">vs</span>
             <span style="display:flex;align-items:center;gap:5px;font-weight:700">${slotLogoHTML(m.b, 18)} ${slotName(m.b)}</span>
