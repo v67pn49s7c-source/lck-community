@@ -12,7 +12,7 @@
   <meta name="twitter:card" content="summary">
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260804m">
+  <link rel="stylesheet" href="assets/styles.css?v=20260804n">
 </head>
 <body>
   <main class="page">
@@ -26,6 +26,14 @@
             <h2 class="card-title">시즌 예측 랭킹 <span class="sub">2026 스플릿 3</span></h2>
           </div>
           <div id="ranking-body"></div>
+        </section>
+
+        <section class="card" id="fandom-card" style="display:none">
+          <div class="card-head">
+            <h2 class="card-title">팬덤별 예측 적중률 <span class="sub">어느 팀 팬이 가장 잘 맞힐까</span></h2>
+            <span class="card-more">회원 예측 기준</span>
+          </div>
+          <div id="fandom-body"></div>
         </section>
       </div>
 
@@ -50,13 +58,32 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260804m"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260804m"></script>
-  <script src="assets/store.js?v=20260804m"></script>
-  <script src="assets/app.js?v=20260804m"></script>
+  <script src="assets/data.js?v=20260804n"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260804n"></script>
+  <script src="assets/store.js?v=20260804n"></script>
+  <script src="assets/app.js?v=20260804n"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("랭킹", null);
+
+    // 팬덤별 적중률 (응원팀을 설정한 회원의 예측만 집계 가능)
+    (function renderFandom() {
+      const rows = fandomAccuracy();
+      if (!rows.length) return;
+      const card = document.getElementById("fandom-card");
+      card.style.display = "";
+      document.getElementById("fandom-body").innerHTML = rows.map((r, i) => {
+        const t = TEAM_MAP[r.team];
+        if (!t) return "";
+        return `
+        <a class="post-row" href="team.html?team=${q(t.id)}">
+          <span style="width:22px;font-weight:800;color:var(--text-dim)">${i + 1}</span>
+          <span style="display:flex;align-items:center;gap:7px;font-weight:800">${teamLogoHTML(t, 18)} ${esc(t.abbr)} 팬덤</span>
+          <span class="post-meta">${r.hits}/${r.n} 적중</span>
+          <span style="margin-left:auto;font-weight:800;color:var(--blue)">${r.pct}%</span>
+        </a>`;
+      }).join("") + `<div class="admin-note">응원팀을 설정한 회원의 예측만 집계합니다. 회원가입하고 우리 팀 적중률을 끌어올려 보세요!</div>`;
+    })();
 
     function renderRanking() {
       const me = myPredictionStats();

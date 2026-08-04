@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>팬 여권 — The Nexus</title>
+  <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
+  <meta property="og:title" content="The Nexus — 팬 여권">
+  <meta property="og:description" content="내 시즌 예측·투표·응원 기록을 한 장에.">
+  <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/nexus-mobile.png">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
+  <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
+  <link rel="stylesheet" href="assets/styles.css?v=20260804n">
+</head>
+<body>
+  <main class="page">
+    <div class="container layout">
+      <div class="stack">
+        <section class="card" id="passport-card">
+          <div class="card-head">
+            <h2 class="card-title">팬 여권 <span class="sub">내 시즌 기록</span></h2>
+            <button class="card-more" id="pp-share" style="font-weight:700">📷 여권 카드 저장</button>
+          </div>
+          <div id="passport-body"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">배지 <span class="sub">기록으로 얻는 명예</span></h2>
+          </div>
+          <div id="badge-body"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">내 예측 기록 <span class="sub">끝난 경기 기준</span></h2>
+            <span class="card-more" id="pred-summary"></span>
+          </div>
+          <div id="pred-history"></div>
+        </section>
+      </div>
+
+      <aside class="stack">
+        <section class="card" id="guest-note-card" style="display:none">
+          <div class="card-head"><h2 class="card-title">기록을 계정에 남기기</h2></div>
+          <div class="admin-note" style="border-top:none">
+            지금 기록은 <b>이 브라우저에만</b> 남는 기록입니다.
+            회원가입하면 기기가 바뀌어도 시즌 기록이 이어지고, 팀 게시판 글쓰기와
+            창립 팬 100인에도 참여할 수 있어요.<br>
+            <a href="login.html" style="text-decoration:underline; font-weight:700">회원가입 하러 가기 →</a>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">다음 경기 예측</h2>
+            <span class="card-more" id="predict-when"></span>
+          </div>
+          <div class="predict-widget" id="predict-widget"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head"><h2 class="card-title">LCK 순위</h2></div>
+          <div id="standings-body"></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <script src="assets/data.js?v=20260804n"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260804n"></script>
+  <script src="assets/store.js?v=20260804n"></script>
+  <script src="assets/app.js?v=20260804n"></script>
+  <script>
+  storeReady.then(async () => {
+    renderHeader("MY", null);
+
+    function render() {
+      const rec = myFanRecord();
+      const t = rec.fav ? TEAM_MAP[rec.fav] : null;
+      const nick = Auth.profile ? Auth.profile.nick : "익명 팬";
+
+      // ── 여권 본문 ──
+      document.getElementById("passport-body").innerHTML = `
+        <div class="pp-hero" style="--team-color:${t ? t.color : "var(--accent)"}">
+          <div class="pp-id">
+            ${t ? teamLogoHTML(t, 44) : `<span class="player-avatar" style="--team-color:var(--accent)">?</span>`}
+            <div>
+              <b>${esc(nick)}</b>
+              <span>${t ? esc(t.name) + " 팬" : "응원팀 미설정"}${rec.bias ? ` · ${esc(rec.bias)}` : ""}</span>
+            </div>
+          </div>
+          <span class="pp-season">2026 스플릿 3</span>
+        </div>
+        <div class="stat-cards pp-stats">
+          <div class="stat-card"><span class="k">참여 경기</span><span class="v">${rec.matches}<em></em></span>
+            <span class="k">전체 ${rec.doneTotal + "경기 종료"}</span></div>
+          <div class="stat-card"><span class="k">예측 적중률</span>
+            <span class="v">${rec.accuracy == null ? "-" : rec.accuracy}<em>${rec.accuracy == null ? "" : "%"}</em></span>
+            <span class="k">${rec.predHits}/${rec.predDone} 적중</span></div>
+          <div class="stat-card"><span class="k">스코어 적중</span><span class="v">${rec.scoreHits}<em>회</em></span>
+            <span class="k">${rec.scoreTried}회 도전</span></div>
+          <div class="stat-card"><span class="k">MVP 투표</span><span class="v">${rec.pogVotes}<em>회</em></span>
+            <span class="k">평점 ${rec.ratedPlayers}명</span></div>
+          <div class="stat-card"><span class="k">연속 참여</span><span class="v">${rec.streak}<em>경기</em></span>
+            <span class="k">${rec.streak >= 3 ? "🔥 이어지는 중" : "다음 경기도 함께!"}</span></div>
+        </div>
+        ${t ? "" : `<div class="admin-note">응원팀을 고르면 여권이 팀 색으로 바뀌고, 홈도 우리 팀 중심이 됩니다.
+          <a href="index.html" style="text-decoration:underline">홈에서 팀 고르기 →</a></div>`}`;
+
+      // ── 배지 ──
+      const next = []; // 다음 목표 안내
+      if (rec.streak < 3) next.push("🔥 3경기 연속 참여");
+      if (!(rec.predDone >= 5 && rec.accuracy >= 60)) next.push("🎯 5경기 이상 · 적중률 60%");
+      if (rec.scoreHits < 2) next.push("🔮 스코어 2회 적중");
+      document.getElementById("badge-body").innerHTML =
+        (rec.badges.length
+          ? `<div class="badge-grid">${rec.badges.map(b => `
+              <div class="badge-chip"><span class="bi">${b.icon}</span>
+                <span><b>${esc(b.name)}</b><em>${esc(b.desc)}</em></span></div>`).join("")}</div>`
+          : `<div class="empty-note">아직 배지가 없어요. 경기에 참여하면 첫 배지를 받을 수 있습니다.</div>`)
+        + (next.length ? `<div class="badge-next">다음 목표: ${next.map(esc).join(" · ")}</div>` : "");
+
+      // ── 예측 기록 ──
+      document.getElementById("pred-summary").textContent =
+        rec.predDone ? `${rec.predDone}경기 · ${rec.predHits}적중` : "";
+      document.getElementById("pred-history").innerHTML = rec.history.length
+        ? rec.history.map(h => {
+            const A = TEAM_MAP[h.match.a], B = TEAM_MAP[h.match.b];
+            const pickAbbr = (h.side === "a" ? A : B).abbr;
+            return `
+            <a class="post-row" href="live.html?match=${q(h.match.id)}">
+              <span class="pred-mark ${h.hit ? "hit" : "miss"}">${h.hit ? "적중" : "빗나감"}</span>
+              <span class="post-title">${esc(A.abbr)} ${h.match.scoreA}:${h.match.scoreB} ${esc(B.abbr)}
+                <span style="color:var(--text-dim)">· 내 예측 ${esc(pickAbbr)}</span></span>
+              <span class="post-meta">${fmtMD(h.match.at)}</span>
+            </a>`;
+          }).join("")
+        : `<div class="empty-note">아직 채점된 예측이 없습니다. 다음 경기를 예측해 보세요!</div>`;
+
+      document.getElementById("guest-note-card").style.display = Auth.session ? "none" : "";
+    }
+    render();
+
+    // ── 여권 공유 카드 ──
+    document.getElementById("pp-share").addEventListener("click", () => {
+      const rec = myFanRecord();
+      const t = rec.fav ? TEAM_MAP[rec.fav] : null;
+      const nick = Auth.profile ? Auth.profile.nick : "익명 팬";
+      const W = 720, H = 620;
+      const c = document.createElement("canvas");
+      c.width = W; c.height = H;
+      const g = c.getContext("2d");
+
+      g.fillStyle = "#0f1015"; g.fillRect(0, 0, W, H);
+      g.fillStyle = (t && t.color) || "#ff4655"; g.fillRect(0, 0, W, 8);
+      g.fillStyle = "#ff4655"; g.font = "bold 30px sans-serif";
+      g.fillText("THE NEXUS", 48, 74);
+      g.fillStyle = "#9aa1b0"; g.font = "600 22px sans-serif";
+      g.fillText("FAN PASSPORT · 2026 스플릿 3", 48, 106);
+
+      g.fillStyle = "#e9ebf1"; g.font = "bold 42px sans-serif";
+      g.fillText(nick, 48, 178);
+      g.fillStyle = (t && t.color) || "#9aa1b0"; g.font = "bold 26px sans-serif";
+      g.fillText(t ? `${t.name} 팬${rec.bias ? " · " + rec.bias : ""}` : "LCK 팬", 48, 216);
+
+      const rows = [
+        ["참여 경기", `${rec.matches}경기`],
+        ["예측 적중률", rec.accuracy == null ? "-" : `${rec.accuracy}% (${rec.predHits}/${rec.predDone})`],
+        ["스코어 적중", `${rec.scoreHits}회`],
+        ["MVP 투표", `${rec.pogVotes}회`],
+        ["연속 참여", `${rec.streak}경기`],
+      ];
+      let y = 286;
+      rows.forEach(([k, v]) => {
+        g.fillStyle = "#667080"; g.font = "600 24px sans-serif";
+        g.fillText(k, 48, y);
+        g.fillStyle = "#e9ebf1"; g.font = "bold 28px sans-serif";
+        g.textAlign = "right"; g.fillText(v, W - 48, y); g.textAlign = "left";
+        y += 54;
+      });
+
+      if (rec.badges.length) {
+        g.fillStyle = "#9aa1b0"; g.font = "600 20px sans-serif";
+        g.fillText("배지", 48, y + 6);
+        g.fillStyle = "#e9ebf1"; g.font = "600 22px sans-serif";
+        g.fillText(rec.badges.slice(0, 3).map(b => `${b.icon} ${b.name}`).join("   "), 110, y + 6);
+      }
+
+      g.fillStyle = "#667080"; g.font = "600 20px sans-serif";
+      g.fillText(`나의 시즌 기록 · ${location.host}`, 48, H - 44);
+
+      c.toBlob(async blob => {
+        const file = new File([blob], "nexus-passport.png", { type: "image/png" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try { await navigator.share({ files: [file], title: "THE NEXUS 팬 여권" }); return; } catch {}
+        }
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "nexus-passport.png";
+        a.click();
+      });
+    });
+
+    initSidebar();
+    renderFooter();
+  });
+  </script>
+</body>
+</html>

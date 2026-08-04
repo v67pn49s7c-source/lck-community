@@ -135,7 +135,7 @@ function renderHeader(activeMenu, activeTeamId) {
         <button class="btn-icon" id="theme-toggle"></button>
         ${Auth.session
           ? (Auth.profile
-            ? `<span class="user-chip" title="${esc(Auth.session.user.email || "")}">${esc(Auth.profile.nick)}</span>`
+            ? `<a class="user-chip" href="my.html" title="팬 여권 보기">${esc(Auth.profile.nick)}</a>`
             : `<a class="user-chip" href="login.html" title="닉네임·응원팀을 설정해 주세요">프로필 설정 필요</a>`)
             + `<button class="btn-login" id="btn-signout">로그아웃</button>`
           : `<a class="btn-login" href="login.html">로그인</a>`}
@@ -225,6 +225,169 @@ function radarBarsHTML(axes) {
     </div>`).join("") + `</div>`;
 }
 
+// ── 응원팀 온보딩 + 내 팀 중심 홈 히어로 ────────────────────
+// 첫 방문: "어느 팀을 응원하시나요?" → 선택하면 홈 상단이 내 팀 다음 경기와
+// 예측 중심으로 바뀐다. 팬 여권(내 기록)으로 이어지는 입구이기도 하다.
+function renderFanHero() {
+  const el = document.getElementById("fan-hero");
+  if (!el) return;
+  const fav = getFavTeam();
+
+  // ① 아직 안 물어봤다 → 팀 고르기
+  if (fav === null) {
+    el.style.display = "";
+    el.innerHTML = `
+      <div class="onboard">
+        <h2>어느 팀을 응원하시나요?</h2>
+        <p>팀을 고르면 홈이 우리 팀 다음 경기와 예측 중심으로 바뀝니다.</p>
+        <div class="onboard-grid">
+          ${TEAMS.map(t => `
+            <button type="button" class="onboard-team" data-team="${t.id}" style="--team-color:${t.color}">
+              ${teamLogoHTML(t, 34)}<span>${t.abbr}</span>
+            </button>`).join("")}
+        </div>
+        <button type="button" class="onboard-skip" id="onboard-skip">중립으로 볼게요</button>
+      </div>`;
+    el.querySelectorAll(".onboard-team").forEach(b => b.addEventListener("click", () => {
+      setFavTeamLocal(b.dataset.team);
+      renderFanHero();
+    }));
+    el.querySelector("#onboard-skip").addEventListener("click", () => {
+      setFavTeamLocal("");
+      renderFanHero();
+    });
+    return;
+  }
+
+  // ② 중립 선택 → 조용한 한 줄 안내만
+  if (!fav) {
+    el.style.display = "";
+    el.innerHTML = `
+      <div class="onboard-slim">
+        <span>응원팀을 고르면 홈이 우리 팀 중심으로 바뀝니다</span>
+        <button type="button" class="btn-secondary" id="onboard-open">팀 고르기</button>
+      </div>`;
+    el.querySelector("#onboard-open").addEventListener("click", () => {
+      localStorage.removeItem("nexus_fav_team");
+      renderFanHero();
+    });
+    return;
+  }
+
+  // ③ 내 팀 홈
+  const t = TEAM_MAP[fav];
+  if (!t) { el.style.display = "none"; return; }
+  el.style.display = "";
+
+  const next = sortedMatches().find(m =>
+    m.status !== "done" && (m.a === fav || m.b === fav) && knownTeams(m));
+  const rec = myFanRecord();
+  const my = next ? getVotes()[next.id] : null;
+
+  let matchHTML = `<div class="empty-note">예정된 ${esc(t.abbr)} 경기가 없습니다</div>`;
+  if (next) {
+    const A = TEAM_MAP[next.a], B = TEAM_MAP[next.b];
+    const pct = communityPct(next);
+    const usPct = next.a === fav ? pct.a : pct.b; // 우리 팀 승리를 예측한 비율
+    const live = next.status === "live";
+    matchHTML = `
+      <a class="fh-match" href="live.html?match=${q(next.id)}">
+        <span class="fh-side">${teamLogoHTML(A, 34)} <b>${esc(A.abbr)}</b></span>
+        <span class="fh-mid">${live ? `<em class="live-badge">● LIVE</em>` : `<em>VS</em><span>${fmtWhen(next.at)}</span>`}</span>
+        <span class="fh-side right"><b>${esc(B.abbr)}</b> ${teamLogoHTML(B, 34)}</span>
+      </a>
+      <div class="fh-predict">
+        ${my
+          ? `<span class="fh-note"><b style="color:var(--accent)">${esc((my === "a" ? A : B).abbr)} 승리</b> 예측 중 ·
+               ${esc(t.abbr)} 팬 확신도 ${usPct}%${pct.n ? ` (${pct.n}명)` : ""}</span>
+             <button type="button" class="btn-secondary" id="fh-share">📷 예측 카드</button>`
+          : `<span class="fh-note">아직 예측 전 — 누가 이길까요?</span>
+             <button type="button" class="btn-secondary fh-vote" data-side="a">${esc(A.abbr)} 승</button>
+             <button type="button" class="btn-secondary fh-vote" data-side="b">${esc(B.abbr)} 승</button>`}
+      </div>`;
+  }
+
+  el.innerHTML = `
+    <div class="fan-hero" style="--team-color:${t.color}">
+      <div class="fh-head">
+        <span class="fh-team">${teamLogoHTML(t, 26)} <b>${esc(t.name)}</b><em>내 응원팀</em></span>
+        <span class="fh-actions">
+          <a href="team.html?team=${q(t.id)}">팀 홈</a>
+          <button type="button" id="fh-change">변경</button>
+        </span>
+      </div>
+      ${matchHTML}
+      <a class="fh-record" href="my.html">
+        <span>이번 시즌 <b>${rec.matches}경기</b> 참여</span>
+        <span>예측 적중률 <b>${rec.accuracy == null ? "-" : rec.accuracy + "%"}</b></span>
+        <span>연속 참여 <b>${rec.streak}</b></span>
+        <em>팬 여권 →</em>
+      </a>
+    </div>`;
+
+  el.querySelector("#fh-change").addEventListener("click", () => {
+    localStorage.removeItem("nexus_fav_team");
+    renderFanHero();
+  });
+  el.querySelectorAll(".fh-vote").forEach(b => b.addEventListener("click", e => {
+    e.preventDefault();
+    setVote(next.id, b.dataset.side);
+    renderFanHero();
+    renderPredictWidget?.();
+  }));
+  el.querySelector("#fh-share")?.addEventListener("click", () => sharePredictionCard(next, my));
+}
+
+// ── 예측 공유 카드 ("나는 ○○ 승리를 예측했습니다") ─────────
+function sharePredictionCard(match, side) {
+  const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
+  if (!A || !B || !side) return;
+  const pick = side === "a" ? A : B;
+  const pct = communityPct(match);
+  const W = 720, H = 480;
+  const c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const g = c.getContext("2d");
+
+  g.fillStyle = "#0f1015"; g.fillRect(0, 0, W, H);
+  g.fillStyle = "#ff4655"; g.fillRect(0, 0, W, 8);
+  g.fillStyle = "#ff4655"; g.font = "bold 30px sans-serif";
+  g.fillText("THE NEXUS", 48, 74);
+  g.fillStyle = "#9aa1b0"; g.font = "600 22px sans-serif";
+  g.fillText("승부예측", 48, 106);
+
+  g.textAlign = "center";
+  g.fillStyle = "#e9ebf1"; g.font = "bold 44px sans-serif";
+  g.fillText(`${A.abbr}  vs  ${B.abbr}`, W / 2, 190);
+  g.fillStyle = "#667080"; g.font = "500 20px sans-serif";
+  g.fillText(fmtWhen(match.at), W / 2, 224);
+
+  g.fillStyle = pick.color || "#ff4655"; g.font = "bold 40px sans-serif";
+  g.fillText(`나는 ${pick.abbr} 승리를 예측했습니다`, W / 2, 300);
+
+  const aW = (W - 96) * pct.a / 100;
+  g.fillStyle = "#4a8cff"; g.fillRect(48, 340, aW, 16);
+  g.fillStyle = "#ff4655"; g.fillRect(48 + aW, 340, (W - 96) - aW, 16);
+  g.fillStyle = "#9aa1b0"; g.font = "600 20px sans-serif";
+  g.textAlign = "left"; g.fillText(`${A.abbr} ${pct.a}%`, 48, 390);
+  g.textAlign = "right"; g.fillText(`${pct.b}% ${B.abbr}`, W - 48, 390);
+
+  g.textAlign = "left";
+  g.fillStyle = "#667080"; g.font = "600 20px sans-serif";
+  g.fillText(`${pct.n ? pct.n + "명 참여 · " : ""}${location.host}/live.html?match=${match.id}`, 48, H - 44);
+
+  c.toBlob(async blob => {
+    const file = new File([blob], "nexus-predict.png", { type: "image/png" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: "THE NEXUS 승부예측" }); return; } catch {}
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "nexus-predict.png";
+    a.click();
+  });
+}
+
 // ── 팀 공식 유튜브 최신 영상 ───────────────────────────────
 // 서버 함수(/api/team-feed)가 유튜브 RSS를 대신 받아 정리해 준다.
 // (브라우저에서 유튜브를 직접 부르면 보안 정책에 막힌다)
@@ -259,7 +422,7 @@ const TAB_BAR = [
     icon: `<path d="M12 3l2.6 5.6 6.4.8-4.7 4.3 1.3 6.3L12 17l-5.6 3 1.3-6.3L3 9.4l6.4-.8z"/>` },
   { menu: "커뮤니티", href: "community.html", label: "커뮤니티", alt: ["팀"],
     icon: `<path d="M21 12a8 8 0 1 1-3.2-6.4L21 4l-1 4.2A8 8 0 0 1 21 12z"/><path d="M8 11h8M8 14.5h5"/>` },
-  { menu: null, href: "login.html", label: "MY", alt: ["선수", "수상"],
+  { menu: "MY", href: "my.html", label: "MY", alt: ["선수", "수상"],
     icon: `<circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/>` },
 ];
 
@@ -816,6 +979,7 @@ function renderTodayPoll() {
 async function initHome() {
   await storeReady;
   renderHeader("홈", null);
+  renderFanHero();
   renderTodayPoll();
   renderHomeSchedule();
   renderHotPosts();
