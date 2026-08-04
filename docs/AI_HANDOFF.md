@@ -10,13 +10,14 @@
 
 점검 보고서의 P0 대응입니다. **코드 쪽은 반영됐고, DB 쪽은 사람이 실행해야 합니다.**
 
-### 사람이 해야 할 일
+### 운영 DB 적용 상태 (2026-08-04 pg_policies로 확인 완료)
 
-1. Supabase SQL Editor에서 **`supabase/schema9_security.sql`의 0단계 확인 쿼리**를 먼저 실행
-   (현재 정책 목록 + id 형식 위반 행 확인).
-2. 결과에 문제가 없으면 같은 파일의 본문을 실행.
-3. 특히 `admin_write_*` 정책의 `qual`이 `is_admin()`인지 확인 — `true`라면
-   **가입한 회원 누구나 경기·선수·순위를 고칠 수 있는 상태**이므로 즉시 조치 필요.
+- `supabase/schema9_security.sql` **적용 완료**. 글·댓글 사칭 차단, id 형식 제약,
+  회원 예측·평점·투표 행 보호(`voter = auth.uid()`), 반응 삭제 제한이 모두 살아 있음.
+- `admin_write_matches / players / stage_records / site_settings`의 `qual`이 모두
+  **`is_admin()`** — 옛 느슨한 정책(로그인한 아무나 수정)은 남아 있지 않음. 확인 완료.
+- 남은 실행 대기: `supabase/schema8_pom_awards.sql`(구문 오류 수정본),
+  `supabase/schema10_member_polls.sql`(회원 투표 첨부 복구).
 
 ### 코드에 반영된 것 (커밋 참조)
 
