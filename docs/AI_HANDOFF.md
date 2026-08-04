@@ -77,6 +77,25 @@ Leaguepedia(CC-BY-SA) 데이터 + 직접 만든 SVG 레이더가 핵심이었다
 - **모바일 하단 탭바** (≤720px)
 - 푸터에 Leaguepedia CC-BY-SA 출처 표기
 
+### 사업계획서 반영 1차 (2026-08-04, 커밋 9bd37fd)
+
+사업계획서(팬 정체성 플랫폼 전환)의 최우선 4가지를 구현:
+
+- **응원팀 온보딩 + 개인화 홈**: index.html `#fan-hero` → `renderFanHero()`(app.js).
+  상태 3가지: 미선택(팀 고르기 그리드) / 중립(한 줄 안내) / 선택(내 팀 히어로).
+  회원은 `Auth.profile.fav_team`, 비회원은 localStorage `nexus_fav_team`("" = 중립).
+- **팬 여권 my.html**: `myFanRecord()`(store.js)가 voterId 기준으로 예측 적중률·
+  스코어 적중(경기 전 "결과는?" 투표를 실제 스코어와 대조)·MVP 투표·연속 참여를 집계.
+  `fanBadges()`로 배지 7종 파생(서버 저장 없음, 항상 재계산). 여권 카드 PNG 저장.
+- **공유 카드**: `sharePredictionCard()`(app.js) — 홈 히어로와 predict.html(📷 버튼).
+- **팬덤별 적중률**: `fandomAccuracy()`(store.js) → ranking.html. 응원팀 설정 회원의
+  예측만 집계 가능(익명 표는 팀을 모름). 표본 없으면 카드 자체를 숨김.
+- 탭바 MY·헤더 닉네임 칩 → my.html.
+
+검증: 가짜 기록을 캐시에 주입해 적중률 1/2·스코어 1/1·연속 2·배지 판정 일치 확인.
+미완: 계획서의 SEO(경기별 영구 URL·서버 렌더링)·주간 Fan Index(사용자가 리포트 제외 지시)·
+알림·초대 링크. 분석 이벤트(18장)는 서버 계층 생겼으니 다음 단계에서 가능.
+
 ### 아직 남은 것 (다음 단계)
 
 - **투표·평점 원본 비공개화 (보안 핵심, 미완)**: 지금도 `predictions`/`ratings`/
