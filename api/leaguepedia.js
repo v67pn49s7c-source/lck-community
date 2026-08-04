@@ -17,11 +17,22 @@ const UA = "TheNexus-LCK-FanSite/1.0 (https://lck-community.vercel.app)";
 // 호출 제한이 있어 요청 사이에 간격을 둔다
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
-async function cargo(params) {
+// 호출 제한에 걸리면 잠깐 쉬었다 두 번까지 다시 시도한다
+async function cargo(params, tries) {
   const q = new URLSearchParams({ action: "cargoquery", format: "json", limit: "500", ...params });
   const r = await fetch(`${API}?${q}`, { headers: { "user-agent": UA } });
   const j = await r.json();
-  if (j.error) throw new Error(`Leaguepedia: ${j.error.info || j.error.code}`);
+  if (j.error) {
+    const code = j.error.code || "";
+    if (code === "ratelimited" && (tries || 0) < 2) {
+      await wait(3000);
+      return cargo(params, (tries || 0) + 1);
+    }
+    if (code === "ratelimited") {
+      throw new Error("Leaguepedia 호출 제한에 걸렸습니다. 1~2분 뒤에 다시 눌러 주세요.");
+    }
+    throw new Error(`Leaguepedia: ${j.error.info || code}`);
+  }
   return (j.cargoquery || []).map(x => x.title);
 }
 
@@ -117,40 +128,44 @@ module.exports = async (req, res) => {
       return fail(res, 400, `팀 이름을 우리 팀 id와 연결해 주세요: ${[...unknownTeams].join(", ")}`);
     }
 
-    // 4) 저장 — 경기는 우리 id 규칙(lp_<Leaguepedia MatchId>)으로 중복 없이
-    let savedMatches = 0, savedSets = 0;
-    for (const m of matches) {
+    // 4) 저장 — 한 줄씩 보내면 경기 수만큼 서버 왕복이 생겨 실행 시간을 넘긴다.
+    //    경기 전체 / 세트 전체를 각각 한 번에 보낸다 (중복은 id 기준 덮어쓰기).
+    const matchRows = [], detailRows = [];
+    matches.forEach(m => {
       const id = "lp" + m.lpMatchId.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 60);
       const done = m.scoreA + m.scoreB > 0;
-      await sb("matches?on_conflict=id", {
-        method: "POST",
-        headers: { prefer: "resolution=merge-duplicates" },
-        body: JSON.stringify([{
-          id, tid, stage: page.split("/").pop(), at: (m.at || "").replace(" ", "T") + "Z",
-          a: m.a, b: m.b, label: "",
-          odds_a: 2, odds_b: 2,
-          status: done ? "done" : "upcoming",
-          score_a: done ? m.scoreA : null, score_b: done ? m.scoreB : null,
-        }]),
+      matchRows.push({
+        id, tid, stage: page.split("/").pop(), at: (m.at || "").replace(" ", "T") + "Z",
+        a: m.a, b: m.b, label: "",
+        odds_a: 2, odds_b: 2,
+        status: done ? "done" : "upcoming",
+        score_a: done ? m.scoreA : null, score_b: done ? m.scoreB : null,
       });
-      savedMatches++;
-
-      for (const s of m.sets) {
+      m.sets.forEach(s => {
         const players = s.players.filter(p => p.pid).map(p => ({
           pid: p.pid, champ: p.champ, spell: "", k: p.k, d: p.d, a: p.a,
           cs: p.cs, gold: p.gold, items: "", runes: "",
         }));
-        if (!players.length) continue;
-        await sb("match_details?on_conflict=match_id,set_index", {
-          method: "POST",
-          headers: { prefer: "resolution=merge-duplicates" },
-          body: JSON.stringify([{ match_id: id, set_index: s.n - 1, win: s.win, players }]),
-        });
-        savedSets++;
-      }
+        if (players.length) detailRows.push({ match_id: id, set_index: s.n - 1, win: s.win, players });
+      });
+    });
+
+    if (matchRows.length) {
+      await sb("matches?on_conflict=id", {
+        method: "POST",
+        headers: { prefer: "resolution=merge-duplicates" },
+        body: JSON.stringify(matchRows),
+      });
+    }
+    if (detailRows.length) {
+      await sb("match_details?on_conflict=match_id,set_index", {
+        method: "POST",
+        headers: { prefer: "resolution=merge-duplicates" },
+        body: JSON.stringify(detailRows),
+      });
     }
 
-    return ok(res, { ...summary, 저장함: true, 저장된경기: savedMatches, 저장된세트: savedSets });
+    return ok(res, { ...summary, 저장함: true, 저장된경기: matchRows.length, 저장된세트: detailRows.length });
   } catch (e) {
     return fail(res, 500, e.message || String(e));
   }
