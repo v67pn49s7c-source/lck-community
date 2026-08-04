@@ -47,6 +47,10 @@
 - **실행 필요: `supabase/schema11_post_edit.sql`** (아직 적용 전이면 글쓰기는 예전 방식으로 동작)
 - 비회원은 글/댓글 작성 시 4자 이상 비밀번호를 정하고 그 비밀번호로 수정·삭제.
   회원은 계정으로(posts/comments의 새 `author_id` 컬럼), 관리자는 전부 가능.
+- **닉네임은 클라이언트가 정하지 못한다**: 회원=프로필 닉네임 고정,
+  비회원=서버가 부여하는 유동닉(`anon_nick()` → 익명0000, 글마다 새 번호),
+  관리자만 표시 이름 자유. 비회원은 전체 게시판에만 작성 가능(서버에서도 차단).
+  `create_post`/`create_comment`는 `{id, nick}` jsonb를 돌려주고 화면이 그 닉네임을 반영한다.
 - 비밀번호는 `post_secrets` / `comment_secrets`에 bcrypt 해시로만 보관.
   두 표는 RLS를 켜고 **정책을 두지 않아** 아무도 직접 읽을 수 없고, security definer 함수만 접근.
 - 글·댓글 작성이 `create_post` / `create_comment` RPC로 바뀜(기존 insert 정책은 삭제).

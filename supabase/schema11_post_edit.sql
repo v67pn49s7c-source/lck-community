@@ -2,7 +2,8 @@
 -- 게시글 비밀번호 · 수정 · 삭제 (2026-08-04)
 --
 --  · 비회원은 글/댓글을 쓸 때 비밀번호를 정하고, 그 비밀번호로 수정·삭제
---  · 회원은 비밀번호 없이 자기 글을 수정·삭제 (계정으로 확인)
+--  · 비회원 닉네임은 서버가 자동으로 부여한다 (유동닉 — 글마다 새 번호)
+--  · 회원은 비밀번호 없이 자기 글을 수정·삭제하고, 닉네임은 항상 프로필 닉네임
 --  · 관리자는 모두 가능
 --  · 조회수·추천수가 서버에 저장되지 않던 문제도 함께 수정
 --
@@ -12,6 +13,12 @@
 -- ═══════════════════════════════════════════════════════
 
 create extension if not exists pgcrypto with schema extensions;
+
+-- 비회원용 유동닉 (글·댓글마다 새로 만들어짐 — 사용자가 직접 정하지 않는다)
+create or replace function anon_nick() returns text
+language sql volatile as $$
+  select '익명' || lpad((floor(random() * 10000))::int::text, 4, '0')
+$$;
 
 -- ── 1) 작성자 표시용 컬럼 (회원 글 소유 확인) ──
 alter table posts    add column if not exists author_id uuid;
@@ -33,17 +40,20 @@ create table if not exists comment_secrets (
 alter table comment_secrets enable row level security;
 
 -- ── 3) 글 작성 (비밀번호 포함) ──
+-- 반환 형식이 바뀌었으므로(예전 버전은 text) 먼저 지운다 — 이미 실행한 적 있어도 안전
+drop function if exists create_post(text, text, text, text, text, text, text, text);
 -- 기존 insert 정책과 같은 규칙을 함수 안에서 검사한다.
 create or replace function create_post(
   p_id text, p_team text, p_cat text, p_title text, p_body text,
   p_nick text, p_match_id text, p_pw text
-) returns text
+) returns jsonb
 language plpgsql security definer set search_path = public, extensions as $$
 declare
   v_uid uuid := auth.uid();
   v_nick text; v_fav text; v_admin boolean := false;
   v_team text := nullif(p_team, '');
   v_author_team text := null;
+  v_nick_out text;
 begin
   if p_id !~ '^[A-Za-z0-9_-]{1,64}$' then raise exception '글 번호 형식이 잘못되었습니다'; end if;
   if not (coalesce(char_length(p_title), 0) between 1 and 100) then raise exception '제목은 1~100자로 입력해 주세요'; end if;
@@ -53,32 +63,35 @@ begin
     select nick, fav_team, is_admin into v_nick, v_fav, v_admin from profiles where id = v_uid;
   end if;
 
+  -- 닉네임은 클라이언트 값을 믿지 않고 서버가 정한다
   if coalesce(v_admin, false) then
     v_author_team := v_fav;
+    v_nick_out := coalesce(nullif(p_nick, ''), v_nick, '운영자'); -- 관리자만 표시 이름 자유
   elsif v_uid is not null then
-    if p_nick is distinct from v_nick then raise exception '닉네임은 프로필 닉네임만 쓸 수 있습니다'; end if;
     if p_cat = '공지' then raise exception '공지는 관리자만 쓸 수 있습니다'; end if;
     if v_team is not null and v_team is distinct from v_fav then
       raise exception '응원팀 게시판에만 글을 쓸 수 있습니다';
     end if;
+    if v_nick is null then raise exception '프로필(닉네임)을 먼저 설정해 주세요'; end if;
     v_author_team := v_fav;
+    v_nick_out := v_nick;                                        -- 회원은 프로필 닉네임 고정
   else
     if p_cat = '공지' then raise exception '공지는 관리자만 쓸 수 있습니다'; end if;
-    if v_team is not null then raise exception '팀 게시판은 그 팀 팬 회원만 쓸 수 있습니다'; end if;
-    if p_nick ~* '(운영자|관리자|어드민|admin|nexus|넥서스)' then raise exception '쓸 수 없는 닉네임입니다'; end if;
+    if v_team is not null then raise exception '팀 게시판은 회원만 쓸 수 있습니다 (비회원은 전체 게시판)'; end if;
     if p_pw is null or char_length(p_pw) < 4 then
       raise exception '비회원 글은 4자 이상의 비밀번호가 필요합니다 (수정·삭제할 때 씁니다)';
     end if;
+    v_nick_out := anon_nick();                                   -- 비회원은 자동 부여 유동닉
   end if;
 
   insert into posts (id, team, cat, title, body, nick, author_team, match_id, author_id)
-  values (p_id, v_team, p_cat, p_title, p_body, p_nick, v_author_team, nullif(p_match_id, ''), v_uid);
+  values (p_id, v_team, p_cat, p_title, p_body, v_nick_out, v_author_team, nullif(p_match_id, ''), v_uid);
 
   if p_pw is not null and char_length(p_pw) >= 4 then
     insert into post_secrets (post_id, pw_hash) values (p_id, crypt(p_pw, gen_salt('bf')))
     on conflict (post_id) do nothing;
   end if;
-  return p_id;
+  return jsonb_build_object('id', p_id, 'nick', v_nick_out);
 end $$;
 
 -- ── 4) 수정·삭제 권한 확인 ──
@@ -112,13 +125,14 @@ begin
 end $$;
 
 -- ── 5) 댓글 (작성 시 비밀번호, 비밀번호로 삭제) ──
+drop function if exists create_comment(text, text, text, text);
 create or replace function create_comment(
   p_post_id text, p_nick text, p_body text, p_pw text
-) returns bigint
+) returns jsonb
 language plpgsql security definer set search_path = public, extensions as $$
 declare
   v_uid uuid := auth.uid();
-  v_nick text; v_fav text; v_admin boolean := false; v_id bigint;
+  v_nick text; v_fav text; v_admin boolean := false; v_id bigint; v_nick_out text;
 begin
   if not (coalesce(char_length(p_body), 0) between 1 and 500) then raise exception '댓글은 1~500자로 입력해 주세요'; end if;
   if not exists (select 1 from posts where id = p_post_id) then raise exception '글을 찾을 수 없습니다'; end if;
@@ -127,25 +141,26 @@ begin
     select nick, fav_team, is_admin into v_nick, v_fav, v_admin from profiles where id = v_uid;
   end if;
 
-  if not coalesce(v_admin, false) then
-    if v_uid is not null then
-      if p_nick is distinct from v_nick then raise exception '닉네임은 프로필 닉네임만 쓸 수 있습니다'; end if;
-    else
-      if p_nick ~* '(운영자|관리자|어드민|admin|nexus|넥서스)' then raise exception '쓸 수 없는 닉네임입니다'; end if;
-      if p_pw is null or char_length(p_pw) < 4 then
-        raise exception '비회원 댓글은 4자 이상의 비밀번호가 필요합니다 (삭제할 때 씁니다)';
-      end if;
+  if coalesce(v_admin, false) then
+    v_nick_out := coalesce(nullif(p_nick, ''), v_nick, '운영자');
+  elsif v_uid is not null then
+    if v_nick is null then raise exception '프로필(닉네임)을 먼저 설정해 주세요'; end if;
+    v_nick_out := v_nick;                                        -- 회원은 프로필 닉네임 고정
+  else
+    if p_pw is null or char_length(p_pw) < 4 then
+      raise exception '비회원 댓글은 4자 이상의 비밀번호가 필요합니다 (삭제할 때 씁니다)';
     end if;
+    v_nick_out := anon_nick();                                   -- 비회원은 자동 부여 유동닉
   end if;
 
   insert into comments (post_id, nick, body, author_team, author_id)
-  values (p_post_id, p_nick, p_body, case when v_uid is null then null else v_fav end, v_uid)
+  values (p_post_id, v_nick_out, p_body, case when v_uid is null then null else v_fav end, v_uid)
   returning id into v_id;
 
   if p_pw is not null and char_length(p_pw) >= 4 then
     insert into comment_secrets (comment_id, pw_hash) values (v_id, crypt(p_pw, gen_salt('bf')));
   end if;
-  return v_id;
+  return jsonb_build_object('id', v_id, 'nick', v_nick_out);
 end $$;
 
 create or replace function delete_comment(p_id bigint, p_pw text) returns void
@@ -164,6 +179,7 @@ begin
   delete from comments where id = p_id;
 end $$;
 
+grant execute on function anon_nick() to anon, authenticated;
 grant execute on function create_post(text, text, text, text, text, text, text, text) to anon, authenticated;
 grant execute on function update_post(text, text, text, text) to anon, authenticated;
 grant execute on function delete_post(text, text) to anon, authenticated;

@@ -204,7 +204,8 @@ async function initPostPage() {
         ${ordered.map(commentHTML).join("") || `<div class="empty-note">첫 댓글을 남겨 보세요</div>`}
       </div>
       <form class="comment-form" id="comment-form">
-        <input class="nick" placeholder="닉네임" value="${esc(getNick())}" required maxlength="12" ${Auth.profile ? "readonly" : ""}>
+        <input class="nick" value="${esc(Auth.profile ? Auth.profile.nick : "익명 (자동 부여)")}" readonly
+          title="${Auth.profile ? "회원 닉네임은 프로필에서만 바꿀 수 있습니다" : "비회원 댓글은 익명으로 등록됩니다"}" style="max-width:150px">
         ${Auth.session ? "" : `<input class="pw" type="password" placeholder="비밀번호(4자 이상)" required minlength="4" maxlength="20" autocomplete="new-password" style="max-width:150px">`}
         <input class="body" placeholder="댓글을 입력하세요 (비방·혐오 표현은 제재됩니다)" required maxlength="300">
         <button class="btn-primary" type="submit">등록</button>
@@ -231,12 +232,11 @@ async function initPostPage() {
     });
     el.querySelector("#comment-form").addEventListener("submit", e => {
       e.preventDefault();
-      const nick = e.target.querySelector(".nick").value.trim();
+      const nick = Auth.profile ? Auth.profile.nick : ""; // 닉네임은 서버가 정한다
       const body = e.target.querySelector(".body").value.trim();
       const pw = e.target.querySelector(".pw")?.value || "";
-      if (!nick || !body) return;
+      if (!body) return;
       if (!Auth.session && pw.length < 4) { alert("비밀번호를 4자 이상 입력해 주세요. (댓글 삭제에 씁니다)"); return; }
-      setNick(nick);
       addComment(id, nick, body, pw).then(r => {
         if (r && r.error) alert("댓글을 등록하지 못했습니다.\n" + (r.error.message || ""));
         render();
@@ -334,7 +334,25 @@ async function initWritePage() {
   }
   document.getElementById("write-cat").innerHTML =
     BOARD_CATS.filter(c => c !== "전체" && c !== "공지").map(c => `<option>${c}</option>`).join("");
-  document.getElementById("write-nick").value = getNick();
+  // 로그인은 했는데 프로필(닉네임)이 없으면 글을 쓸 수 없다
+  if (Auth.session && !Auth.profile) {
+    document.querySelector(".stack").innerHTML = `
+      <div class="page-title-row"><h1 class="page-title">글쓰기</h1></div>
+      <section class="card"><div class="admin-note" style="border-top:none">
+        닉네임·응원팀을 먼저 설정해 주세요.
+        <a href="login.html" style="text-decoration:underline">프로필 설정하러 가기</a>
+      </div></section>`;
+    initSidebar(); renderFooter();
+    return;
+  }
+
+  // 닉네임은 직접 정하지 않는다 — 회원은 프로필 닉네임 고정, 비회원은 서버가 유동닉 부여
+  const nickInput = document.getElementById("write-nick");
+  nickInput.readOnly = true;
+  nickInput.value = Auth.profile ? Auth.profile.nick : "익명 (자동 부여)";
+  nickInput.title = Auth.profile
+    ? "회원 닉네임은 프로필에서만 바꿀 수 있습니다"
+    : "비회원 글은 익명으로 등록되며, 글마다 다른 번호가 붙습니다";
 
   // 회원은 계정으로 본인 글을 확인할 수 있어 비밀번호가 필요 없다
   const pwWrap = document.getElementById("write-pw-wrap");
@@ -342,20 +360,24 @@ async function initWritePage() {
   const pwHint = document.getElementById("write-pw-hint");
   if (Auth.session) {
     pwWrap.style.display = "none";
-    pwHint.textContent = "로그인 상태라 비밀번호 없이 내 글을 수정·삭제할 수 있습니다.";
+    pwHint.textContent = Auth.profile?.is_admin
+      ? "관리자 계정입니다. 비밀번호 없이 모든 글을 수정·삭제할 수 있습니다."
+      : "로그인 상태라 비밀번호 없이 내 글을 수정·삭제할 수 있습니다.";
   } else {
     pwInput.required = true;
+    pwHint.textContent = "비회원은 익명으로 등록되며 닉네임은 글마다 자동으로 붙습니다. "
+      + "비밀번호는 이 글을 수정·삭제할 때 쓰니 꼭 기억해 주세요.";
   }
 
   form.addEventListener("submit", async e => {
     e.preventDefault();
-    const nick = document.getElementById("write-nick").value.trim();
+    // 닉네임은 서버가 정한다 (회원=프로필 닉, 비회원=자동 유동닉)
+    const nick = Auth.profile ? Auth.profile.nick : "";
     const team = document.getElementById("write-team").value || null;
     const cat = document.getElementById("write-cat").value;
     const title = document.getElementById("write-title").value.trim();
     const body = document.getElementById("write-body").value.trim();
-    if (!nick || !title || !body) return;
-    setNick(nick);
+    if (!title || !body) return;
 
     const submitBtn = form.querySelector('button[type="submit"]');
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "등록 중..."; }

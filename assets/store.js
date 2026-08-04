@@ -324,7 +324,8 @@ function getPost(id) { return Cache.posts.find(p => p.id === id); }
 // 글쓰기 — 서버 함수(create_post)로 보낸다. 비회원은 pw(4자 이상)가 필수이며
 // 비밀번호는 아무도 못 읽는 별도 표에 해시로만 저장된다 (수정·삭제할 때 확인용).
 function addPost(p, pw) {
-  if (Auth.profile) p.nick = Auth.profile.nick; // 회원은 고정 닉네임 사용
+  // 닉네임은 서버가 정한다 — 여기 값은 저장될 때까지 잠깐 보여 줄 임시 표시
+  p.nick = Auth.profile ? Auth.profile.nick : "익명";
   p.author_team = Auth.profile?.fav_team || null;
   p.id = "p" + Date.now();
   p.ts = Date.now(); p.views = 0; p.up = 0; p.comments = [];
@@ -334,6 +335,8 @@ function addPost(p, pw) {
     p_id: p.id, p_team: p.team || null, p_cat: p.cat, p_title: p.title, p_body: p.body,
     p_nick: p.nick, p_match_id: p.match_id || null, p_pw: pw || null,
   }).then(r => {
+    // 비회원 닉네임은 서버가 정한다 (유동닉) — 받아서 화면에 반영
+    if (!r.error && r.data && r.data.nick) p.nick = r.data.nick;
     // 서버에 함수가 아직 없으면(SQL 미적용) 예전 방식으로 저장해 글쓰기가 막히지 않게 한다
     if (r.error && isMissingFunction(r.error)) {
       console.warn("[store] create_post 함수 없음 — 예전 방식으로 저장 (schema11_post_edit.sql 실행 필요)");
@@ -383,7 +386,7 @@ function deletePost(id) {
   sb.from("posts").delete().eq("id", id).then(r => sbErr(r.error, "deletePost"));
 }
 function addComment(postId, nick, body, pw) {
-  if (Auth.profile) nick = Auth.profile.nick;
+  nick = Auth.profile ? Auth.profile.nick : "익명"; // 서버가 정한 닉네임으로 곧 교체됨
   const author_team = Auth.profile?.fav_team || null;
   const p = Cache.posts.find(x => x.id === postId);
   const optimistic = { nick, body, author_team, ts: Date.now() };
@@ -405,7 +408,10 @@ function addComment(postId, nick, body, pw) {
         if (p) p.comments = p.comments.filter(c => c !== optimistic);
         return { error: r.error };
       }
-      if (r.data && optimistic.id == null) optimistic.id = r.data; // 서버가 매긴 댓글 id
+      if (r.data) { // 서버가 매긴 댓글 id + 비회원 유동닉
+        if (optimistic.id == null) optimistic.id = r.data.id ?? r.data;
+        if (r.data.nick) optimistic.nick = r.data.nick;
+      }
       return { data: r.data };
     });
 }
