@@ -177,6 +177,54 @@ function renderHeader(activeMenu, activeTeamId) {
   renderTabBar(activeMenu);
 }
 
+// ── 선수 지표 육각형 (SVG 직접 그리기, 라이브러리 없음) ─────
+// 바깥 테두리 = 같은 포지션에서 1등, 가운데 = 꼴등. 회색은 동 포지션 평균.
+function radarSVG(axes, opts) {
+  const o = opts || {};
+  const size = o.size || 260, c = size / 2, R = c - 42;
+  const n = axes.length;
+  const pt = (i, r) => {
+    const ang = (Math.PI * 2 * i) / n - Math.PI / 2;               // 12시 방향부터 시계방향
+    return [c + Math.cos(ang) * r, c + Math.sin(ang) * r];
+  };
+  const poly = (vals, k) => vals.map((v, i) => pt(i, R * Math.max(0.04, (v || 0) / 100) * k).map(x => x.toFixed(1)).join(",")).join(" ");
+
+  const rings = [1, 0.75, 0.5, 0.25].map(f =>
+    `<polygon points="${axes.map((_, i) => pt(i, R * f).map(x => x.toFixed(1)).join(",")).join(" ")}"
+      fill="${f === 1 ? "var(--bg-soft)" : "none"}" stroke="var(--line)" stroke-width="1"/>`).join("");
+  const spokes = axes.map((_, i) =>
+    `<line x1="${c}" y1="${c}" x2="${pt(i, R)[0].toFixed(1)}" y2="${pt(i, R)[1].toFixed(1)}" stroke="var(--line)" stroke-width="1"/>`).join("");
+
+  const labels = axes.map((ax, i) => {
+    const [x, y] = pt(i, R + 22);
+    const anchor = Math.abs(x - c) < 6 ? "middle" : (x > c ? "start" : "end");
+    return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}"
+      dominant-baseline="middle" class="rd-label">${esc(ax.label)}
+      <tspan x="${x.toFixed(1)}" dy="13" class="rd-score">${ax.score}</tspan></text>`;
+  }).join("");
+
+  return `
+  <svg class="radar" viewBox="0 0 ${size} ${size}" role="img" aria-label="선수 지표 그래프">
+    ${rings}${spokes}
+    <polygon class="rd-avg" points="${poly(axes.map(a => a.avgScore), 1)}"/>
+    <polygon class="rd-me" points="${poly(axes.map(a => a.score), 1)}"/>
+    ${axes.map((ax, i) => { const [x, y] = pt(i, R * Math.max(0.04, ax.score / 100));
+      return `<circle class="rd-dot" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3"/>`; }).join("")}
+    ${labels}
+  </svg>`;
+}
+
+// 육각형 옆에 붙는 막대 목록 (내 점수 · 원래 수치 · 동 포지션 평균)
+function radarBarsHTML(axes) {
+  return `<div class="rd-bars">` + axes.map(ax => `
+    <div class="rd-bar">
+      <span class="rd-bar-label">${esc(ax.label)}</span>
+      <span class="rd-bar-track"><i style="width:${Math.max(2, ax.score)}%"></i></span>
+      <b>${ax.score}</b><span class="rd-bar-raw">(${esc(ax.text)})</span>
+      <span class="rd-bar-avg">평균 ${ax.avgScore} (${esc(ax.avgText)})</span>
+    </div>`).join("") + `</div>`;
+}
+
 // ── 모바일 하단 탭바 ──────────────────────────────────────
 // 휴대폰에서는 위쪽 가로 메뉴가 손이 닿기 불편하고 10개가 밀려 있어 잘 안 보인다.
 // 자주 쓰는 다섯 곳만 엄지 닿는 자리에 고정한다.

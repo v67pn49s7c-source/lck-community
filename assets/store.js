@@ -632,6 +632,116 @@ function deleteAward(id) {
   sb.from("awards").delete().eq("id", id).then(r => sbErr(r.error, "deleteAward"));
 }
 
+// ── 선수 지표 집계 (육각형 차트용) ─────────────────────────
+// 경기 상세(세트별 KDA·CS·골드) + 팬 평점 + POM을 한 선수 기준으로 모은다.
+// tid를 주면 그 대회 경기만, 없으면 전체.
+function playerAggregate(pid, tid) {
+  const player = getPlayer(pid);
+  if (!player) return null;
+  let sets = 0, wins = 0, k = 0, d = 0, a = 0, cs = 0, gold = 0, kpSum = 0, kpSets = 0;
+  const champs = {};
+
+  getMatches().forEach(m => {
+    if (tid && m.tid !== tid) return;
+    const det = getDetails(m.id);
+    if (!det) return;
+    det.sets.forEach(s => {
+      const row = (s.players || []).find(p => p.pid === pid && (p.champ || "").trim());
+      if (!row) return;
+      sets++;
+      const rk = +row.k || 0, rd = +row.d || 0, ra = +row.a || 0;
+      k += rk; d += rd; a += ra; cs += +row.cs || 0; gold += +row.gold || 0;
+
+      // 킬 관여율 = (킬+어시) ÷ 우리 팀 총 킬
+      const teamKills = (s.players || [])
+        .filter(p => (getPlayer(p.pid) || {}).team === player.team)
+        .reduce((n, p) => n + (+p.k || 0), 0);
+      if (teamKills > 0) { kpSum += (rk + ra) / teamKills; kpSets++; }
+
+      const won = (s.win === "a" ? m.a : m.b) === player.team;
+      if (won) wins++;
+
+      const c = (champs[row.champ] = champs[row.champ] || { champ: row.champ, sets: 0, wins: 0, k: 0, d: 0, a: 0, last: null });
+      c.sets++; if (won) c.wins++;
+      c.k += rk; c.d += rd; c.a += ra;
+      if (!c.last || new Date(m.at) > new Date(c.last)) c.last = m.at;
+    });
+  });
+
+  // 팬 평점 (해당 대회 경기만)
+  const hist = matchRatingsForPlayer(pid).filter(h => {
+    if (!tid) return true;
+    const m = getMatches().find(x => x.id === h.matchId);
+    return m && m.tid === tid;
+  });
+  const fanAvg = hist.length ? hist.reduce((s, h) => s + Number(h.avg), 0) / hist.length : null;
+
+  // POM (해당 대회 경기만)
+  const pomPts = Cache.pom
+    .filter(x => x.player_id === pid)
+    .filter(x => {
+      if (!tid) return true;
+      if (!x.match_id) return false;              // 과거 이월분은 대회 구분이 없음
+      const m = getMatches().find(y => y.id === x.match_id);
+      return m && m.tid === tid;
+    })
+    .reduce((s, x) => s + (x.pts || 0), 0);
+
+  return {
+    pid, pos: player.pos, team: player.team, sets, wins, losses: sets - wins,
+    k, d, a,
+    kda: d > 0 ? (k + a) / d : (k + a),
+    kp: kpSets ? kpSum / kpSets : 0,
+    csAvg: sets ? cs / sets : 0,
+    goldAvg: sets ? gold / sets : 0,
+    fan: fanAvg, fanCount: hist.length,
+    pom: pomPts,
+    champs: Object.values(champs).sort((x, y) => y.sets - x.sets),
+  };
+}
+
+// 육각형에 쓰는 축 정의 (raw 값을 뽑는 방법 + 표시 형식)
+const RADAR_AXES = [
+  { key: "kda", label: "KDA", get: s => s.kda, fmt: v => v.toFixed(2) },
+  { key: "kp", label: "킬관여", get: s => s.kp * 100, fmt: v => v.toFixed(0) + "%" },
+  { key: "cs", label: "CS", get: s => s.csAvg, fmt: v => v.toFixed(0) },
+  { key: "gold", label: "골드", get: s => s.goldAvg, fmt: v => v.toFixed(1) + "k" },
+  { key: "fan", label: "팬평점", get: s => (s.fan == null ? null : s.fan), fmt: v => v.toFixed(1) },
+  { key: "pom", label: "POM", get: s => s.pom, fmt: v => v.toFixed(0) + "pt" },
+];
+
+// 같은 포지션 선수들 사이에서 몇 등쯤인지를 0~100으로 (50 = 딱 중간)
+function radarData(pid, tid) {
+  const me = playerAggregate(pid, tid);
+  if (!me) return null;
+  const peers = getPlayers()
+    .filter(p => p.pos === me.pos && p.id !== pid)
+    .map(p => playerAggregate(p.id, tid))
+    .filter(s => s && s.sets > 0);
+
+  const axes = RADAR_AXES.map(ax => {
+    const mine = ax.get(me);
+    const vals = peers.map(s => ax.get(s)).filter(v => v != null && !isNaN(v));
+    const all = (mine == null ? vals : vals.concat(mine)).slice().sort((x, y) => x - y);
+    const pct = v => {
+      if (v == null || !all.length) return 50;
+      if (all.length === 1) return 50;
+      const below = all.filter(x => x < v).length;
+      const same = all.filter(x => x === v).length;
+      return Math.round(((below + same / 2) / all.length) * 100);
+    };
+    const avg = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+    return {
+      key: ax.key, label: ax.label,
+      raw: mine, score: mine == null ? 0 : pct(mine),
+      avgRaw: avg, avgScore: avg == null ? 50 : pct(avg),
+      text: mine == null ? "-" : ax.fmt(mine),
+      avgText: avg == null ? "-" : ax.fmt(avg),
+    };
+  });
+  return { stats: me, axes };
+}
+
 // 선수의 경기별 평점 목록 (최신 경기 순)
 function matchRatingsForPlayer(playerId) {
   const me = voterId();

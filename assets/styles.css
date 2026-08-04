@@ -951,6 +951,40 @@ table.award-table td a:hover b { color: var(--accent); }
 .doc b { color: var(--text); }
 .doc .doc-note { margin-top: 18px; font-size: var(--fs-sm); color: var(--text-dim); }
 
+/* ── 선수 지표 육각형 ── */
+.radar-wrap { display: grid; grid-template-columns: minmax(0, 280px) minmax(0, 1fr); gap: 16px; align-items: center; padding: 14px; }
+.radar { width: 100%; max-width: 280px; height: auto; margin: 0 auto; display: block; }
+.radar .rd-me { fill: color-mix(in srgb, var(--accent) 22%, transparent); stroke: var(--accent); stroke-width: 2; }
+.radar .rd-avg { fill: color-mix(in srgb, var(--text-dim) 18%, transparent); stroke: var(--text-dim); stroke-width: 1.5; }
+.radar .rd-dot { fill: var(--accent); }
+.radar .rd-label { font-size: 11px; font-weight: 800; fill: var(--text-sub); }
+.radar .rd-score { font-size: 12px; font-weight: 800; fill: var(--text); }
+.rd-legend { display: flex; gap: 12px; justify-content: center; font-size: var(--fs-xs); color: var(--text-dim); padding: 0 14px 10px; }
+.rd-legend i { display: inline-block; width: 8px; height: 8px; margin-right: 4px; }
+.rd-legend .me i { background: var(--accent); }
+.rd-legend .avg i { background: var(--text-dim); }
+.rd-bars { display: flex; flex-direction: column; gap: 7px; }
+.rd-bar { display: grid; grid-template-columns: 52px minmax(0, 1fr) 26px auto; align-items: center; gap: 7px; font-size: var(--fs-xs); }
+.rd-bar-label { font-weight: 800; color: var(--text-sub); }
+.rd-bar-track { height: 7px; background: var(--bg-soft); border: 1px solid var(--line); }
+.rd-bar-track i { display: block; height: 100%; background: var(--accent); }
+.rd-bar b { font-weight: 800; text-align: right; }
+.rd-bar-raw { color: var(--text-sub); }
+.rd-bar-avg { grid-column: 2 / -1; color: var(--text-dim); font-size: 10px; margin-top: -3px; }
+@media (max-width: 720px) {
+  .radar-wrap { grid-template-columns: 1fr; gap: 10px; }
+  .rd-bar { grid-template-columns: 46px minmax(0, 1fr) 24px auto; }
+}
+
+/* ── 대회 필터 칩 ── */
+.chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip-row button {
+  padding: 5px 12px; font-size: var(--fs-xs); font-weight: 700;
+  border: 1px solid var(--line); background: var(--bg-soft); color: var(--text-sub);
+  border-radius: 999px;
+}
+.chip-row button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
 /* ── 모바일 하단 탭바 ── */
 .tab-bar { display: none; }
 @media (max-width: 720px) {

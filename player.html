@@ -22,6 +22,24 @@
       <div class="stack">
         <section class="card">
           <div class="card-head">
+            <h2 class="card-title">선수 지표 <span class="sub">같은 포지션 안에서의 위치 (0~100)</span></h2>
+            <div class="chip-row" id="stat-tabs"></div>
+          </div>
+          <div id="radar-box"></div>
+        </section>
+
+        <section class="card" id="summary-card">
+          <div class="card-head"><h2 class="card-title">시즌 요약</h2><span class="card-more" id="summary-scope"></span></div>
+          <div class="stat-cards" id="player-summary"></div>
+        </section>
+
+        <section class="card" id="champ-card">
+          <div class="card-head"><h2 class="card-title">사용 챔피언</h2><span class="card-more" id="champ-count"></span></div>
+          <div id="champ-table"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
             <h2 class="card-title">경기별 평점 <span class="sub">경기 단위 팬 평균</span></h2>
             <span class="card-more" id="avg-label"></span>
           </div>
@@ -50,6 +68,7 @@
   <script src="assets/vendor/supabase.min.js?v=20260804i"></script>
   <script src="assets/store.js?v=20260804i"></script>
   <script src="assets/app.js?v=20260804i"></script>
+  <script src="assets/ddragon.js?v=20260804i"></script>
   <script src="assets/player-photos.js?v=20260804i"></script>
   <script>
   storeReady.then(async () => {
@@ -82,6 +101,59 @@
         const r = cumulativeRankOf(team.id);
         return r ? `팀 시즌 누적 <b>${r.rank}위</b> (${r.w}승 ${r.l}패)` : "";
       }
+
+      // ── 대회 필터 + 육각형 지표 + 시즌 요약 + 챔피언 ──
+      let curTid = "";  // "" = 전체
+      function renderStats() {
+        const tabs = [{ id: "", name: "전체" }].concat(
+          getTournaments().map(t => ({ id: t.id, name: t.name.replace(/^2026\s*/, "") })));
+        document.getElementById("stat-tabs").innerHTML = tabs.map(t =>
+          `<button type="button" data-tid="${esc(t.id)}" class="${t.id === curTid ? "active" : ""}">${esc(t.name)}</button>`).join("");
+        document.getElementById("stat-tabs").querySelectorAll("button").forEach(b =>
+          b.addEventListener("click", () => { curTid = b.dataset.tid; renderStats(); }));
+
+        const rd = radarData(player.id, curTid || null);
+        const box = document.getElementById("radar-box");
+        if (!rd || !rd.stats.sets) {
+          box.innerHTML = `<div class="empty-note">이 대회의 경기 기록이 아직 없습니다.</div>`;
+          document.getElementById("summary-card").style.display = "none";
+          document.getElementById("champ-card").style.display = "none";
+          return;
+        }
+        document.getElementById("summary-card").style.display = "";
+        document.getElementById("champ-card").style.display = "";
+
+        box.innerHTML = `<div class="radar-wrap">${radarSVG(rd.axes)}${radarBarsHTML(rd.axes)}</div>
+          <div class="rd-legend"><span class="me"><i></i>${esc(player.nick)}</span>
+            <span class="avg"><i></i>${esc(player.pos)} 평균</span></div>`;
+
+        const s = rd.stats;
+        document.getElementById("summary-scope").textContent =
+          (curTid ? (getTournaments().find(t => t.id === curTid) || {}).name || "" : "전체 대회");
+        document.getElementById("player-summary").innerHTML = `
+          <div class="stat-card"><span class="k">출전 세트</span><span class="v">${s.sets}<em></em></span></div>
+          <div class="stat-card"><span class="k">승률</span><span class="v">${s.sets ? Math.round(s.wins / s.sets * 100) : 0}<em>%</em></span>
+            <span class="k">${s.wins}승 ${s.losses}패</span></div>
+          <div class="stat-card"><span class="k">KDA</span><span class="v">${s.kda.toFixed(2)}<em></em></span>
+            <span class="k">${s.k} / ${s.d} / ${s.a}</span></div>
+          <div class="stat-card"><span class="k">팬 평점</span><span class="v">${s.fan == null ? "-" : s.fan.toFixed(1)}<em>${s.fan == null ? "" : "점"}</em></span>
+            <span class="k">${s.fanCount}경기 평가</span></div>`;
+
+        document.getElementById("champ-count").textContent = `${s.champs.length}종`;
+        document.getElementById("champ-table").innerHTML = s.champs.length ? `
+          <div class="table-scroll"><table class="detail-table">
+            <thead><tr><th>챔피언</th><th>세트</th><th>승률</th><th>KDA</th><th>최근 사용</th></tr></thead>
+            <tbody>${s.champs.map(c => `<tr>
+              <td class="dt-champ">${ddChampHTML ? ddChampHTML(c.champ) : esc(c.champ)}</td>
+              <td>${c.sets}</td>
+              <td>${Math.round(c.wins / c.sets * 100)}%</td>
+              <td class="dt-kda">${c.d > 0 ? ((c.k + c.a) / c.d).toFixed(2) : (c.k + c.a).toFixed(2)}</td>
+              <td style="color:var(--text-sub)">${c.last ? fmtDay(c.last) : "-"}</td>
+            </tr>`).join("")}</tbody>
+          </table></div>` : `<div class="empty-note">기록된 챔피언이 없습니다</div>`;
+      }
+      renderStats();
+      if (typeof ddInit === "function") ddInit().then(ok => { if (ok) renderStats(); });
 
       // 경기별 평점 (경기 단위 팬 평균 + 내 점수)
       const history = matchRatingsForPlayer(player.id);
