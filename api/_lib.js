@@ -7,8 +7,11 @@
 //   SUPABASE_SERVICE_KEY  Supabase → Settings → API → service_role (절대 공개 금지)
 //   ADMIN_TASK_TOKEN      수집 작업을 부를 때 쓰는 임의의 긴 문자열
 
-const SB_URL = process.env.SUPABASE_URL;
-const SB_KEY = process.env.SUPABASE_SERVICE_KEY;
+// 환경변수는 "부를 때마다" 읽는다. 모듈이 불러와지는 시점에 한 번만 읽으면
+// 주입 순서에 따라 비어 있는 채로 굳어버릴 수 있다.
+const env = k => process.env[k] || "";
+const sbUrl = () => env("SUPABASE_URL");
+const sbKey = () => env("SUPABASE_SERVICE_KEY");
 
 function ok(res, body, cacheSeconds) {
   res.setHeader("content-type", "application/json; charset=utf-8");
@@ -24,12 +27,13 @@ function fail(res, status, message) {
 
 // Supabase REST 호출 (service_role — RLS를 우회하므로 서버에서만)
 async function sb(path, init) {
-  if (!SB_URL || !SB_KEY) throw new Error("서버에 SUPABASE_URL / SUPABASE_SERVICE_KEY 환경변수가 없습니다");
-  const r = await fetch(`${SB_URL}/rest/v1/${path}`, {
+  const URL_ = sbUrl(), KEY_ = sbKey();
+  if (!URL_ || !KEY_) throw new Error("서버에 SUPABASE_URL / SUPABASE_SERVICE_KEY 환경변수가 없습니다");
+  const r = await fetch(`${URL_}/rest/v1/${path}`, {
     ...init,
     headers: {
-      apikey: SB_KEY,
-      authorization: `Bearer ${SB_KEY}`,
+      apikey: KEY_,
+      authorization: `Bearer ${KEY_}`,
       "content-type": "application/json",
       ...(init && init.headers),
     },
@@ -54,8 +58,10 @@ async function requireAdmin(req) {
   if (!jwt) { const e = new Error("관리자 로그인이 필요합니다"); e.status = 401; throw e; }
 
   // 토큰이 진짜인지 Supabase에 확인 (브라우저 말을 믿지 않는다)
-  const r = await fetch(`${SB_URL}/auth/v1/user`, {
-    headers: { apikey: SB_KEY, authorization: `Bearer ${jwt}` },
+  const URL_ = sbUrl(), KEY_ = sbKey();
+  if (!URL_ || !KEY_) throw new Error("서버에 SUPABASE_URL / SUPABASE_SERVICE_KEY 환경변수가 없습니다");
+  const r = await fetch(`${URL_}/auth/v1/user`, {
+    headers: { apikey: KEY_, authorization: `Bearer ${jwt}` },
   });
   if (!r.ok) { const e = new Error("로그인 정보가 유효하지 않습니다"); e.status = 401; throw e; }
   const user = await r.json();
