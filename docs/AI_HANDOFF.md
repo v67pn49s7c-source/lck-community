@@ -1,0 +1,83 @@
+# AI_HANDOFF — The Nexus
+
+에이전트가 바뀔 때 이 문서만 읽고 이어받을 수 있게 유지합니다.
+**작업을 마친 에이전트가 반드시 갱신합니다.**
+
+> 지금 대기 중인 작업: **`docs/REVIEW_TASK.md` (사이트 전체 분석·점검)** — 결과는 `docs/AUDIT_REPORT.md`로.
+
+---
+
+## 현재 상태 (2026-08-04 기준)
+
+- 기준 커밋: **`3feb23a`** (origin/main과 동일, Vercel 배포 완료 확인)
+- 배포 주소: https://lck-community.vercel.app — `main` push 시 자동 배포
+- 정적 자원 캐시 버전: **`?v=20260803k`**
+- 마지막 작업자: Claude (Claude Code)
+
+### 최근 4개 커밋에서 바뀐 것
+
+| 커밋 | 내용 |
+|---|---|
+| `f7b9d3e` | 푸터 비제휴 고지 문구 교체 (한국어 + 영어 두 문단) |
+| `94b15a9` | 로딩 표시를 회전 사각형 → THE NEXUS 로고 마크(`assets/brand/nexus-mark.png`, 27KB) |
+| `f1dfe44` | 모바일 가로 잘림, 챔피언 아이콘 로드 실패, 초기 로딩 속도, 승부예측 % 잘림, 라이브 → 오늘의 경기 + 중계 링크 |
+| `3feb23a` | 팬심 평점 모바일: 좌우 대칭 유지 + 1~10 버튼 5개씩 2줄 + 군더더기 숨김 |
+
+### 특히 알아야 할 구조 변경 (`f1dfe44`)
+
+1. **로딩 경로 재구성** (`assets/store.js`)
+   - 예전: 로그인 조회 → 테이블 10개 → 테이블 8개 (서버 왕복 3회) → 전부 기다린 뒤 렌더
+   - 지금: 한 번에 병렬 요청 1회 + localStorage 스냅샷 선표시
+   - `storeReady`(즉시) / `storeFresh`(서버 확인 완료) 두 가지가 생겼습니다. §4 규칙은 AGENTS.md 참고.
+   - 로고 데이터 URL(약 80KB, `site_settings`의 `logo_*`)은 첫 화면 경로에서 제외하고
+     `loadLogosLater()`가 나중에 받아 헤더 이미지를 교체합니다.
+   - 측정값: 첫 방문 약 2.0초 → 1.0초, 재방문 약 2.0초 → 0.02~0.05초 (유럽에서 측정, 서버는 서울)
+2. **supabase-js 자체 호스팅**: `assets/vendor/supabase.min.js` (2.49.4). jsdelivr CDN 참조 제거.
+3. **정적 자원 `?v=` 캐시 버전 도입**: HTML의 script/link 태그에 붙어 있습니다. 고칠 때마다 올려야 합니다.
+4. **중계 링크 기능 신규**: `site_settings`의 `streams` 키에 JSON 저장
+   (`{default:{chzzk,soop,youtube}, matches:{"m12":{youtube:"..."}}}`).
+   store.js의 `getStreamConfig / saveStreamConfig / streamsForMatch`, 화면은 live.html,
+   등록 UI는 admin.html "중계 링크" 섹션.
+5. **메뉴 이름 변경**: 라이브 → **오늘의 경기** (`NAV_MENUS` in app.js, live.html).
+   파일명 `live.html`은 그대로입니다.
+
+---
+
+## 검증 상태
+
+브라우저(로컬 서버)에서 직접 확인한 것:
+
+- 전 페이지 375px 가로 넘침 0 (index/matches/standings/community/teams/players/awards/
+  ranking/bracket/player/predict/live). 대진표는 `.bracket-wrap` 안에서만 가로 스크롤.
+- 경기 상세 아이콘 60개 전부 로드(챔피언 10 + 아이템·룬 50).
+- 재방문 렌더 시작 12~54ms, 첫 방문 약 1.0초.
+- 스냅샷 변경 감지 → "새로고침" 안내 토스트 동작.
+- 승부예측 % 잘림 해소(버튼 180px, 잘린 모서리와 14px 여유).
+- 팬심 평점 모바일 좌우 대칭 + 버튼 27×24px, 600px 폭에서도 대칭.
+
+**확인하지 못한 것 (다음 작업자가 해 주세요)**
+
+- **관리자 화면(admin.html)의 "중계 링크" 섹션 실제 동작.** 관리자 로그인이 필요해서
+  코드 문법과 표시 경로만 검증했습니다. 저장·경기별 덮어쓰기 클릭 확인 필요.
+- 실제 모바일 기기(iOS Safari / Android Chrome)에서의 확인. 데스크탑 브라우저의 375px 폭으로만 봤습니다.
+- 로그인 사용자 흐름 전반(가입·프로필 설정·창립 팬 번호·글쓰기 권한).
+
+---
+
+## 열린 항목 / 다음 작업 후보
+
+1. **중계 링크 주소 입력** — 치지직·SOOP·유튜브 채널 주소는 아직 비어 있습니다(사용자가 등록 예정).
+   2026년부터 국내 LCK 생중계는 치지직·SOOP 독점, 유튜브는 글로벌·다시보기 위주.
+2. **파비콘이 아직 626KB 원본**(`assets/app.js`의 `brandLogoURL("mobile", ...)`).
+   27KB짜리 `nexus-mark.png`로 바꿀 수 있습니다.
+3. **Vercel 캐시 헤더** — 현재 `/assets/*`가 `max-age=0, must-revalidate`라 재방문마다
+   조건부 요청이 나갑니다. `?v=`로 파일명이 버전화돼 있으므로 `vercel.json`에서
+   긴 캐시를 줄 수 있지만, **버전이 안 붙은 이미지(`assets/brand/*.png`, `logos/*.svg`)까지
+   묶이면 교체가 반영되지 않는 위험**이 있습니다. 경로를 분리해서 적용할지 검토 필요.
+4. **`?v=` 자동 갱신** — 지금은 손으로 올립니다. 배포 스크립트나 훅으로 자동화 여지.
+5. 점검 결과(`docs/AUDIT_REPORT.md`)에서 나온 항목들.
+
+## 사람의 결정이 필요한 것
+
+- 중계 링크 채널 주소 (사용자만 정확히 압니다)
+- 캐시 헤더 정책 변경 여부 (로고 교체 반영 지연을 감수할지)
