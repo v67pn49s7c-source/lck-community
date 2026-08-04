@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260804j">
+  <link rel="stylesheet" href="assets/styles.css?v=20260804k">
 </head>
 <body>
   <main class="page">
@@ -274,11 +274,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260804j"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260804j"></script>
-  <script src="assets/store.js?v=20260804j"></script>
-  <script src="assets/app.js?v=20260804j"></script>
-  <script src="assets/ddragon.js?v=20260804j"></script>
+  <script src="assets/data.js?v=20260804k"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260804k"></script>
+  <script src="assets/store.js?v=20260804k"></script>
+  <script src="assets/app.js?v=20260804k"></script>
+  <script src="assets/ddragon.js?v=20260804k"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -905,7 +905,12 @@
     // Leaguepedia 호출 제한에 바로 막히고, 우리 DB에 쓸 권한도 없다.
     async function callApi(path) {
       const token = Auth.session && Auth.session.access_token;
-      const r = await fetch(path, token ? { headers: { authorization: "Bearer " + token } } : {});
+      // 예전 응답이 재사용되지 않게 매번 다른 주소 + 캐시 사용 안 함
+      const url = path + (path.includes("?") ? "&" : "?") + "_=" + Date.now();
+      const r = await fetch(url, {
+        cache: "no-store",
+        headers: token ? { authorization: "Bearer " + token } : {},
+      });
       const j = await r.json().catch(() => ({ error: "응답을 읽지 못했습니다" }));
       if (!r.ok) throw new Error(j.error || ("서버 오류 " + r.status));
       return j;
