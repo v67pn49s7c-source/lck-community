@@ -16,8 +16,11 @@
   회원 예측·평점·투표 행 보호(`voter = auth.uid()`), 반응 삭제 제한이 모두 살아 있음.
 - `admin_write_matches / players / stage_records / site_settings`의 `qual`이 모두
   **`is_admin()`** — 옛 느슨한 정책(로그인한 아무나 수정)은 남아 있지 않음. 확인 완료.
-- 남은 실행 대기: `supabase/schema8_pom_awards.sql`(구문 오류 수정본),
-  `supabase/schema10_member_polls.sql`(회원 투표 첨부 복구).
+- `supabase/schema8_pom_awards.sql`(구문 오류 수정본) **적용 완료** —
+  `pom_awards` 37행, `awards` 16행(세레모니 11 · 펜타킬 5) 확인. 수상 페이지 정상 표시.
+- `supabase/schema10_member_polls.sql`(회원 투표 첨부 복구) **적용 완료**.
+- 남은 데이터 공백: 펜타킬 5건의 **챔피언이 비어 있어 "미등록"으로 표시**됩니다.
+  또 수상 데이터는 관리자 화면에 편집 UI가 없어 SQL로만 수정할 수 있습니다.
 
 ### 코드에 반영된 것 (커밋 참조)
 
@@ -34,8 +37,6 @@
   ① `predictions/ratings/poll_votes/reactions`의 원시 공개 SELECT를 집계 view/RPC로 교체하고
   ② 쓰기를 security definer RPC로 옮겨야 합니다. 화면 코드 수정 범위가 큽니다.
 - **예측 마감 미구현** (보고서 P1): 서버가 경기 시각을 검사하지 않습니다.
-- **`pom_awards` / `awards` 테이블이 운영 DB에 없음** — `supabase/schema8_pom_awards.sql`
-  실행 필요. 지금은 수상·POM 기능이 조용히 빈 상태입니다.
 - 저장 실패 전반의 사용자 알림(투표·평점·관리자 저장), 개인정보 처리방침·실제 문의 연락처.
 
 ---
