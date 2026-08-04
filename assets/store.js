@@ -103,7 +103,8 @@ async function fetchAll() {
     sb.from("ratings").select("*"),
     sb.from("match_details").select("*").order("set_index"),
     // 로고(logo_*)는 무거워서 제외 — loadLogosLater()가 따로 받는다
-    sb.from("site_settings").select("key,value").not("key", "like", "logo_%"),
+    // 로고(무거움)와 수집 캐시(lp_cache_*, 아주 큼)는 방문자에게 내려보내지 않는다
+    sb.from("site_settings").select("key,value").not("key", "like", "logo_%").not("key", "like", "lp_cache_%"),
     sb.from("polls").select("*").order("created_at"),
     sb.from("poll_votes").select("*"),
     sb.from("reactions").select("*"),
