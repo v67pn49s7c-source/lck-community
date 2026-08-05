@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260805c">
+  <link rel="stylesheet" href="assets/styles.css?v=20260805d">
 </head>
 <body>
   <main class="page">
@@ -228,7 +228,7 @@
         </div>
         <div class="admin-list" id="sched-result"></div>
         <div class="admin-note">
-          위에서 <b>가져오기</b>를 한 번 하면 그 대회가 자동 갱신 대상으로 등록됩니다.
+          위 칸의 대회 페이지로 <b>지금 갱신</b>을 한 번 누르면 그 대회가 자동 갱신 대상으로 등록됩니다.
           이후에는 <b>매일 새벽 3시(한국 시간)</b>와 <b>방문자가 들어올 때(최소 30분 간격)</b>
           일정·시각·스코어가 저절로 맞춰집니다. 새 경기가 생기면 자동으로 추가되고,
           이미 순위에 반영한 경기는 건드리지 않습니다.
@@ -301,11 +301,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260805c"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260805c"></script>
-  <script src="assets/store.js?v=20260805c"></script>
-  <script src="assets/app.js?v=20260805c"></script>
-  <script src="assets/ddragon.js?v=20260805c"></script>
+  <script src="assets/data.js?v=20260805d"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260805d"></script>
+  <script src="assets/store.js?v=20260805d"></script>
+  <script src="assets/app.js?v=20260805d"></script>
+  <script src="assets/ddragon.js?v=20260805d"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -758,8 +758,11 @@
       const box = document.getElementById("sched-result");
       box.innerHTML = `<div class="empty-note">Leaguepedia 일정을 확인하는 중…</div>`;
       try {
+        // 화면의 대회 페이지를 함께 보낸다 — 이러면 '가져오기'를 먼저 안 했어도
+        // 이 버튼 한 번으로 대상 등록과 갱신이 같이 된다 (관리자만 지정 가능)
         const tok = (await sbGetSession())?.access_token;
-        const r = await fetch("/api/schedule-sync?t=" + Date.now(),
+        const page = (document.getElementById("lp-page").value || "").trim();
+        const r = await fetch("/api/schedule-sync?page=" + encodeURIComponent(page) + "&t=" + Date.now(),
           { headers: tok ? { authorization: "Bearer " + tok } : {} });
         const j = await r.json();
         const d = j.data || j;
