@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260805g">
+  <link rel="stylesheet" href="assets/styles.css?v=20260805h">
 </head>
 <body>
   <main class="page">
@@ -207,6 +207,10 @@
             <label>우리 대회
               <select id="lp-tid"></select>
             </label>
+            <label style="flex:0 0 auto; display:flex; align-items:flex-end; gap:6px; white-space:nowrap">
+              <input type="checkbox" id="lp-newplayers" checked style="width:auto">
+              <span>모르는 선수 자동 등록</span>
+            </label>
             <div style="display:flex; align-items:flex-end; gap:8px">
               <button class="btn-secondary" type="button" id="lp-preview">미리보기</button>
               <button class="btn-primary" type="button" id="lp-apply">가져오기</button>
@@ -316,11 +320,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260805g"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260805g"></script>
-  <script src="assets/store.js?v=20260805g"></script>
-  <script src="assets/app.js?v=20260805g"></script>
-  <script src="assets/ddragon.js?v=20260805g"></script>
+  <script src="assets/data.js?v=20260805h"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260805h"></script>
+  <script src="assets/store.js?v=20260805h"></script>
+  <script src="assets/app.js?v=20260805h"></script>
+  <script src="assets/ddragon.js?v=20260805h"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -1023,7 +1027,10 @@
     let lpLast = null;
     function renderImportAdmin() {
       const sel = document.getElementById("lp-tid");
-      if (sel) sel.innerHTML = getTournaments().map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join("");
+      // 기본값은 '자동' — 스플릿 1-2·Road to MSI 처럼 없는 대회는 서버가 만들어 넣는다.
+      // (예전에는 여기서 항상 대회 하나를 보내서, 서버가 '이미 정해졌다'고 보고 새로 만들지 않았다)
+      if (sel) sel.innerHTML = `<option value="">자동 — 대회에 맞춰 만들기</option>`
+        + getTournaments().map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join("");
       renderYoutubeAdmin();
     }
 
@@ -1036,7 +1043,8 @@
       lpMsg(apply ? "가져오는 중… 대회가 여러 개면 1분 가까이 걸릴 수 있습니다. 창을 닫지 마세요."
                   : "확인하는 중… (Leaguepedia 호출 제한 때문에 최대 40초까지 걸릴 수 있습니다)");
       try {
-        const q = `/api/leaguepedia?page=${encodeURIComponent(page)}&tid=${encodeURIComponent(tid)}${apply ? "&apply=1" : ""}`;
+        const addPlayers = document.getElementById("lp-newplayers")?.checked ? "&newplayers=1" : "";
+        const q = `/api/leaguepedia?page=${encodeURIComponent(page)}&tid=${encodeURIComponent(tid)}${addPlayers}${apply ? "&apply=1" : ""}`;
         const j = await callApi(q);
         lpLast = j;
         lpMsg(`<span><b>${j.경기수}경기 · ${j.세트수}세트</b> 확인
@@ -1044,6 +1052,8 @@
           ${(j.진행 || []).length > 1 ? `<br><span style="color:var(--text-dim)">${esc(j.진행.join(" / "))}</span>` : ""}
           ${j.저장함 ? `· <b style="color:var(--blue)">저장 완료 (경기 ${j.저장된경기} · 세트 ${j.저장된세트}${j.POM저장 ? ` · MVP ${j.POM저장}` : ""})</b>` : "· 아직 저장하지 않았습니다"}
           ${j.자동연결 ? `<br><span style="color:var(--blue)">선수 ${j.자동연결}명 이름이 저절로 연결됐습니다</span>` : ""}
+          ${j.선수등록 ? `<br><span style="color:var(--blue)">새 선수 ${j.선수등록}명을 등록했습니다</span>` : ""}
+          ${j.대회 ? `<br><span style="color:var(--text-dim)">대회: ${esc(j.대회)}</span>` : ""}
           ${j.모르는팀.length ? `<br><span style="color:var(--accent)">모르는 팀 ${j.모르는팀.length}개</span>` : ""}
           ${j.모르는선수.length ? `<br><span style="color:var(--accent)">아직 못 알아본 선수 ${j.모르는선수.length}명</span>` : ""}
           ${(j.이름겹침 || []).length ? `<br><span style="color:var(--accent)">닉네임이 겹쳐 자동 연결 못 함: ${esc(j.이름겹침.join(", "))}</span>` : ""}</span>`);

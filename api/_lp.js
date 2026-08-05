@@ -109,6 +109,39 @@ function autoLinkPlayers(lpNames, players) {
   return { linked, ambiguous, missing };
 }
 
+// ── 선수 자동 등록 ────────────────────────────────────────
+// 우리 DB 에 없는 선수(지난 스플릿의 이적·은퇴 선수 등)를 만들어 준다.
+// 없으면 그 선수의 KDA 가 통째로 버려져서 팀 기록에 구멍이 생긴다.
+const ROLE_KO = {
+  top: "탑", jungle: "정글", jungler: "정글", mid: "미드", middle: "미드",
+  bot: "원딜", adc: "원딜", ad: "원딜", "bot laner": "원딜", support: "서폿", sup: "서폿",
+};
+const posOf = role => ROLE_KO[String(role || "").trim().toLowerCase()] || "미드";
+// "Frog (Lee Min-hoi)" → 닉 "Frog", 이름 "Lee Min-hoi"
+const splitLink = link => {
+  const m = String(link || "").match(/^(.*?)\s*\((.*)\)\s*$/);
+  return m ? { nick: m[1].trim(), name: m[2].trim() } : { nick: String(link || "").trim(), name: "" };
+};
+
+// 새 선수 행을 만든다 (id 는 기존 규칙과 같게: 팀-닉네임)
+function buildNewPlayers(unknown, info, takenIds) {
+  const taken = new Set(takenIds);
+  const rows = [], linked = {};
+  [...unknown].forEach(lpName => {
+    const meta = info[lpName];
+    if (!meta || !meta.team) return;                 // 팀을 모르면 만들지 않는다
+    const { nick, name } = splitLink(lpName);
+    if (!nick) return;
+    const base = `${meta.team}-${nick.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
+    let id = base, n = 2;
+    while (taken.has(id)) id = `${base}-${n++}`;
+    taken.add(id);
+    rows.push({ id, team: meta.team, pos: posOf(meta.role), nick, name });
+    linked[lpName] = id;
+  });
+  return { rows, linked };
+}
+
 // ── 대회 정하기 ───────────────────────────────────────────
 // 스플릿 1-2 경기를 '스플릿 3' 대회에 넣으면 경기 목록의 대회 필터가 엉킨다.
 // 같은 시기의 경기가 이미 쓰는 대회가 있으면 그것을, 없으면 하나 만들어 준다.
@@ -126,10 +159,25 @@ function koTournamentName(page) {
 async function resolveTid(page, existing, explicitTid) {
   if (explicitTid) return explicitTid;
   const tag = pageTag(page);
-  // 같은 표식의 스테이지를 쓰는 경기가 이미 있으면 그 대회에 붙인다
-  const hit = (existing || []).find(m => m.tid && m.stage && stageTag(m.stage) === tag);
-  if (hit) return hit.tid;
   if (!tag) return null;
+
+  // 어떤 대회가 어느 시기의 경기를 담고 있는지 세어 본다.
+  // "같은 표식의 경기가 하나라도 있으면 그 대회"로 하면, 한 번 잘못 들어간 경기
+  // (예: Road to MSI 5경기가 스플릿 3 대회에 들어간 상태) 때문에 계속 틀린 대회를 고른다.
+  // 그래서 **그 대회의 경기 대부분이 이 시기인지**를 본다.
+  const byTid = {};
+  (existing || []).forEach(m => {
+    if (!m.tid || !m.stage) return;
+    const t = (byTid[m.tid] = byTid[m.tid] || {});
+    const k = stageTag(m.stage) || "-";
+    t[k] = (t[k] || 0) + 1;
+  });
+  const owner = Object.keys(byTid).find(tid => {
+    const counts = byTid[tid];
+    const top = Object.keys(counts).sort((x, y) => counts[y] - counts[x])[0];
+    return top === tag;
+  });
+  if (owner) return owner;
 
   const id = ("lck2026-" + tag).replace(/[^a-z0-9-]/g, "").slice(0, 32);
   try {
@@ -145,5 +193,5 @@ async function resolveTid(page, existing, explicitTid) {
 module.exports = {
   API, UA, wait, val, cargo, loadSetting, saveSetting,
   matchIdOf, pageTag, stageTag, stagePicker, autoLinkPlayers, normNick,
-  koTournamentName, resolveTid,
+  koTournamentName, resolveTid, buildNewPlayers, posOf, splitLink,
 };

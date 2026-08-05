@@ -14,7 +14,7 @@
 // 데이터 출처: Leaguepedia (CC-BY-SA 3.0) — 푸터에 출처를 표기하고 있다.
 
 const { ok, fail, sb, requireAdmin } = require("./_lib");
-const { val, wait, cargo, loadSetting, saveSetting, matchIdOf, stagePicker, autoLinkPlayers, resolveTid } = require("./_lp");
+const { val, wait, cargo, loadSetting, saveSetting, matchIdOf, stagePicker, autoLinkPlayers, resolveTid, buildNewPlayers } = require("./_lp");
 
 const CACHE_MINUTES = 10;
 const isWin = v => /^(1|yes|true)$/i.test(String(v || "").trim());
@@ -110,6 +110,7 @@ module.exports = async (req, res) => {
   const pages = String(req.query.page || "").split("|").map(x => x.trim()).filter(Boolean);
   const tid = (req.query.tid || "").trim();
   const apply = req.query.apply === "1";
+  const addPlayers = req.query.newplayers === "1";
   if (!pages.length) return fail(res, 400, "대회 페이지를 입력해 주세요 (예: LCK/2026 Season/Rounds 3-4)");
 
   try {
@@ -178,6 +179,7 @@ module.exports = async (req, res) => {
 
     // ── 경기 단위로 묶기 ──
     const unknownTeams = new Set(), unknownPlayers = new Set();
+    const playerInfo = {};                 // Leaguepedia 이름 → { team, role }
     const byMatch = {};
     Object.values(byGame)
       .sort((x, y) => (setNoOf(x.gid) - setNoOf(y.gid)))
@@ -204,7 +206,11 @@ module.exports = async (req, res) => {
           win: winIsA ? "a" : "b",
           players: g.players.map(r => {
             const link = val(r, "Link");
-            if (!playerMap[link]) unknownPlayers.add(link);
+            if (!playerMap[link]) {
+              unknownPlayers.add(link);
+              // 자동 등록에 쓸 소속·포지션을 함께 기억해 둔다
+              if (!playerInfo[link]) playerInfo[link] = { team: teamMap[val(r, "Team")] || null, role: val(r, "Role") };
+            }
             return {
               pid: playerMap[link] || null, lpName: link,
               champ: champKo(val(r, "Champion")),
@@ -229,6 +235,28 @@ module.exports = async (req, res) => {
       } catch { /* 저장에 실패해도 이번 수집은 진행 */ }
     }
 
+    // 그래도 못 찾은 선수는 우리 DB 에 만들어 준다 (저장할 때만).
+    // 이게 없으면 지난 스플릿의 이적·은퇴 선수 기록이 통째로 버려진다.
+    let madePlayers = 0;
+    if (apply && addPlayers && unknownPlayers.size) {
+      const made = buildNewPlayers(unknownPlayers, playerInfo, roster.map(p => p.id));
+      if (made.rows.length) {
+        await sb("players?on_conflict=id", {
+          method: "POST", headers: { prefer: "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify(made.rows),
+        });
+        Object.assign(playerMap, made.linked);
+        Object.keys(made.linked).forEach(n => unknownPlayers.delete(n));
+        madePlayers = made.rows.length;
+        try {
+          const cur = JSON.parse((await loadSetting("lp_aliases")) || "{}");
+          await saveSetting("lp_aliases", JSON.stringify({
+            ...cur, teams: teamMap, players: { ...(cur.players || {}), ...made.linked },
+          }));
+        } catch { /* 저장 실패해도 이번 수집은 진행 */ }
+      }
+    }
+
     const matches = Object.values(byMatch);
     matches.forEach(m => m.sets.sort((x, y) => x.n - y.n));
     // 자동 연결 결과를 세트 안의 선수에도 반영한다 (위에서 pid=null 로 채워졌으므로)
@@ -241,7 +269,7 @@ module.exports = async (req, res) => {
       세트수: matches.reduce((n, m) => n + m.sets.length, 0),
       모르는팀: [...unknownTeams], 모르는선수: [...unknownPlayers].slice(0, 60),
       자동연결: Object.keys(auto.linked).length, 이름겹침: auto.ambiguous.slice(0, 10),
-      진행: progress, 끝까지받음: allDone,
+      진행: progress, 끝까지받음: allDone, 선수등록: 0,
       저장된자료사용: !!cached, 저장함: false,
     };
 
@@ -279,7 +307,7 @@ module.exports = async (req, res) => {
       const pick = (pickers[pg] = pickers[pg] || stagePicker(stageRecords, pg));
       matchRows.push({
         id, lp_id: m.lpMatchId,
-        tid: prev ? prev.tid : fallbackTid,
+        tid: fallbackTid || (prev ? prev.tid : null),
         stage: prev ? prev.stage : (pick(m.a, m.b) || pg.split("/").pop()),
         at: prev ? prev.at : ((m.at || "").replace(" ", "T") + (m.at ? "Z" : "")),
         a: m.a, b: m.b, label: "", odds_a: 2, odds_b: 2,
@@ -362,7 +390,8 @@ module.exports = async (req, res) => {
     } catch { /* 기억에 실패해도 수집 자체는 성공이다 */ }
 
     return ok(res, { ...summary, 저장함: true, 저장된경기: matchRowsU.length, 저장된세트: detailRows.length,
-                     POM저장: pomSaved });
+                     POM저장: pomSaved, 선수등록: madePlayers,
+                     대회: [...new Set(Object.values(tidOf).filter(Boolean))].join(", ") });
   } catch (e) {
     return fail(res, 500, e.message || String(e));
   }
