@@ -14,34 +14,10 @@
 // 데이터 출처: Leaguepedia (CC-BY-SA 3.0) — 푸터에 출처를 표기하고 있다.
 
 const { ok, fail, sb, requireAdmin } = require("./_lib");
+const { val, wait, cargo, loadSetting, saveSetting, matchIdOf, stagePicker, autoLinkPlayers, resolveTid } = require("./_lp");
 
-const API = "https://lol.fandom.com/api.php";
-const UA = "TheNexus-LCK-FanSite/1.0 (https://lck-community.vercel.app)";
 const CACHE_MINUTES = 10;
-
-const wait = ms => new Promise(r => setTimeout(r, ms));
-const val = (row, key) => row[key] ?? row[key.replace(/_/g, " ")] ?? "";
 const isWin = v => /^(1|yes|true)$/i.test(String(v || "").trim());
-
-async function cargo(params, tries) {
-  const q = new URLSearchParams({ action: "cargoquery", format: "json", limit: "500", ...params });
-  const r = await fetch(`${API}?${q}`, { headers: { "user-agent": UA } });
-  const j = await r.json();
-  if (j.error) {
-    const code = j.error.code || "";
-    const n = tries || 0;
-    if (code === "ratelimited" && n < 2) {          // 4초 → 8초로 늘려 가며 재시도
-      await wait(4000 * Math.pow(2, n));
-      return cargo(params, n + 1);
-    }
-    if (code === "ratelimited") {
-      const e = new Error("Leaguepedia가 잠시 호출을 막고 있습니다. 2~3분 뒤에 다시 눌러 주세요. (한 번 받아오면 10분 동안은 다시 부르지 않습니다)");
-      e.rate = true; throw e;
-    }
-    throw new Error(`Leaguepedia: ${j.error.info || code}`);
-  }
-  return (j.cargoquery || []).map(x => x.title);
-}
 
 // 챔피언 이름 영어 → 한글 (우리 DB·아이콘은 한글 기준)
 const CHAMP_ALIAS = { nunuwillump: "nunu", wukong: "monkeyking" };
@@ -56,85 +32,121 @@ async function loadChampNames() {
   } catch { return name => name; }
 }
 
-async function loadSetting(key) {
-  const rows = await sb(`site_settings?key=eq.${encodeURIComponent(key)}&select=value`);
-  return (rows[0] || {}).value || "";
-}
-async function saveSetting(key, value) {
-  await sb("site_settings?on_conflict=key", {
-    method: "POST", headers: { prefer: "resolution=merge-duplicates" },
-    body: JSON.stringify([{ key, value }]),
-  });
-}
-
 // ── 원본 받아오기 (캐시 우선) ──
 const cacheKeyOf = page => "lp_cache_" + page.replace(/[^A-Za-z0-9]+/g, "_").slice(0, 48);
 
-async function fetchRaw(page) {
+// Leaguepedia 는 한 번에 500행까지만 준다. 한 스플릿은 선수 기록이 2,000행이 넘어서
+// (경기 90 × 세트 3 × 선수 10) 나눠 받아야 한다. 받은 만큼 저장해 두고, 시간이 모자라면
+// 다음에 **이어서** 받는다. 서버 함수는 60초 안에 끝나야 하므로 시간 예산을 둔다.
+const PAGE_SIZE = 500;
+
+async function fetchRaw(page, deadline) {
   const ck = cacheKeyOf(page);
-  try {
-    const cached = JSON.parse(await loadSetting(ck) || "null");
-    if (cached && Date.now() - cached.t < CACHE_MINUTES * 60000) {
-      return { rows: cached.rows, games: cached.games, cached: true };
-    }
-  } catch { /* 캐시가 깨져 있으면 새로 받는다 */ }
+  let acc = null;
+  try { acc = JSON.parse(await loadSetting(ck) || "null"); } catch { acc = null; }
+  if (acc && acc.done && Date.now() - acc.t < CACHE_MINUTES * 60000) {
+    return { rows: acc.rows, games: acc.games, cached: true, done: true, fetched: 0 };
+  }
 
   const where = `OverviewPage='${page.replace(/'/g, "''")}'`;
+  // 이어받기: 이미 받아 둔 게 있으면 그 뒤부터
+  let rows = (acc && !acc.done && Array.isArray(acc.rows)) ? acc.rows.slice() : [];
+  let done = false, fetched = 0;
 
-  // ① 선수 기록 한 번으로 끝내기 (승패는 PlayerWin으로 판단)
-  let rows = null, games = null;
-  try {
-    rows = await cargo({
+  // 페이지 나눠 받기가 어긋나지 않게 **고정된 순서**로 요청한다
+  while (Date.now() < deadline) {
+    const batch = await cargo({
       tables: "ScoreboardPlayers=SP",
       fields: "SP.GameId,SP.MatchId,SP.Link,SP.Champion,SP.Kills,SP.Deaths,SP.Assists,SP.CS,SP.Gold,SP.Team,SP.Role,SP.Side,SP.PlayerWin,SP.DateTime_UTC",
       where: "SP." + where,
-      order_by: "SP.DateTime_UTC ASC",
+      order_by: "SP.GameId ASC, SP.Link ASC",
+      offset: String(rows.length),
+      limit: String(PAGE_SIZE),
     });
-    if (!rows.length || val(rows[0], "PlayerWin") === "") rows = null;  // 그 칸이 없으면 옛 방식으로
-  } catch (e) {
-    if (e.rate) throw e;                       // 호출 제한이면 더 부르지 않는다
-    rows = null;
+    fetched += batch.length;
+    rows = rows.concat(batch);
+    if (batch.length < PAGE_SIZE) { done = true; break; }
+    try { await saveSetting(ck, JSON.stringify({ t: Date.now(), rows, games: null, done: false })); } catch {}
   }
 
-  // ② 옛 방식 (경기표 + 선수표) — PlayerWin을 못 쓰는 경우만
-  if (!rows) {
+  // PlayerWin 칸이 없는 옛 대회면 경기표로 승패를 따로 받는다
+  let games = null;
+  if (done && rows.length && val(rows[0], "PlayerWin") === "") {
     games = await cargo({
       tables: "ScoreboardGames=SG",
       fields: "SG.MatchId,SG.GameId,SG.Team1,SG.Team2,SG.Winner,SG.DateTime_UTC,SG.N_GameInMatch",
-      where: "SG." + where, order_by: "SG.DateTime_UTC ASC",
-    });
-    await wait(1500);
-    rows = await cargo({
-      tables: "ScoreboardPlayers=SP",
-      fields: "SP.GameId,SP.MatchId,SP.Link,SP.Champion,SP.Kills,SP.Deaths,SP.Assists,SP.CS,SP.Gold,SP.Team,SP.Role,SP.Side",
-      where: "SP." + where, order_by: "SP.GameId ASC",
+      where: "SG." + where, order_by: "SG.GameId ASC",
     });
   }
 
-  try { await saveSetting(ck, JSON.stringify({ t: Date.now(), rows, games })); } catch {}
-  return { rows, games, cached: false };
+  try { await saveSetting(ck, JSON.stringify({ t: Date.now(), rows, games, done })); } catch {}
+  return { rows, games, cached: false, done, fetched };
 }
 
 // 세트 번호: GameId 끝의 숫자 (…_Week 10_9_3 → 3)
 const setNoOf = gid => Number((String(gid).match(/_(\d+)$/) || [])[1]) || 0;
 
+// 세트별 MVP (LCK 의 경기 MVP). 저장해 두고 재사용한다 — 호출 제한이 빡빡해서.
+async function fetchMVP(page) {
+  const ck = "lp_mvp_" + page.replace(/[^A-Za-z0-9]+/g, "_").slice(0, 44);
+  try {
+    const c = JSON.parse((await loadSetting(ck)) || "null");
+    if (c && c.rows && Date.now() - c.t < CACHE_MINUTES * 60000) return c.rows;
+  } catch { /* 캐시가 깨졌으면 새로 받는다 */ }
+  const rows = await cargo({
+    tables: "MatchScheduleGame=MSG",
+    fields: "MSG.MatchId,MSG.GameId,MSG.MVP,MSG.N_GameInMatch",
+    where: `MSG.OverviewPage='${page.replace(/'/g, "''")}'`,
+  });
+  try { await saveSetting(ck, JSON.stringify({ t: Date.now(), rows })); } catch {}
+  return rows;
+}
+
 module.exports = async (req, res) => {
   try { await requireAdmin(req); }
   catch (e) { return fail(res, e.status || 500, e.message); }
 
-  const page = (req.query.page || "").trim();
+  // 대회 페이지는 | 로 여러 개 지정할 수 있다 (스플릿 1-2 · Road to MSI · 3-4 등)
+  const pages = String(req.query.page || "").split("|").map(x => x.trim()).filter(Boolean);
   const tid = (req.query.tid || "").trim();
   const apply = req.query.apply === "1";
-  if (!page) return fail(res, 400, "대회 페이지를 입력해 주세요 (예: LCK/2026 Season/Rounds 3-4)");
-  if (apply && !tid) return fail(res, 400, "저장하려면 우리 대회를 골라 주세요");
+  if (!pages.length) return fail(res, 400, "대회 페이지를 입력해 주세요 (예: LCK/2026 Season/Rounds 3-4)");
 
   try {
     const aliases = JSON.parse((await loadSetting("lp_aliases")) || "{}");
     const teamMap = aliases.teams || {};
-    const playerMap = aliases.players || {};
+    const playerMap = { ...(aliases.players || {}) };
     const champKo = await loadChampNames();
+    const roster = await sb("players?select=id,nick,team");
+    const existing = await sb("matches?select=id,lp_id,tid,stage,at,counted,status,score_a,score_b");
+    const byLpMatch = {};
+    existing.forEach(m => { if (m.lp_id) byLpMatch[m.lp_id] = m; });
+    let stageRecords = [];
+    try { stageRecords = await sb("stage_records?select=id,name,ord,records"); } catch {}
 
-    const { rows, games, cached } = await fetchRaw(page);
+    // 서버 함수는 60초 안에 끝나야 한다. 받는 데 40초까지만 쓰고 나머지는 저장에 남긴다.
+    const started = Date.now();
+    const BUDGET_MS = 40000;
+    let rows = [], games = null, cached = false;
+    const pageOf = {};                    // 경기 → 어느 대회 페이지에서 왔는지
+    const doneOf = {};                    // 대회 페이지별로 끝까지 받았는지
+    const progress = [];
+    for (let i = 0; i < pages.length; i++) {
+      const pg = pages[i];
+      // 남은 시간을 남은 대회 수로 나눠 준다 (한 대회가 시간을 다 쓰지 않게)
+      const left = pages.length - i;
+      const share = Math.max(3000, (started + BUDGET_MS - Date.now()) / left);
+      const got = await fetchRaw(pg, Date.now() + share);
+      (got.rows || []).forEach(r => { pageOf[val(r, "MatchId")] = pg; });
+      rows = rows.concat(got.rows || []);
+      if (got.games) games = (games || []).concat(got.games);
+      cached = cached || got.cached;
+      doneOf[pg] = got.done;
+      progress.push(`${pg.split("/").pop()} ${got.rows.length}행${got.done ? "" : " (이어받는 중)"}`);
+      if (pages.length > 1) await wait(1200);
+    }
+    const page = pages.join(" · ");
+    const allDone = pages.every(pg => doneOf[pg]);
 
     // ── 세트 단위로 묶기 ──
     const byGame = {};
@@ -204,30 +216,77 @@ module.exports = async (req, res) => {
         });
       });
 
+    // 모르는 선수를 닉네임으로 자동 연결하고, 이어진 사람은 목록에서 뺀다
+    const auto = autoLinkPlayers([...unknownPlayers], roster);
+    Object.assign(playerMap, auto.linked);
+    Object.keys(auto.linked).forEach(n => unknownPlayers.delete(n));
+    if (Object.keys(auto.linked).length) {
+      // 자동으로 이은 것도 다음에 또 쓰도록 저장해 둔다
+      try {
+        await saveSetting("lp_aliases", JSON.stringify({
+          ...aliases, teams: teamMap, players: { ...(aliases.players || {}), ...auto.linked },
+        }));
+      } catch { /* 저장에 실패해도 이번 수집은 진행 */ }
+    }
+
     const matches = Object.values(byMatch);
     matches.forEach(m => m.sets.sort((x, y) => x.n - y.n));
+    // 자동 연결 결과를 세트 안의 선수에도 반영한다 (위에서 pid=null 로 채워졌으므로)
+    matches.forEach(m => m.sets.forEach(st => st.players.forEach(p => {
+      if (!p.pid && playerMap[p.lpName]) p.pid = playerMap[p.lpName];
+    })));
 
     const summary = {
       page, 경기수: matches.length,
       세트수: matches.reduce((n, m) => n + m.sets.length, 0),
       모르는팀: [...unknownTeams], 모르는선수: [...unknownPlayers].slice(0, 60),
+      자동연결: Object.keys(auto.linked).length, 이름겹침: auto.ambiguous.slice(0, 10),
+      진행: progress, 끝까지받음: allDone,
       저장된자료사용: !!cached, 저장함: false,
     };
 
     if (!apply) return ok(res, { ...summary, 미리보기: matches.slice(0, 2) });
     if (unknownTeams.size) return fail(res, 400, `팀 이름을 우리 팀과 연결해 주세요: ${[...unknownTeams].join(", ")}`);
+    let pomSaved = 0;
+    // 대회 페이지마다 우리 대회를 정한다 (없으면 만들어 준다 — 스플릿 1-2 가 스플릿 3 에 섞이지 않게)
+    const tidOf = {};
+    for (const pg of pages) tidOf[pg] = await resolveTid(pg, existing, tid);
 
     // ── 저장 (한 번에 묶어서) ──
     const matchRows = [], detailRows = [];
+    const pickers = {};
     matches.forEach(m => {
-      const id = "lp" + String(m.lpMatchId).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 60);
+      const prev = byLpMatch[m.lpMatchId];
+      const id = prev ? prev.id : matchIdOf(m.lpMatchId);
       const done = m.scoreA + m.scoreB > 0;
+      const pg = pageOf[m.lpMatchId] || pages[0];
+      const fallbackTid = tidOf[pg] || null;
+      // 일정 갱신이 이미 만들어 둔 경기는 손대지 않는다 — 일정·스코어·그룹의 주인은 그쪽이다.
+      // 아직 없는 경기는, 그 대회를 **끝까지 받았을 때만** 만든다.
+      // (덜 받은 상태로 만들면 세트를 덜 세어 스코어가 1:0 처럼 틀리게 들어간다)
+      if (prev || !doneOf[pg]) {
+        m.sets.forEach(s => {
+          const players = s.players.filter(p => p.pid).map(p => ({
+            pid: p.pid, champ: p.champ, spell: "", k: p.k, d: p.d, a: p.a,
+            cs: p.cs, gold: p.gold, items: "", runes: "",
+          }));
+          if (players.length) detailRows.push({ match_id: id, set_index: s.n - 1, win: s.win, players });
+        });
+        return;
+      }
+      // 일정 갱신(schedule-sync)이 정해 둔 대회·그룹·시각을 덮어쓰지 않는다.
+      // 새 경기일 때만 팀으로 그룹을 정한다 (api/_lp.js stagePicker — 두 수집기가 같은 규칙)
+      const pick = (pickers[pg] = pickers[pg] || stagePicker(stageRecords, pg));
       matchRows.push({
-        id, lp_id: m.lpMatchId, tid, stage: page.split("/").pop(),
-        at: (m.at || "").replace(" ", "T") + (m.at ? "Z" : ""),
+        id, lp_id: m.lpMatchId,
+        tid: prev ? prev.tid : fallbackTid,
+        stage: prev ? prev.stage : (pick(m.a, m.b) || pg.split("/").pop()),
+        at: prev ? prev.at : ((m.at || "").replace(" ", "T") + (m.at ? "Z" : "")),
         a: m.a, b: m.b, label: "", odds_a: 2, odds_b: 2,
-        status: done ? "done" : "upcoming",
-        score_a: done ? m.scoreA : null, score_b: done ? m.scoreB : null,
+        // 이미 순위에 반영한 경기는 스코어·상태를 건드리지 않는다
+        status: (prev && prev.counted) ? prev.status : (done ? "done" : "upcoming"),
+        score_a: (prev && prev.counted) ? prev.score_a : (done ? m.scoreA : null),
+        score_b: (prev && prev.counted) ? prev.score_b : (done ? m.scoreB : null),
       });
       m.sets.forEach(s => {
         const players = s.players.filter(p => p.pid).map(p => ({
@@ -238,10 +297,15 @@ module.exports = async (req, res) => {
       });
     });
 
-    if (matchRows.length) {
+    // 같은 id 가 두 번 들어가면 upsert 전체가 실패한다
+    const dedup = new Map();
+    matchRows.forEach(r => dedup.set(r.id, r));
+    const matchRowsU = [...dedup.values()];
+
+    if (matchRowsU.length) {
       await sb("matches?on_conflict=id", {
         method: "POST", headers: { prefer: "resolution=merge-duplicates" },
-        body: JSON.stringify(matchRows),
+        body: JSON.stringify(matchRowsU),
       });
     }
     if (detailRows.length) {
@@ -251,16 +315,54 @@ module.exports = async (req, res) => {
       });
     }
 
+    // ── 경기 MVP(POM) ─────────────────────────────────────
+    // LCK 공식 제도: 경기마다 MVP 1명에게 100pt. Leaguepedia 는 **세트마다** MVP 를 주므로
+    // 한 경기에서 가장 많이 뽑힌 선수를 그 경기의 POM 으로 본다(동률이면 먼저 뽑힌 쪽).
+    // MVP 칸이 없는 대회도 있어서, 실패해도 수집 전체를 멈추지 않는다.
+    try {
+      const mvpByMatch = {};
+      for (const pg of pages) {
+        if (Date.now() - started > 48000) break;      // 시간이 모자라면 MVP 는 다음에
+        const mv = await fetchMVP(pg);
+        mv.forEach(r => {
+          const name = String(val(r, "MVP") || "").trim();
+          if (!name) return;
+          const mid = val(r, "MatchId");
+          const c = (mvpByMatch[mid] = mvpByMatch[mid] || {});
+          c[name] = (c[name] || 0) + 1;
+        });
+        if (pages.length > 1) await wait(1200);
+      }
+      const pomRows = [];
+      Object.entries(mvpByMatch).forEach(([lpMid, counts]) => {
+        const m = byMatch[lpMid];
+        if (!m) return;
+        const id = (byLpMatch[lpMid] || {}).id || matchIdOf(lpMid);
+        const best = Object.entries(counts).sort((x, y) => y[1] - x[1])[0];
+        const pid = best && playerMap[best[0]];
+        if (pid) pomRows.push({ match_id: id, player_id: pid, pts: 100, label: "경기 MVP" });
+      });
+      if (pomRows.length) {
+        // pom_awards 의 유니크 인덱스가 부분 인덱스(match_id is not null)라
+        // upsert 를 못 쓴다. 해당 경기 것만 지우고 다시 넣는다 (여러 번 눌러도 안전).
+        const ids = pomRows.map(r => `"${r.match_id}"`).join(",");
+        await sb(`pom_awards?match_id=in.(${encodeURIComponent(ids)})`, { method: "DELETE" });
+        await sb("pom_awards", { method: "POST", body: JSON.stringify(pomRows) });
+        pomSaved = pomRows.length;
+      }
+    } catch (e) { /* MVP 칸이 없거나 호출 제한 — 나머지 수집은 그대로 유효하다 */ }
+
     // 일정 자동 갱신이 어느 대회를 볼지 여기서 기억해 둔다 (api/schedule-sync.js 가 읽는다)
     try {
       const prev = JSON.parse((await loadSetting("schedule_sync")) || "{}");
-      const pages = [...new Set([...(prev.pages || []), page])].slice(-3);
+      const pageList = [...new Set([...(prev.pages || []), ...pages])].slice(-6);
       await saveSetting("schedule_sync", JSON.stringify({
-        ...prev, pages, tid, stage: page.split("/").pop(),
+        ...prev, pages: pageList, tid: fallbackTid,
       }));
     } catch { /* 기억에 실패해도 수집 자체는 성공이다 */ }
 
-    return ok(res, { ...summary, 저장함: true, 저장된경기: matchRows.length, 저장된세트: detailRows.length });
+    return ok(res, { ...summary, 저장함: true, 저장된경기: matchRowsU.length, 저장된세트: detailRows.length,
+                     POM저장: pomSaved });
   } catch (e) {
     return fail(res, 500, e.message || String(e));
   }

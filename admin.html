@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260805f">
+  <link rel="stylesheet" href="assets/styles.css?v=20260805g">
 </head>
 <body>
   <main class="page">
@@ -201,7 +201,7 @@
         </div>
         <form class="admin-form" id="lp-form">
           <div class="row">
-            <label style="flex:2">Leaguepedia 대회 페이지
+            <label style="flex:2">Leaguepedia 대회 페이지 <span style="color:var(--text-dim);font-weight:400">(여러 개는 | 로 구분)</span>
               <input id="lp-page" placeholder="LCK/2026 Season/Rounds 3-4" value="LCK/2026 Season/Rounds 3-4">
             </label>
             <label>우리 대회
@@ -213,12 +213,24 @@
             </div>
           </div>
         </form>
+        <div class="chip-row" id="lp-presets" style="margin:-4px 0 10px">
+          <button type="button" data-p="LCK/2026 Season/Rounds 1-2">스플릿 1-2</button>
+          <button type="button" data-p="LCK/2026 Season/Road to MSI">Road to MSI</button>
+          <button type="button" data-p="LCK/2026 Season/Rounds 3-4">스플릿 3-4</button>
+          <button type="button" data-p="LCK/2026 Season/Cup">LCK 컵</button>
+          <button type="button" data-p="LCK/2026 Season/Rounds 1-2|LCK/2026 Season/Road to MSI|LCK/2026 Season/Rounds 3-4">시즌 전체</button>
+        </div>
         <div class="admin-list" id="lp-result"></div>
         <div class="admin-list" id="lp-alias"></div>
         <div class="admin-note">
           <b>미리보기</b>를 먼저 눌러 몇 경기가 잡히는지, 이름을 못 알아본 팀·선수가 있는지 확인하세요.
-          모르는 이름이 나오면 아래에서 우리 팀·선수와 연결한 뒤 <b>가져오기</b>를 누릅니다.
-          같은 경기를 다시 가져와도 덮어쓰기라 중복되지 않습니다.<br>
+          선수 이름은 <b>닉네임이 같으면 저절로 연결</b>됩니다. 그래도 못 알아본 이름만 아래에서
+          이어 준 뒤 <b>가져오기</b>를 누르세요. 같은 경기를 다시 가져와도 덮어쓰기라 중복되지 않습니다.<br>
+          가져오면 <b>세트별 KDA·CS·골드</b>가 저장되어 선수 페이지의 <b>육각형 지표</b>가 채워지고,
+          <b>경기 MVP(POM)</b>도 함께 들어옵니다. 이미 만들어진 경기의 대회·그룹·시각은 건드리지 않습니다.<br>
+          한 스플릿은 기록이 2,000행이 넘어 <b>한 번에 다 못 받을 수 있습니다.</b> 결과에
+          '이어받는 중'이라고 나오면 <b>같은 버튼을 한 번 더</b> 눌러 주세요 — 받은 데까지 저장돼 있어
+          이어서 받습니다. 스플릿 1-2 같은 지난 대회는 <b>새 대회로 따로 만들어</b> 넣습니다.<br>
           데이터 출처: Leaguepedia (CC-BY-SA 3.0) — 푸터에 출처를 표기하고 있습니다.
         </div>
 
@@ -304,11 +316,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260805f"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260805f"></script>
-  <script src="assets/store.js?v=20260805f"></script>
-  <script src="assets/app.js?v=20260805f"></script>
-  <script src="assets/ddragon.js?v=20260805f"></script>
+  <script src="assets/data.js?v=20260805g"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260805g"></script>
+  <script src="assets/store.js?v=20260805g"></script>
+  <script src="assets/app.js?v=20260805g"></script>
+  <script src="assets/ddragon.js?v=20260805g"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -1021,15 +1033,20 @@
       const page = document.getElementById("lp-page").value.trim();
       const tid = document.getElementById("lp-tid").value;
       if (!page) { lpMsg("대회 페이지를 입력하세요."); return; }
-      lpMsg(apply ? "가져오는 중… (경기 수에 따라 10초 이상 걸릴 수 있습니다)" : "확인하는 중…");
+      lpMsg(apply ? "가져오는 중… 대회가 여러 개면 1분 가까이 걸릴 수 있습니다. 창을 닫지 마세요."
+                  : "확인하는 중… (Leaguepedia 호출 제한 때문에 최대 40초까지 걸릴 수 있습니다)");
       try {
         const q = `/api/leaguepedia?page=${encodeURIComponent(page)}&tid=${encodeURIComponent(tid)}${apply ? "&apply=1" : ""}`;
         const j = await callApi(q);
         lpLast = j;
         lpMsg(`<span><b>${j.경기수}경기 · ${j.세트수}세트</b> 확인
-          ${j.저장함 ? `· <b style="color:var(--blue)">저장 완료 (경기 ${j.저장된경기} · 세트 ${j.저장된세트})</b>` : "· 아직 저장하지 않았습니다"}
+          ${j.끝까지받음 === false ? `<br><b style="color:var(--accent)">아직 다 못 받았습니다 — 같은 버튼을 한 번 더 눌러 주세요.</b>` : ""}
+          ${(j.진행 || []).length > 1 ? `<br><span style="color:var(--text-dim)">${esc(j.진행.join(" / "))}</span>` : ""}
+          ${j.저장함 ? `· <b style="color:var(--blue)">저장 완료 (경기 ${j.저장된경기} · 세트 ${j.저장된세트}${j.POM저장 ? ` · MVP ${j.POM저장}` : ""})</b>` : "· 아직 저장하지 않았습니다"}
+          ${j.자동연결 ? `<br><span style="color:var(--blue)">선수 ${j.자동연결}명 이름이 저절로 연결됐습니다</span>` : ""}
           ${j.모르는팀.length ? `<br><span style="color:var(--accent)">모르는 팀 ${j.모르는팀.length}개</span>` : ""}
-          ${j.모르는선수.length ? `<br><span style="color:var(--accent)">모르는 선수 ${j.모르는선수.length}명</span>` : ""}</span>`);
+          ${j.모르는선수.length ? `<br><span style="color:var(--accent)">아직 못 알아본 선수 ${j.모르는선수.length}명</span>` : ""}
+          ${(j.이름겹침 || []).length ? `<br><span style="color:var(--accent)">닉네임이 겹쳐 자동 연결 못 함: ${esc(j.이름겹침.join(", "))}</span>` : ""}</span>`);
         renderAliasEditor(j);
         if (j.저장함) { alert("가져왔습니다. 새로고침하면 경기·선수 기록에 반영됩니다."); }
       } catch (e) {
@@ -1099,6 +1116,13 @@
       });
     }
 
+    document.getElementById("lp-presets")?.addEventListener("click", e => {
+      const b = e.target.closest("button[data-p]");
+      if (!b) return;
+      document.getElementById("lp-page").value = b.dataset.p;
+      document.getElementById("lp-presets").querySelectorAll("button")
+        .forEach(x => x.classList.toggle("active", x === b));
+    });
     document.getElementById("lp-preview")?.addEventListener("click", () => lpRun(false));
     document.getElementById("lp-apply")?.addEventListener("click", () => {
       if (!confirm("Leaguepedia 기록을 우리 DB에 저장합니다. 같은 경기는 덮어씁니다. 진행할까요?")) return;

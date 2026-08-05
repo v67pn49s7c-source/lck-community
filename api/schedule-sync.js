@@ -14,39 +14,12 @@
 // 데이터 출처: Leaguepedia (CC-BY-SA 3.0)
 
 const { ok, fail, sb, requireAdmin } = require("./_lib");
+const { val, wait, cargo, loadSetting, saveSetting, matchIdOf, stagePicker, resolveTid } = require("./_lp");
 
-const API = "https://lol.fandom.com/api.php";
-const UA = "TheNexus-LCK-FanSite/1.0 (https://lck-community.vercel.app)";
 const MIN_GAP_MIN = 30;          // 방문자가 부를 때 최소 간격
 const ADOPT_HOURS = 30;          // 손으로 만든 경기를 같은 경기로 볼 시간 차이
 
-const val = (row, key) => row[key] ?? row[key.replace(/_/g, " ")] ?? "";
-const wait = ms => new Promise(r => setTimeout(r, ms));
-
-// Leaguepedia 는 익명 호출 제한이 아주 빡빡하다(몇 초에 한 번).
-// 5초 → 12초 → 25초로 늘려 가며 세 번 더 시도한다 (함수 제한 60초 안).
-const BACKOFF = [5000, 12000, 25000];
-async function cargo(params, tries) {
-  const q = new URLSearchParams({ action: "cargoquery", format: "json", limit: "500", ...params });
-  const r = await fetch(`${API}?${q}`, { headers: { "user-agent": UA } });
-  const j = await r.json();
-  if (j.error) {
-    const n = tries || 0;
-    if (j.error.code === "ratelimited" && n < BACKOFF.length) {
-      await wait(BACKOFF[n]);
-      return cargo(params, n + 1);
-    }
-    const e = new Error(j.error.code === "ratelimited"
-      ? "Leaguepedia 가 계속 호출을 막고 있습니다. 몇 분 뒤에 다시 눌러 주세요."
-      : `Leaguepedia: ${j.error.info || j.error.code}`);
-    e.rate = j.error.code === "ratelimited";
-    throw e;
-  }
-  return (j.cargoquery || []).map(x => x.title);
-}
-
 // 받아온 일정을 저장해 두고 재사용한다 (제한에 걸려도 저장분으로 진행할 수 있게).
-// 일정은 자주 바뀌지 않으므로 조금 오래된 것을 다시 써도 결과가 같다.
 const SCHED_CACHE_MIN = 10;
 const cacheKeyOf = page => "lp_sched_" + page.replace(/[^A-Za-z0-9]+/g, "_").slice(0, 48);
 
@@ -72,40 +45,6 @@ async function fetchSchedule(page) {
     throw e;
   }
 }
-
-// 새 경기가 어느 그룹(스테이지)인지는 **팀으로** 정한다.
-// '순위 전적'에 그룹별 팀 명단이 이미 있으므로 두 팀이 모두 든 그룹을 찾으면 된다.
-// (예: kt vs dk → 라운드 3-4 레전드 그룹 / ns vs bro → 라이즈 그룹)
-function stagePicker(stageRecords, existing) {
-  const inUse = new Set(existing.map(m => m.stage).filter(Boolean));
-  const all = (stageRecords || [])
-    .map(s => ({ name: s.name, ord: s.ord ?? 0, teams: new Set((s.records || []).map(r => r.team)) }))
-    .filter(s => s.teams.size);
-  // 지금 경기들이 실제로 쓰는 그룹만 후보로 둔다.
-  // 지난 스테이지('Rounds 1-2')는 10팀이 전부 들어 있어서, 후보에 남겨 두면
-  // 레전드↔라이즈 같은 그룹 간 경기까지 옛 스테이지로 끌려간다.
-  const cand = (inUse.size ? all.filter(s => inUse.has(s.name)) : all)
-    .sort((x, y) => y.ord - x.ord);
-  return (a, b) => {
-    const hit = cand.find(s => s.teams.has(a) && s.teams.has(b));
-    return hit ? hit.name : null;
-  };
-}
-
-async function loadSetting(key) {
-  const rows = await sb(`site_settings?key=eq.${encodeURIComponent(key)}&select=value`);
-  return (rows[0] || {}).value || "";
-}
-async function saveSetting(key, value) {
-  await sb("site_settings?on_conflict=key", {
-    method: "POST", headers: { prefer: "resolution=merge-duplicates" },
-    body: JSON.stringify([{ key, value }]),
-  });
-}
-
-// 우리 경기 id 는 결과 수집기(api/leaguepedia.js)와 **같은 규칙**이어야 한다.
-// 그래야 일정으로 먼저 만들어 둔 경기에 나중에 결과가 그대로 채워진다.
-const idOf = lpMatchId => "lp" + String(lpMatchId).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 60);
 
 // 관리자가 손으로 만든 경기를 같은 경기로 알아본다 (팀이 같고 시각이 가까우면).
 // used 로 이미 짝지은 경기를 제외한다 — 같은 대진이 하루 사이에 두 번 있으면
@@ -137,19 +76,11 @@ async function runSync({ pages, force }) {
   const byLp = {};
   existing.forEach(m => { if (m.lp_id) byLp[m.lp_id] = m; });
 
-  // 새로 만들 경기의 대회: 지정값 → 지금 경기들이 가장 많이 쓰는 대회 순.
-  // (대회가 비면 경기 목록의 대회 필터에서 통째로 안 보인다)
-  const tidCount = {};
-  existing.forEach(m => { if (m.tid) tidCount[m.tid] = (tidCount[m.tid] || 0) + 1; });
-  const defaultTid = state.tid
-    || Object.keys(tidCount).sort((x, y) => tidCount[y] - tidCount[x])[0]
-    || null;
 
-  // 새 경기의 그룹(스테이지)은 팀 명단으로 정한다 — 아래 stagePicker 참고
+  // 새 경기의 그룹(스테이지)은 팀 명단으로 정한다 (api/_lp.js stagePicker)
   let stageRecords = [];
   try { stageRecords = await sb("stage_records?select=id,name,ord,records"); }
   catch { /* 없어도 갱신 자체는 진행 */ }
-  const pickStage = stagePicker(stageRecords, existing);
   const stageNames = stageRecords.map(x => x.name);
 
   const unknownTeams = new Set();
@@ -159,6 +90,9 @@ async function runSync({ pages, force }) {
 
   const sources = new Set();
   for (const page of list) {
+    const pickStage = stagePicker(stageRecords, page);   // 대회 페이지마다 후보가 다르다
+    // 대회도 페이지마다 (스플릿 1-2 가 스플릿 3 에 섞이지 않게. 없으면 만들어 준다)
+    const defaultTid = await resolveTid(page, existing, null);
     const got = await fetchSchedule(page);
     const rows = got.rows;
     sources.add(got.from);
@@ -184,7 +118,7 @@ async function runSync({ pages, force }) {
       const prev = byLp[lpId] || adopt(existing, used, a, b, at);
       if (prev) used.add(prev.id);
       const row = {
-        id: prev ? prev.id : idOf(lpId),
+        id: prev ? prev.id : matchIdOf(lpId),
         lp_id: lpId,
         a, b, at,
         tid: prev ? prev.tid : defaultTid,
@@ -224,7 +158,7 @@ async function runSync({ pages, force }) {
   }
 
   await saveSetting("schedule_sync", JSON.stringify({
-    ...state, at: Date.now(), pages: list, tid: defaultTid || state.tid, saved, seen,
+    ...state, at: Date.now(), pages: list, saved, seen,
   }));
 
   const fresh = rows.filter(u => !existing.some(m => m.id === u.id));
