@@ -109,6 +109,60 @@ function autoLinkPlayers(lpNames, players) {
   return { linked, ambiguous, missing };
 }
 
+// ── Data Dragon 이름표 (영어 → 한글) ──────────────────────
+// Leaguepedia 는 아이템·룬·스펠을 영어로 준다("Infinity Edge"). 우리 화면은 한글 이름으로
+// 아이콘을 찾으므로 서버에서 미리 바꿔 준다. 챔피언 이름과 같은 방식.
+const DD_API = "https://ddragon.leagueoflegends.com";
+const normName = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+async function loadNameMaps() {
+  const idle = () => (x => x);                    // 실패하면 원문 그대로
+  try {
+    const vers = await (await fetch(`${DD_API}/api/versions.json`)).json();
+    const v = vers[0];
+    const get = (loc, file) => fetch(`${DD_API}/cdn/${v}/data/${loc}/${file}`).then(r => r.json());
+    const [ei, ki, es, ks, er, kr, ec, kc] = await Promise.all([
+      get("en_US", "item.json"), get("ko_KR", "item.json"),
+      get("en_US", "summoner.json"), get("ko_KR", "summoner.json"),
+      get("en_US", "runesReforged.json"), get("ko_KR", "runesReforged.json"),
+      get("en_US", "champion.json"), get("ko_KR", "champion.json"),
+    ]);
+    // 같은 id 를 사이에 두고 영어 이름 → 한글 이름
+    const pair = (enObj, koObj, pick) => {
+      const ko = {}; Object.entries(koObj).forEach(([id, o]) => { ko[id] = pick(o); });
+      const map = {};
+      Object.entries(enObj).forEach(([id, o]) => {
+        const k = normName(pick(o));
+        if (k && ko[id] && !map[k]) map[k] = ko[id];
+      });
+      return map;
+    };
+    const itemMap = pair(ei.data, ki.data, o => o.name);
+    const spellMap = pair(es.data, ks.data, o => o.name);
+    const champMap = pair(ec.data, kc.data, o => o.name);
+    // 룬은 트리 → 슬롯 → 룬 구조라 id 로 펼쳐서 짝짓는다
+    const flat = trees => {
+      const out = {};
+      (trees || []).forEach(t => {
+        out[t.id] = t.name;
+        (t.slots || []).forEach(sl => (sl.runes || []).forEach(r => { out[r.id] = r.name; }));
+      });
+      return out;
+    };
+    const runeMap = pair(
+      Object.fromEntries(Object.entries(flat(er)).map(([id, n]) => [id, { name: n }])),
+      Object.fromEntries(Object.entries(flat(kr)).map(([id, n]) => [id, { name: n }])),
+      o => o.name);
+    const look = map => name => map[normName(name)] || name;
+    return { item: look(itemMap), spell: look(spellMap), rune: look(runeMap), champ: look(champMap) };
+  } catch {
+    return { item: idle(), spell: idle(), rune: idle(), champ: idle() };
+  }
+}
+
+// Cargo 의 List 칸은 ;; 로 이어 온다 (가끔 , 인 경우도 있어 둘 다 본다)
+const splitList = v => String(v || "").split(/;;|(?<!\d),(?!\d)/).map(x => x.trim()).filter(Boolean);
+
 // ── 선수 자동 등록 ────────────────────────────────────────
 // 우리 DB 에 없는 선수(지난 스플릿의 이적·은퇴 선수 등)를 만들어 준다.
 // 없으면 그 선수의 KDA 가 통째로 버려져서 팀 기록에 구멍이 생긴다.
@@ -194,4 +248,5 @@ module.exports = {
   API, UA, wait, val, cargo, loadSetting, saveSetting,
   matchIdOf, pageTag, stageTag, stagePicker, autoLinkPlayers, normNick,
   koTournamentName, resolveTid, buildNewPlayers, posOf, splitLink,
+  loadNameMaps, splitList,
 };

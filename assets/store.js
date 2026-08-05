@@ -1121,6 +1121,7 @@ function playerAggregate(pid, tid) {
   const player = getPlayer(pid);
   if (!player) return null;
   let sets = 0, wins = 0, k = 0, d = 0, a = 0, cs = 0, gold = 0, kpSum = 0, kpSets = 0;
+  let dmg = 0, dmgSets = 0, vis = 0, visSets = 0, dmgShareSum = 0, dmgShareSets = 0, penta = 0;
   const champs = {};
 
   getMatches().forEach(m => {
@@ -1133,12 +1134,22 @@ function playerAggregate(pid, tid) {
       sets++;
       const rk = +row.k || 0, rd = +row.d || 0, ra = +row.a || 0;
       k += rk; d += rd; a += ra; cs += +row.cs || 0; gold += +row.gold || 0;
+      // 딜량·시야는 최근에 수집한 경기에만 있다 (없는 세트는 평균에서 빼야 값이 왜곡되지 않는다)
+      if (+row.dmg > 0) { dmg += +row.dmg; dmgSets++; }
+      if (+row.vs > 0) { vis += +row.vs; visSets++; }
+      penta += +row.penta || 0;
 
       // 킬 관여율 = (킬+어시) ÷ 우리 팀 총 킬
       const teamKills = (s.players || [])
         .filter(p => (getPlayer(p.pid) || {}).team === player.team)
         .reduce((n, p) => n + (+p.k || 0), 0);
       if (teamKills > 0) { kpSum += (rk + ra) / teamKills; kpSets++; }
+
+      // 딜 비중: 우리 팀 총 딜에서 내가 넣은 몫 (팀 색깔이 달라도 공평하게 비교된다)
+      const teamDmg = (s.players || [])
+        .filter(p => (getPlayer(p.pid) || {}).team === player.team)
+        .reduce((n, p) => n + (+p.dmg || 0), 0);
+      if (teamDmg > 0 && +row.dmg > 0) { dmgShareSum += (+row.dmg) / teamDmg; dmgShareSets++; }
 
       const won = (s.win === "a" ? m.a : m.b) === player.team;
       if (won) wins++;
@@ -1176,6 +1187,11 @@ function playerAggregate(pid, tid) {
     kp: kpSets ? kpSum / kpSets : 0,
     csAvg: sets ? cs / sets : 0,
     goldAvg: sets ? gold / sets : 0,
+    dmgAvg: dmgSets ? dmg / dmgSets : null,          // 세트당 챔피언 딜량
+    dmgShare: dmgShareSets ? dmgShareSum / dmgShareSets : null,  // 팀 내 딜 비중
+    visAvg: visSets ? vis / visSets : null,          // 세트당 시야 점수
+    pentakills: penta,
+    hasNewStats: dmgSets > 0,
     fan: fanAvg, fanCount: hist.length,
     pom: pomPts,
     champs: Object.values(champs).sort((x, y) => y.sets - x.sets),
@@ -1183,11 +1199,13 @@ function playerAggregate(pid, tid) {
 }
 
 // 육각형에 쓰는 축 정의 (raw 값을 뽑는 방법 + 표시 형식)
+// 육각형 6축. '골드'는 CS 와 거의 같은 이야기라서 빼고, 대신 **딜 비중**을 넣는다.
+// (딜 비중 = 우리 팀 총 딜에서 내가 넣은 몫 — 팀 색깔이 달라도 공평하게 비교된다)
 const RADAR_AXES = [
   { key: "kda", label: "KDA", get: s => s.kda, fmt: v => v.toFixed(2) },
   { key: "kp", label: "킬관여", get: s => s.kp * 100, fmt: v => v.toFixed(0) + "%" },
+  { key: "dmg", label: "딜비중", get: s => (s.dmgShare == null ? null : s.dmgShare * 100), fmt: v => v.toFixed(0) + "%" },
   { key: "cs", label: "CS", get: s => s.csAvg, fmt: v => v.toFixed(0) },
-  { key: "gold", label: "골드", get: s => s.goldAvg, fmt: v => v.toFixed(1) + "k" },
   { key: "fan", label: "팬평점", get: s => (s.fan == null ? null : s.fan), fmt: v => v.toFixed(1) },
   { key: "pom", label: "POM", get: s => s.pom, fmt: v => v.toFixed(0) + "pt" },
 ];

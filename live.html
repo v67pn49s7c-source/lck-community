@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260805i">
+  <link rel="stylesheet" href="assets/styles.css?v=20260805j">
 </head>
 <body>
   <main class="page">
@@ -75,11 +75,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260805i"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260805i"></script>
-  <script src="assets/store.js?v=20260805i"></script>
-  <script src="assets/app.js?v=20260805i"></script>
-  <script src="assets/ddragon.js?v=20260805i"></script>
+  <script src="assets/data.js?v=20260805j"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260805j"></script>
+  <script src="assets/store.js?v=20260805j"></script>
+  <script src="assets/app.js?v=20260805j"></script>
+  <script src="assets/ddragon.js?v=20260805j"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -153,6 +153,18 @@
       }));
 
       const set = d.sets[curSet];
+      // 아직 수집하지 않은 경기는 딜량·시야·아이템·룬·스펠이 비어 있다.
+      // 빈 칸만 줄줄이 보이면 지저분하므로, 이 세트에 값이 하나도 없는 열은 아예 숨긴다.
+      const all = set.players || [];
+      const has = {
+        spell: all.some(p => (p.spell || "").trim()),
+        dmg:   all.some(p => +p.dmg > 0),
+        vs:    all.some(p => +p.vs > 0),
+        items: all.some(p => (p.items || "").trim()),
+        runes: all.some(p => (p.runes || "").trim()),
+      };
+      const col = (on, html) => (on ? html : "");
+
       const half = (list, teamId) => {
         const t = TEAM_MAP[teamId];
         const winner = set.win === "a" ? match.a : match.b;
@@ -163,19 +175,23 @@
         </div>
         <div class="table-scroll">
         <table class="detail-table">
-          <thead><tr><th>선수</th><th>챔피언</th><th>스펠</th><th>KDA</th><th>CS</th><th>골드</th><th>아이템</th><th>룬</th></tr></thead>
+          <thead><tr><th>선수</th><th>챔피언</th>${col(has.spell, "<th>스펠</th>")}<th>KDA</th>
+            ${col(has.dmg, "<th>딜량</th>")}<th>CS</th><th>골드</th>${col(has.vs, "<th>시야</th>")}
+            ${col(has.items, "<th>아이템</th>")}${col(has.runes, "<th>룬</th>")}</tr></thead>
           <tbody>
             ${list.map(p => {
               const pl = getPlayer(p.pid);
               return `<tr>
                 <td class="dt-player">${pl ? `<a href="player.html?id=${q(pl.id)}">${esc(pl.nick)}</a><span class="pos">${esc(pl.pos)}</span>` : esc(p.pid)}</td>
                 <td class="dt-champ">${ddChampHTML(p.champ)}</td>
-                <td class="dt-spell">${ddSpellHTML(p.spell)}</td>
+                ${col(has.spell, `<td class="dt-spell">${ddSpellHTML(p.spell)}</td>`)}
                 <td class="dt-kda"><b>${p.k}</b> / <em>${p.d}</em> / ${p.a}</td>
+                ${col(has.dmg, `<td>${+p.dmg > 0 ? (Math.round(p.dmg / 100) / 10) + "k" : "-"}</td>`)}
                 <td>${p.cs}</td>
                 <td>${p.gold}k</td>
-                <td class="dt-items">${ddItemsHTML(p.items)}</td>
-                <td class="dt-runes">${ddRunesHTML(p.runes)}</td>
+                ${col(has.vs, `<td>${+p.vs > 0 ? p.vs : "-"}</td>`)}
+                ${col(has.items, `<td class="dt-items">${ddItemsHTML(p.items)}</td>`)}
+                ${col(has.runes, `<td class="dt-runes">${ddRunesHTML(p.runes)}</td>`)}
               </tr>`;
             }).join("")}
           </tbody>

@@ -10,9 +10,30 @@
 
 const { ok, fail, sb } = require("./_lib");
 
+// 팀별 공식 유튜브 채널 id 기본값.
+// 10개 채널 모두 RSS 를 직접 열어 채널 이름·최신 영상까지 확인했다(2026-08-05).
+// 관리자 화면에서 등록한 값이 있으면 그쪽이 우선한다 — 팀이 채널을 바꾸면 덮어쓰면 된다.
+const DEFAULT_CHANNELS = {
+  t1: "UCJprx3bX49vNl6Bcw01Cwfg",     // T1
+  gen: "UCDmmbxGg8g-EBkC_ku6vybg",    // 젠지 이스포츠
+  hle: "UCrfB1-zWijAYkgfZW7Ehc8Q",    // 한화생명e스포츠
+  dk: "UCepHesz_5Lwr7qRaqjB-p1A",     // Dplus KIA
+  kt: "UC8FErYSi74YwGUAoTpjvgzQ",     // kt Rolster
+  bro: "UCYQO6n0KZmwfwzWtm4_nAPA",    // 한진 브리온
+  bfx: "UCxedTJNaGRHiq6YfNtQVCNA",    // BNK 피어엑스 LoL
+  krx: "UC5WN-znPsJK0BbA8aHxZHWQ",    // 키움 DRX
+  ns: "UC4PoHC-R9EeJYTuUv3ndmJw",     // NS RedForce
+  dns: "UCGW76VChAJKee9kYzvyoycQ",    // DN SOOPers LoL
+};
+
 async function loadChannels() {
   const rows = await sb("site_settings?key=eq.team_youtube&select=value");
-  try { return JSON.parse((rows[0] || {}).value || "{}"); } catch { return {}; }
+  let saved = {};
+  try { saved = JSON.parse((rows[0] || {}).value || "{}"); } catch { saved = {}; }
+  // 저장된 값이 우선, 없는 팀은 기본값으로 채운다
+  const out = { ...DEFAULT_CHANNELS };
+  Object.entries(saved).forEach(([k, v]) => { if (v) out[k] = v; });
+  return out;
 }
 
 // RSS(XML)에서 필요한 것만 뽑아낸다 — 라이브러리 없이 정규식으로 충분

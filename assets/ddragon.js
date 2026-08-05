@@ -78,18 +78,25 @@ document.addEventListener("error", e => {
 }, true);
 
 // 챔피언: 아이콘 + 이름
-// 기본은 Data Dragon (아이템·룬과 같은 서버라 연결을 재사용해 빠르고, 누락이 없다).
-// 실패하면 CommunityDragon으로 한 번 더 시도한다 (리메이크 직후 초상화가 빠르게 반영되는 쪽).
-function ddChampHTML(name) {
+// 라이엇의 **정사각 아이콘**은 챔피언마다 그려진 연도가 달라 화풍이 제각각이다
+// (233개를 픽셀 단위로 비교해 보니 Data Dragon 과 CommunityDragon 은 완전히 같은 그림이었다 —
+//  즉 소스 문제가 아니라 라이엇 원본이 섞여 있는 것).
+// 로딩 화면용 **타일**은 최신 기준으로 다시 그려져 화풍이 일정하다. 그래서 타일을 먼저 쓰고,
+// 없으면 정사각 아이콘으로 물러난다. 380x380 정사각이라 잘림 없이 그대로 쓸 수 있다.
+function ddChampSrc(id) {
+  return `https://cdn.communitydragon.org/latest/champion/${id}/tile`;
+}
+function ddChampHTML(name, size) {
   name = (name || "").trim();
   if (!name) return "";
   const id = ddLookup(DD.champs, name);
   if (!id) return esc(name);
-  const cdrag = `https://cdn.communitydragon.org/latest/champion/${id}/square`;
-  const src = DD.ver ? `${DD_CDN}/${DD.ver}/img/champion/${id}.png` : cdrag;
-  const fb = src === cdrag ? "" : ` data-fallback="${cdrag}"`;
-  return `<img class="dd-ic champ" src="${src}"${fb} alt="${esc(name)}" title="${esc(name)}"`
-    + ` width="24" height="24" decoding="async"> <span class="dd-nm">${esc(name)}</span>`;
+  const px = size || 26;
+  const square = DD.ver ? `${DD_CDN}/${DD.ver}/img/champion/${id}.png`
+                        : `https://cdn.communitydragon.org/latest/champion/${id}/square`;
+  return `<img class="dd-ic champ" src="${ddChampSrc(id)}" data-fallback="${square}"`
+    + ` alt="${esc(name)}" title="${esc(name)}" width="${px}" height="${px}" decoding="async">`
+    + ` <span class="dd-nm">${esc(name)}</span>`;
 }
 // 소환사 주문: "점멸, 점화" / "점멸/텔레포트" 등 구분자 자유
 function ddSpellHTML(str) {
@@ -221,7 +228,7 @@ function openDDPicker(kind, input) {
   };
 
   const iconOf = x =>
-    kind === "champ" ? `${DD_CDN}/${D.ver}/img/champion/${x.id}.png` :
+    kind === "champ" ? ddChampSrc(x.id) :
     kind === "item" ? `${DD_CDN}/${D.ver}/img/item/${x.id}.png` :
     `${DD_CDN}/${D.ver}/img/spell/${x.file}`;
 

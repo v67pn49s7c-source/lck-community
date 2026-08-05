@@ -14,7 +14,7 @@
 // 데이터 출처: Leaguepedia (CC-BY-SA 3.0) — 푸터에 출처를 표기하고 있다.
 
 const { ok, fail, sb, requireAdmin } = require("./_lib");
-const { val, wait, cargo, loadSetting, saveSetting, matchIdOf, stagePicker, autoLinkPlayers, resolveTid, buildNewPlayers, normNick } = require("./_lp");
+const { val, wait, cargo, loadSetting, saveSetting, matchIdOf, stagePicker, autoLinkPlayers, resolveTid, buildNewPlayers, normNick, loadNameMaps, splitList } = require("./_lp");
 
 const CACHE_MINUTES = 10;
 const isWin = v => /^(1|yes|true)$/i.test(String(v || "").trim());
@@ -57,7 +57,10 @@ async function fetchRaw(page, deadline) {
   while (Date.now() < deadline) {
     const batch = await cargo({
       tables: "ScoreboardPlayers=SP",
-      fields: "SP.GameId,SP.MatchId,SP.Link,SP.Champion,SP.Kills,SP.Deaths,SP.Assists,SP.CS,SP.Gold,SP.Team,SP.Role,SP.Side,SP.PlayerWin,SP.DateTime_UTC",
+      fields: "SP.GameId,SP.MatchId,SP.Link,SP.Champion,SP.Kills,SP.Deaths,SP.Assists,SP.CS,SP.Gold,"
+        + "SP.Team,SP.Role,SP.Side,SP.PlayerWin,SP.DateTime_UTC,"
+        + "SP.Items,SP.Trinket,SP.SummonerSpells,SP.KeystoneRune,SP.PrimaryTree,SP.SecondaryTree,"
+        + "SP.DamageToChampions,SP.VisionScore,SP.Pentakills",
       where: "SP." + where,
       order_by: "SP.GameId ASC, SP.Link ASC",
       offset: String(rows.length),
@@ -118,6 +121,7 @@ module.exports = async (req, res) => {
     const teamMap = aliases.teams || {};
     const playerMap = { ...(aliases.players || {}) };
     const champKo = await loadChampNames();
+    const ko = await loadNameMaps();          // 아이템·룬·스펠 영어 → 한글
     const roster = await sb("players?select=id,nick,team");
     const existing = await sb("matches?select=id,lp_id,tid,stage,at,counted,status,score_a,score_b");
     const byLpMatch = {};
@@ -211,12 +215,25 @@ module.exports = async (req, res) => {
               // 자동 등록에 쓸 소속·포지션을 함께 기억해 둔다
               if (!playerInfo[link]) playerInfo[link] = { team: teamMap[val(r, "Team")] || null, role: val(r, "Role") };
             }
+            // 아이템·장신구·스펠·룬은 Leaguepedia 가 영어로 주므로 한글로 바꿔 저장한다
+            const items = splitList(val(r, "Items")).map(ko.item);
+            const trinket = String(val(r, "Trinket") || "").trim();
+            if (trinket) items.push(ko.item(trinket));
+            const spells = splitList(val(r, "SummonerSpells")).map(ko.spell);
+            const keystone = ko.rune(val(r, "KeystoneRune"));
+            const second = ko.rune(val(r, "SecondaryTree"));
             return {
               pid: playerMap[link] || null, lpName: link,
               champ: champKo(val(r, "Champion")),
               k: Number(val(r, "Kills")) || 0, d: Number(val(r, "Deaths")) || 0, a: Number(val(r, "Assists")) || 0,
               cs: Number(val(r, "CS")) || 0,
               gold: Math.round((Number(val(r, "Gold")) || 0) / 100) / 10,
+              items: items.join(", "),
+              spell: spells.join(", "),
+              runes: [keystone, second].filter(Boolean).join("/"),
+              dmg: Number(val(r, "DamageToChampions")) || 0,
+              vs: Number(val(r, "VisionScore")) || 0,
+              penta: Number(val(r, "Pentakills")) || 0,
             };
           }),
         });
@@ -295,8 +312,9 @@ module.exports = async (req, res) => {
       if (prev || !doneOf[pg]) {
         m.sets.forEach(s => {
           const players = s.players.filter(p => p.pid).map(p => ({
-            pid: p.pid, champ: p.champ, spell: "", k: p.k, d: p.d, a: p.a,
-            cs: p.cs, gold: p.gold, items: "", runes: "",
+            pid: p.pid, champ: p.champ, spell: p.spell, k: p.k, d: p.d, a: p.a,
+            cs: p.cs, gold: p.gold, items: p.items, runes: p.runes,
+            dmg: p.dmg, vs: p.vs, penta: p.penta,
           }));
           if (players.length) detailRows.push({ match_id: id, set_index: s.n - 1, win: s.win, players });
         });
@@ -318,8 +336,9 @@ module.exports = async (req, res) => {
       });
       m.sets.forEach(s => {
         const players = s.players.filter(p => p.pid).map(p => ({
-          pid: p.pid, champ: p.champ, spell: "", k: p.k, d: p.d, a: p.a,
-          cs: p.cs, gold: p.gold, items: "", runes: "",
+          pid: p.pid, champ: p.champ, spell: p.spell, k: p.k, d: p.d, a: p.a,
+          cs: p.cs, gold: p.gold, items: p.items, runes: p.runes,
+          dmg: p.dmg, vs: p.vs, penta: p.penta,
         }));
         if (players.length) detailRows.push({ match_id: id, set_index: s.n - 1, win: s.win, players });
       });

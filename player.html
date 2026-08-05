@@ -12,7 +12,7 @@
   <meta name="twitter:card" content="summary">
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260805i">
+  <link rel="stylesheet" href="assets/styles.css?v=20260805j">
 </head>
 <body>
   <div class="team-hero" id="player-hero"></div>
@@ -64,12 +64,12 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260805i"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260805i"></script>
-  <script src="assets/store.js?v=20260805i"></script>
-  <script src="assets/app.js?v=20260805i"></script>
-  <script src="assets/ddragon.js?v=20260805i"></script>
-  <script src="assets/player-photos.js?v=20260805i"></script>
+  <script src="assets/data.js?v=20260805j"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260805j"></script>
+  <script src="assets/store.js?v=20260805j"></script>
+  <script src="assets/app.js?v=20260805j"></script>
+  <script src="assets/ddragon.js?v=20260805j"></script>
+  <script src="assets/player-photos.js?v=20260805j"></script>
   <script>
   storeReady.then(async () => {
     const player = getPlayer(new URLSearchParams(location.search).get("id")) || getPlayers()[0];
@@ -137,7 +137,17 @@
           <div class="stat-card"><span class="k">KDA</span><span class="v">${s.kda.toFixed(2)}<em></em></span>
             <span class="k">${s.k} / ${s.d} / ${s.a}</span></div>
           <div class="stat-card"><span class="k">팬 평점</span><span class="v">${s.fan == null ? "-" : s.fan.toFixed(1)}<em>${s.fan == null ? "" : "점"}</em></span>
-            <span class="k">${s.fanCount}경기 평가</span></div>`;
+            <span class="k">${s.fanCount}경기 평가</span></div>
+          ${s.dmgAvg == null ? "" : `
+          <div class="stat-card"><span class="k">챔피언 딜량</span><span class="v">${Math.round(s.dmgAvg / 100) / 10}<em>k</em></span>
+            <span class="k">팀 내 비중 ${s.dmgShare == null ? "-" : Math.round(s.dmgShare * 100) + "%"}</span></div>`}
+          ${s.visAvg == null ? "" : `
+          <div class="stat-card"><span class="k">시야 점수</span><span class="v">${s.visAvg.toFixed(0)}<em></em></span>
+            <span class="k">세트 평균</span></div>`}
+          <div class="stat-card"><span class="k">골드</span><span class="v">${s.goldAvg.toFixed(1)}<em>k</em></span>
+            <span class="k">세트 평균 · CS ${s.csAvg.toFixed(0)}</span></div>
+          ${s.pentakills ? `<div class="stat-card"><span class="k">펜타킬</span><span class="v">${s.pentakills}<em>회</em></span>
+            <span class="k">🔥</span></div>` : ""}`;
 
         document.getElementById("champ-count").textContent = `${s.champs.length}종`;
         document.getElementById("champ-table").innerHTML = s.champs.length ? `
