@@ -50,13 +50,25 @@ const Cache = {
 // 서버가 준 집계 배열은 그대로 두고, 화면에서 자주 찾는 형태로 한 번만 색인한다.
 function indexStats() {
   const s = Cache.stats;
-  const ix = { pred: {}, rating: {}, ratingByPlayer: {}, ratingVoters: {},
+  const ix = { pred: {}, rating: {}, ratingSet: {}, ratingByPlayer: {}, ratingVoters: {},
                pollChoice: {}, pollVoters: {}, reaction: {}, commentLike: {} };
   (s.pred || []).forEach(r => (ix.pred[r.match_id] = ix.pred[r.match_id] || []).push(r));
+  // 평점은 세트 단위로 저장된다. 화면에 따라 두 가지로 쓴다.
+  //   ratingSet  = 세트별 (1세트 평점표)
+  //   rating     = 경기 전체 (세트들을 합친 값 — POG·선수 페이지·공유 카드)
+  ix.ratingSet = {};
   (s.rating || []).forEach(r => {
+    const sk = r.match_id + "|" + (r.set_index ?? -1) + "|" + r.player_id;
+    (ix.ratingSet[sk] = ix.ratingSet[sk] || {})[r.bucket] = r;
+
     const k = r.match_id + "|" + r.player_id;
-    (ix.rating[k] = ix.rating[k] || {})[r.bucket] = r;
-    if (r.bucket === "all") (ix.ratingByPlayer[r.player_id] = ix.ratingByPlayer[r.player_id] || []).push(r);
+    const g = (ix.rating[k] = ix.rating[k] || {});
+    const cur = g[r.bucket];
+    if (cur) { cur.n += r.n; cur.total += r.total; }
+    else g[r.bucket] = { match_id: r.match_id, player_id: r.player_id, bucket: r.bucket, n: r.n, total: r.total };
+  });
+  Object.values(ix.rating).forEach(g => {
+    if (g.all) (ix.ratingByPlayer[g.all.player_id] = ix.ratingByPlayer[g.all.player_id] || []).push(g.all);
   });
   (s.ratingVoters || []).forEach(r => { ix.ratingVoters[r.match_id] = r.n_voters; });
   (s.pollChoice || []).forEach(r => (ix.pollChoice[r.poll_id] = ix.pollChoice[r.poll_id] || []).push(r));
@@ -778,10 +790,19 @@ function predictRanking() {
 }
 
 // ── 선수 평점 ──
+// 내 평점 — { 경기id: { 세트번호: { 선수id: 점수 } } }
 function getRatings() {
   const out = {};
-  Cache.mine.ratings.forEach(r => (out[r.match_id] = out[r.match_id] || {})[r.player_id] = r.score);
+  Cache.mine.ratings.forEach(r => {
+    const si = r.set_index ?? -1;
+    const m = (out[r.match_id] = out[r.match_id] || {});
+    (m[si] = m[si] || {})[r.player_id] = r.score;
+  });
   return out;
+}
+// 그 경기에서 내가 매긴 평점 수 (세트 구분 없이)
+function myRatingCount(matchId) {
+  return Cache.mine.ratings.filter(r => r.match_id === matchId).length;
 }
 // 내가 이 평점에서 어느 팬덤 칸에 들어가는가 (서버 규칙과 같아야 한다)
 function myRatingBucket(matchId, playerId) {
@@ -793,16 +814,18 @@ function myRatingBucket(matchId, playerId) {
   const opp = pl.team === m.a ? m.b : pl.team === m.b ? m.a : null;
   return opp && fav === opp ? "opp" : "neu";
 }
-function setRating(matchId, playerId, score) {
-  const prev = Cache.mine.ratings.find(r => r.match_id === matchId && r.player_id === playerId);
+function setRating(matchId, setIndex, playerId, score) {
+  const si = setIndex ?? -1;
+  const prev = Cache.mine.ratings.find(r =>
+    r.match_id === matchId && (r.set_index ?? -1) === si && r.player_id === playerId);
   const before = prev ? prev.score : null;
   if (before === score) return;
   // 처음 매길 때 쓴 칸을 기억해 둔다. 도중에 응원팀을 바꿔도 같은 칸에서 고쳐야
   // 한 사람이 두 칸에 세어지지 않는다.
   const bucket = (prev && prev.b) || myRatingBucket(matchId, playerId);
   const rows = [bucket, "all"].map(b => statRow(Cache.stats.rating,
-    x => x.match_id === matchId && x.player_id === playerId && x.bucket === b,
-    () => ({ match_id: matchId, player_id: playerId, bucket: b, n: 0, total: 0 })));
+    x => x.match_id === matchId && (x.set_index ?? -1) === si && x.player_id === playerId && x.bucket === b,
+    () => ({ match_id: matchId, set_index: si, player_id: playerId, bucket: b, n: 0, total: 0 })));
   rows.forEach(r => { if (before == null) r.n++; r.total += score - (before || 0); });
   if (before == null) {
     const v = statRow(Cache.stats.ratingVoters, x => x.match_id === matchId,
@@ -811,16 +834,17 @@ function setRating(matchId, playerId, score) {
     if (!Cache.mine.ratings.some(r => r.match_id === matchId)) v.n_voters++;
   }
   if (prev) { prev.score = score; prev._p = 1; }
-  else Cache.mine.ratings.push({ match_id: matchId, player_id: playerId, score, b: bucket, _p: 1 });
+  else Cache.mine.ratings.push({ match_id: matchId, set_index: si, player_id: playerId, score, b: bucket, _p: 1 });
   indexStats();
-  sb.rpc("rate_player", { p_match_id: matchId, p_player_id: playerId, p_voter: anonId(), p_score: score })
+  sb.rpc("rate_player", { p_match_id: matchId, p_player_id: playerId, p_voter: anonId(), p_score: score, p_set_index: si })
     .then(r => {
       if (isMissingFunction(r.error))
         return sb.from("ratings").upsert({ match_id: matchId, player_id: playerId, voter: voterId(), score })
           .then(x => { sbErr(x.error, "setRating(legacy)"); if (!x.error) clearPending(Cache.mine.ratings, y => y.match_id === matchId && y.player_id === playerId); });
       if (sbWriteFail(r.error, "setRating")) {
         rows.forEach(x => { if (before == null) x.n = Math.max(0, x.n - 1); x.total -= score - (before || 0); });
-        if (before == null) Cache.mine.ratings = Cache.mine.ratings.filter(x => !(x.match_id === matchId && x.player_id === playerId));
+        if (before == null) Cache.mine.ratings = Cache.mine.ratings.filter(x =>
+          !(x.match_id === matchId && (x.set_index ?? -1) === si && x.player_id === playerId));
         else if (prev) { prev.score = before; delete prev._p; }
         // 이 경기 첫 평점이었다면 늘려 둔 참여 인원도 되돌린다
         if (before == null && !Cache.mine.ratings.some(x => x.match_id === matchId)) {
@@ -829,7 +853,7 @@ function setRating(matchId, playerId, score) {
         }
         indexStats();
       } else {
-        const cur = Cache.mine.ratings.find(x => x.match_id === matchId && x.player_id === playerId);
+        const cur = Cache.mine.ratings.find(x => x.match_id === matchId && (x.set_index ?? -1) === si && x.player_id === playerId);
         if (cur) delete cur._p;
         if (r.data) Cache.myVoter = r.data;
       }
@@ -841,8 +865,11 @@ function myRatingsForPlayer(playerId) {
 }
 // 팬심 평점: 한 경기·한 선수의 평점을 아군 팬·상대 팬·중립으로 나눠 평균
 // (팬덤 판별은 서버가 profiles.fav_team으로 한다. 비회원은 중립)
-function fanSplitForPlayer(playerId, matchId) {
-  const g = (Cache.idx && Cache.idx.rating[matchId + "|" + playerId]) || {};
+// setIndex 를 주면 그 세트만, 없으면 경기 전체(세트 합산)
+function fanSplitForPlayer(playerId, matchId, setIndex) {
+  const g = (Cache.idx && (setIndex == null
+    ? Cache.idx.rating[matchId + "|" + playerId]
+    : Cache.idx.ratingSet[matchId + "|" + setIndex + "|" + playerId])) || {};
   const stat = k => g[k] && g[k].n ? { avg: Math.round(g[k].total / g[k].n * 10) / 10, n: g[k].n } : null;
   return { all: stat("all"), home: stat("own"), opp: stat("opp"), neu: stat("neu") };
 }
@@ -862,6 +889,17 @@ function playedPidsForMatch(matchId) {
   }));
   return played;
 }
+// 이 세트에 실제로 나온 선수 (챔피언이 기록된 사람만)
+function playedPidsForSet(matchId, setIndex) {
+  const det = Cache.details[matchId];
+  const s = ((det && det.sets) || [])[setIndex];
+  const out = new Set();
+  ((s && s.players) || []).forEach(p => {
+    if (p.pid && (p.champ || "").trim()) out.add(p.pid);
+  });
+  return out;
+}
+
 // 선수별로 몇 세트에 나왔는지 (교체 출전을 화면에서 구분하려고)
 function setsPlayedForMatch(matchId) {
   const det = Cache.details[matchId];
@@ -872,15 +910,17 @@ function setsPlayedForMatch(matchId) {
   return { count: n, total: ((det && det.sets) || []).length };
 }
 // 팬심 평점 표: 포지션별로 양 팀 선수를 짝지어 행 구성 (좌우 미러 배치용)
-function fanRatingRows(match) {
+// setIndex 를 주면 **그 세트에 나온 선수만** (교체 선수가 안 뛴 세트에 뜨지 않게).
+// 없으면 경기 전체 기준(공유 카드·요약용).
+function fanRatingRows(match, setIndex) {
   const posOrder = ["탑", "정글", "미드", "원딜", "서폿"];
-  const played = playedPidsForMatch(match.id);
+  const played = setIndex == null ? playedPidsForMatch(match.id) : playedPidsForSet(match.id, setIndex);
   const { count: setsOf, total: totalSets } = setsPlayedForMatch(match.id);
   const side = teamId => {
     let ps = teamPlayers(teamId);
     if (played.size) ps = ps.filter(p => played.has(p.id));
     // 많이 나온 선수부터 — 교체로 한 세트만 뛴 선수가 주전 위에 오지 않게
-    return ps.map(p => ({ p, s: fanSplitForPlayer(p.id, match.id),
+    return ps.map(p => ({ p, s: fanSplitForPlayer(p.id, match.id, setIndex),
                           sets: setsOf[p.id] || 0, totalSets }))
              .sort((x, y) => y.sets - x.sets);
   };
@@ -906,8 +946,11 @@ function fanRatingRows(match) {
 function pogForMatch(matchId) {
   const played = playedPidsForMatch(matchId);
   let best = null;
-  (Cache.stats.rating || []).forEach(r => {
-    if (r.match_id !== matchId || r.bucket !== "all" || !r.n) return;
+  // 경기 전체 기준 (세트 평점을 모두 합쳐서) — 색인이 이미 합쳐 둔 값을 쓴다
+  const rolled = Object.values((Cache.idx && Cache.idx.rating) || {})
+    .map(g => g.all).filter(Boolean);
+  rolled.forEach(r => {
+    if (r.match_id !== matchId || !r.n) return;
     if (played.size && !played.has(r.player_id)) return;
     const avg = r.total / r.n;
     const tie = best && Math.abs(avg - best.exact) < 1e-9;
