@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260805e">
+  <link rel="stylesheet" href="assets/styles.css?v=20260805f">
 </head>
 <body>
   <main class="page">
@@ -231,7 +231,10 @@
           위 칸의 대회 페이지로 <b>지금 갱신</b>을 한 번 누르면 그 대회가 자동 갱신 대상으로 등록됩니다.
           이후에는 <b>매일 새벽 3시(한국 시간)</b>와 <b>방문자가 들어올 때(최소 30분 간격)</b>
           일정·시각·스코어가 저절로 맞춰집니다. 새 경기가 생기면 자동으로 추가되고,
-          이미 순위에 반영한 경기는 건드리지 않습니다.
+          이미 순위에 반영한 경기는 건드리지 않습니다.<br>
+          새 경기의 <b>그룹(스테이지)은 팀을 보고 자동으로</b> 정해집니다 —
+          '순위 전적'에 등록된 그룹 명단을 그대로 씁니다(kt·dk·t1·hle·gen → 레전드 등).
+          그룹을 바꾸시면 그다음 갱신부터 새 기준으로 배정됩니다.
         </div>
 
         <div class="card-head" style="border-top:1px solid var(--line); margin-top:14px">
@@ -301,11 +304,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260805e"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260805e"></script>
-  <script src="assets/store.js?v=20260805e"></script>
-  <script src="assets/app.js?v=20260805e"></script>
-  <script src="assets/ddragon.js?v=20260805e"></script>
+  <script src="assets/data.js?v=20260805f"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260805f"></script>
+  <script src="assets/store.js?v=20260805f"></script>
+  <script src="assets/app.js?v=20260805f"></script>
+  <script src="assets/ddragon.js?v=20260805f"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -776,8 +779,9 @@
           일정 <b>${d.훑어본일정}</b>건을 확인해 <b>${d.갱신한경기}</b>경기를 맞췄습니다
           (새로 만든 경기 ${d.새로만든경기}건).
           ${(d.모르는팀 || []).length ? `<br><span style="color:var(--accent)">이름을 못 알아본 팀: ${esc((d.모르는팀 || []).join(", "))} — 위에서 연결해 주세요.</span>` : ""}
-          ${d.스테이지확인필요 ? `<br><span style="color:var(--accent)">새 경기 ${d.스테이지확인필요}건의 <b>스테이지</b>가 Leaguepedia 주차 이름(Week 11 등)으로 들어갔습니다.
-            순위에 반영하려면 <b>경기</b> 탭에서 우리 스테이지(예: R3-4 라이즈)로 바꿔 주세요.</span>` : ""}
+          ${d.일정출처 ? `<br><span style="color:var(--text-dim)">일정 출처: ${esc(d.일정출처)}</span>` : ""}
+          ${d.스테이지확인필요 ? `<br><span style="color:var(--accent)">새 경기 ${d.스테이지확인필요}건은 두 팀이 서로 다른 그룹이라 자동 배정을 못 했습니다.
+            <b>경기</b> 탭에서 스테이지를 골라 주세요.</span>` : ""}
           </div>`;
         setTimeout(() => location.reload(), 2500);   // 결과를 읽을 시간을 준 뒤 새로 그린다
       } catch (e) {
