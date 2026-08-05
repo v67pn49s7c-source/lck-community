@@ -126,8 +126,7 @@ async function initPostPage() {
   // 조회수 (세션당 1회)
   const seenKey = "lck_seen_" + id;
   if (!sessionStorage.getItem(seenKey)) {
-    updatePost(id, { views: post.views + 1 });
-    post.views += 1;
+    bumpPostView(id);
     sessionStorage.setItem(seenKey, "1");
   }
 
@@ -222,10 +221,8 @@ async function initPostPage() {
       render();
     }));
     el.querySelector("#btn-up").addEventListener("click", () => {
-      const upKey = "lck_up_" + id;
-      if (localStorage.getItem(upKey)) { alert("이미 추천한 글입니다."); return; }
-      localStorage.setItem(upKey, "1");
-      updatePost(id, { up: getPost(id).up + 1 });
+      // 1인 1표는 이제 서버가 보증한다 (브라우저 저장소는 지우면 그만이었다)
+      if (!upvotePost(id)) { alert("이미 추천한 글입니다."); return; }
       render();
     });
     el.querySelector("#comment-form").addEventListener("submit", e => {

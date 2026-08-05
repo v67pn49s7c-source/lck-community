@@ -933,9 +933,13 @@ function shareRatingCard(match) {
 function renderHomeSchedule() {
   const el = document.getElementById("schedule-body");
   if (!el) return;
-  // 오늘 이후 7일 + 최근 결과
+  // 최근 끝난 경기 3개 + 앞으로의 경기 7개 (예전에는 '가장 오래된 10경기'라
+  // 시즌이 진행되면 홈 상단이 계속 옛날 경기로 채워졌다)
   const ms = sortedMatches();
-  el.innerHTML = scheduleHTML(ms.slice(0, 10));
+  const now = Date.now();
+  const past = ms.filter(m => m.status === "done" || new Date(m.at) <= now);
+  const soon = ms.filter(m => m.status !== "done" && new Date(m.at) > now);
+  el.innerHTML = scheduleHTML([...past.slice(-3), ...soon.slice(0, 7)]);
 }
 
 function renderHotPosts() {
@@ -959,13 +963,22 @@ function renderHotPosts() {
 function renderPredictRanking() {
   const el = document.getElementById("predict-ranking");
   if (!el) return;
-  el.innerHTML = PREDICT_RANKING.map((r, i) => `
+  const rows = predictRanking();
+  if (!rows.length) {
+    el.innerHTML = `<div class="empty-note">아직 순위를 매길 만큼 기록이 쌓이지 않았습니다.<br>
+      <span style="color:var(--text-dim);font-size:12px">회원이 5경기 이상 예측하면 여기에 올라옵니다.</span></div>`;
+    return;
+  }
+  el.innerHTML = rows.slice(0, 5).map((r, i) => {
+    const t = r.team ? TEAM_MAP[r.team] : null;
+    return `
     <div class="rank-row">
       <span class="no ${i < 3 ? "top" : ""}">${i + 1}</span>
-      <span class="nick">${esc(r.nick)}</span>
+      <span class="nick">${esc(r.nick)}${t ? `<span class="nick-badge" title="${esc(t.name)} 팬">${teamLogoHTML(t, 14)}</span>` : ""}</span>
       <span class="detail">${r.hit}/${r.total} 적중</span>
-      <span class="rate">${Math.round((r.hit / r.total) * 100)}%</span>
-    </div>`).join("");
+      <span class="rate">${r.pct}%</span>
+    </div>`;
+  }).join("");
 }
 
 // 홈 "오늘의 투표": 마감이 가장 가까운 진행 중 투표

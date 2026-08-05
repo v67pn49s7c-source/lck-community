@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260805b">
+  <link rel="stylesheet" href="assets/styles.css?v=20260805c">
 </head>
 <body>
   <main class="page">
@@ -223,6 +223,18 @@
         </div>
 
         <div class="card-head" style="border-top:1px solid var(--line); margin-top:14px">
+          <h2 class="card-title">경기 일정 자동 갱신 <span class="sub">Leaguepedia 일정표를 따라갑니다</span></h2>
+          <button class="btn-secondary" type="button" id="sched-run">지금 갱신</button>
+        </div>
+        <div class="admin-list" id="sched-result"></div>
+        <div class="admin-note">
+          위에서 <b>가져오기</b>를 한 번 하면 그 대회가 자동 갱신 대상으로 등록됩니다.
+          이후에는 <b>매일 새벽 3시(한국 시간)</b>와 <b>방문자가 들어올 때(최소 30분 간격)</b>
+          일정·시각·스코어가 저절로 맞춰집니다. 새 경기가 생기면 자동으로 추가되고,
+          이미 순위에 반영한 경기는 건드리지 않습니다.
+        </div>
+
+        <div class="card-head" style="border-top:1px solid var(--line); margin-top:14px">
           <h2 class="card-title">팀 채널 <span class="sub">팀별 공식 유튜브 채널 id</span></h2>
         </div>
         <div class="admin-list" id="yt-list"></div>
@@ -289,11 +301,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260805b"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260805b"></script>
-  <script src="assets/store.js?v=20260805b"></script>
-  <script src="assets/app.js?v=20260805b"></script>
-  <script src="assets/ddragon.js?v=20260805b"></script>
+  <script src="assets/data.js?v=20260805c"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260805c"></script>
+  <script src="assets/store.js?v=20260805c"></script>
+  <script src="assets/app.js?v=20260805c"></script>
+  <script src="assets/ddragon.js?v=20260805c"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -442,7 +454,7 @@
 
       el.querySelectorAll(".admin-item").forEach(row => {
         const mid = row.dataset.mid;
-        row.querySelector(".save").addEventListener("click", () => {
+        row.querySelector(".save").addEventListener("click", async () => {
           const status = row.querySelector(".st").value;
           const sa = row.querySelector(".sa").value, sb = row.querySelector(".sb").value;
           const pomSel = row.querySelector(".pom");
@@ -455,15 +467,17 @@
             scoreB: sb === "" ? null : Number(sb),
           });
           // 종료 저장 시 순위 전적에 자동 반영 (경기당 1회)
+          // 서버가 저장을 마칠 때까지 기다린 뒤 알린다 — 예전에는 저장 결과를 보지도 않고
+          // "반영되었습니다"가 떠서, 절반만 저장돼도 성공으로 보였다.
           if (status === "done") {
-            const res = applyMatchToRecords(mid);
+            const res = await applyMatchToRecords(mid);
             if (res.ok) alert("경기 결과가 순위 전적에 자동 반영되었습니다.");
             else if (res.reason && !res.reason.includes("이미")) alert("순위 자동 반영 안 됨: " + res.reason);
           }
           renderAll();
         });
-        row.querySelector(".apply")?.addEventListener("click", () => {
-          const res = applyMatchToRecords(mid);
+        row.querySelector(".apply")?.addEventListener("click", async () => {
+          const res = await applyMatchToRecords(mid);
           alert(res.ok ? "순위 전적에 반영했습니다." : "반영 실패: " + res.reason);
           renderAll();
         });
@@ -738,6 +752,33 @@
         });
       });
     }
+
+    // ── 경기 일정 자동 갱신 (손으로 한 번 돌리기) ──
+    document.getElementById("sched-run")?.addEventListener("click", async () => {
+      const box = document.getElementById("sched-result");
+      box.innerHTML = `<div class="empty-note">Leaguepedia 일정을 확인하는 중…</div>`;
+      try {
+        const tok = (await sbGetSession())?.access_token;
+        const r = await fetch("/api/schedule-sync?t=" + Date.now(),
+          { headers: tok ? { authorization: "Bearer " + tok } : {} });
+        const j = await r.json();
+        const d = j.data || j;
+        if (!r.ok) throw new Error(j.error || "실패");
+        if (d.skipped) {
+          box.innerHTML = `<div class="admin-note" style="border-top:none">${esc(
+            d.이유 || `방금 갱신했습니다. ${d.다음갱신까지분 ?? "잠시"}분 뒤에 다시 확인합니다.`)}</div>`;
+          return;
+        }
+        box.innerHTML = `<div class="admin-note" style="border-top:none">
+          일정 <b>${d.훑어본일정}</b>건을 확인해 <b>${d.갱신한경기}</b>경기를 맞췄습니다
+          (새로 만든 경기 ${d.새로만든경기}건).
+          ${(d.모르는팀 || []).length ? `<br><span style="color:var(--accent)">이름을 못 알아본 팀: ${esc((d.모르는팀 || []).join(", "))} — 위에서 연결해 주세요.</span>` : ""}
+          </div>`;
+        setTimeout(() => location.reload(), 2500);   // 결과를 읽을 시간을 준 뒤 새로 그린다
+      } catch (e) {
+        box.innerHTML = `<div class="empty-note">갱신하지 못했습니다: ${esc(e.message || e)}</div>`;
+      }
+    });
 
     // ── 참여 점검 (신원을 가린 참여 횟수만) ──
     document.getElementById("audit-run")?.addEventListener("click", async () => {

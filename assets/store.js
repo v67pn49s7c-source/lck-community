@@ -39,8 +39,8 @@ const Cache = {
   posts: [], details: {}, settings: {}, pom: [], awards: [],
   polls: [], founding: [], profiles: [],
   // 남의 표는 더 이상 브라우저로 내려오지 않는다. 집계(stats)와 내 표(mine)만 온다.
-  stats: { pred: [], rating: [], ratingVoters: [], pollChoice: [], pollVoters: [], reaction: [], commentLike: [], fandom: [] },
-  mine: { predictions: [], ratings: [], pollVotes: [], reactions: [], commentLikes: [] },
+  stats: { pred: [], rating: [], ratingVoters: [], pollChoice: [], pollVoters: [], reaction: [], commentLike: [], fandom: [], ranking: [] },
+  mine: { predictions: [], ratings: [], pollVotes: [], reactions: [], commentLikes: [], postUpvotes: [] },
   idx: null,       // stats를 빠르게 찾기 위한 색인 (indexStats가 채운다)
   myVoter: null,   // 서버가 확정한 내 신원
   statsOk: false,  // 집계를 실제로 받았는가 — 못 받은 것을 "0명 참여"로 위장하지 않기 위해
@@ -75,6 +75,7 @@ function clearPending(list, match) {
 // 집계를 못 받았을 때. 조용히 0으로 두면 "아직 아무도 참여 안 함"과 구분되지 않는다.
 function statsFailed() {
   Cache.statsOk = false;
+  Cache.stats.ranking = Cache.stats.ranking || [];
   indexStats();
   if (typeof document !== "undefined" && !document.getElementById("nx-statsfail")) {
     const el = document.createElement("div");
@@ -209,9 +210,15 @@ async function fetchAll() {
 
   Auth.session = (auth.data && auth.data.session) || null;
   if (Auth.session) {
-    // is_admin은 공개 목록(profiles select)에 넣지 않는다 — 내 것만 따로 확인
-    const { data: prof } = await sb.from("profiles").select("*").eq("id", Auth.session.user.id).maybeSingle();
-    Auth.profile = prof || null;
+    // is_admin은 공개 조회에서 아예 막혀 있다(schema14). 내 것만 서버 함수로 받는다.
+    const r = await sb.rpc("my_profile");
+    if (isMissingFunction(r.error)) {
+      const { data: prof } = await sb.from("profiles").select("*").eq("id", Auth.session.user.id).maybeSingle();
+      Auth.profile = prof || null;
+    } else {
+      sbErr(r.error, "my_profile");
+      Auth.profile = r.data || null;
+    }
   } else {
     Auth.profile = null;
   }
@@ -267,12 +274,13 @@ async function applyFanStats(res) {
       pred: d.pred || [], rating: d.rating || [], ratingVoters: d.ratingVoters || [],
       pollChoice: d.pollChoice || [], pollVoters: d.pollVoters || [],
       reaction: d.reaction || [], commentLike: d.commentLike || [], fandom: d.fandom || [],
+      ranking: d.ranking || [],
     };
     const mine = d.mine || {};
     Cache.mine = keepMyPending({
       predictions: mine.predictions || [], ratings: mine.ratings || [],
       pollVotes: mine.pollVotes || [], reactions: mine.reactions || [],
-      commentLikes: mine.commentLikes || [],
+      commentLikes: mine.commentLikes || [], postUpvotes: mine.postUpvotes || [],
     });
     Cache.myVoter = d.voter || null;
     Cache.statsOk = true;
@@ -302,6 +310,7 @@ function keepMyPending(fresh) {
     pollVotes: keep(fresh.pollVotes, old.pollVotes, x => x.poll_id),
     reactions: keep(fresh.reactions, old.reactions, x => x.post_id + "|" + x.kind),
     commentLikes: keep(fresh.commentLikes, old.commentLikes, x => String(x.comment_id)),
+    postUpvotes: keep(fresh.postUpvotes, old.postUpvotes, x => x.post_id),
   };
 }
 
@@ -363,13 +372,15 @@ async function legacyFanStats() {
     t.n++; if (p.side === w) t.hits++;
   });
 
-  Cache.stats = { pred, rating, ratingVoters, pollChoice, pollVoters, reaction, commentLike, fandom };
+  // 예측 랭킹은 남의 예측 원본이 필요해서 예전 경로에서는 만들 수 없다 (schema12 실행 전 한정)
+  Cache.stats = { pred, rating, ratingVoters, pollChoice, pollVoters, reaction, commentLike, fandom, ranking: [] };
   Cache.mine = keepMyPending({
     predictions: (pr.data || []).filter(x => x.voter === me).map(x => ({ match_id: x.match_id, side: x.side })),
     ratings: (ra.data || []).filter(x => x.voter === me).map(x => ({ match_id: x.match_id, player_id: x.player_id, score: x.score })),
     pollVotes: (pv.data || []).filter(x => x.voter === me).map(x => ({ poll_id: x.poll_id, choices: x.choices })),
     reactions: (rx.data || []).filter(x => x.voter === me).map(x => ({ post_id: x.post_id, kind: x.kind })),
     commentLikes: (cl.data || []).filter(x => x.voter === me).map(x => ({ comment_id: x.comment_id })),
+    postUpvotes: [],
   });
   Cache.myVoter = me;
   Cache.statsOk = true;
@@ -410,12 +421,12 @@ function showRefreshToast() {
 function getTournaments() { return Cache.tournaments; }
 function addTournament(t) {
   Cache.tournaments.push(t);
-  sb.from("tournaments").insert({ id: t.id, name: t.name, type: t.type, stages: t.stages, note: t.note }).then(r => sbErr(r.error, "addTournament"));
+  sb.from("tournaments").insert({ id: t.id, name: t.name, type: t.type, stages: t.stages, note: t.note }).then(r => sbWriteFail(r.error, "addTournament"));
 }
 function deleteTournament(id) {
   Cache.tournaments = Cache.tournaments.filter(t => t.id !== id);
   Cache.matches = Cache.matches.filter(m => m.tid !== id);
-  sb.from("tournaments").delete().eq("id", id).then(r => sbErr(r.error, "deleteTournament"));
+  sb.from("tournaments").delete().eq("id", id).then(r => sbWriteFail(r.error, "deleteTournament"));
 }
 
 // ── 경기 ──
@@ -430,15 +441,15 @@ function matchToDb(m) {
 function addMatch(m) {
   Cache.matches.push(m);
   Cache.matches.sort((x, y) => new Date(x.at) - new Date(y.at));
-  sb.from("matches").insert(matchToDb(m)).then(r => sbErr(r.error, "addMatch"));
+  sb.from("matches").insert(matchToDb(m)).then(r => sbWriteFail(r.error, "addMatch"));
 }
 function updateMatch(id, patch) {
   Cache.matches = Cache.matches.map(m => m.id === id ? { ...m, ...patch } : m);
-  sb.from("matches").update(matchToDb(patch)).eq("id", id).then(r => sbErr(r.error, "updateMatch"));
+  sb.from("matches").update(matchToDb(patch)).eq("id", id).then(r => sbWriteFail(r.error, "updateMatch"));
 }
 function deleteMatch(id) {
   Cache.matches = Cache.matches.filter(m => m.id !== id);
-  sb.from("matches").delete().eq("id", id).then(r => sbErr(r.error, "deleteMatch"));
+  sb.from("matches").delete().eq("id", id).then(r => sbWriteFail(r.error, "deleteMatch"));
 }
 function sortedMatches() {
   return Cache.matches.slice().sort((x, y) => new Date(x.at) - new Date(y.at));
@@ -459,21 +470,33 @@ function saveStageRecords(list) {
     if (s.in_total !== undefined) row.in_total = s.in_total; // 컬럼 추가 SQL 실행 전 호환
     return row;
   });
-  sb.from("stage_records").upsert(rows).then(r => sbErr(r.error, "saveStageRecords"));
+  // 결과를 돌려준다 — 순위 반영(applyMatchToRecords)이 실패 여부를 보고 되돌려야 한다
+  return sb.from("stage_records").upsert(rows).then(r => { sbErr(r.error, "saveStageRecords"); return r; });
 }
 // 이 스테이지가 종합(누적) 순위에 합산되는가 (기본: Road To MSI만 제외)
 function stageInTotal(s) { return s.in_total ?? (s.id !== "rtm"); }
 
 // 종료된 경기 결과를 순위 전적에 반영 (경기당 1회 — counted 플래그로 이중 반영 방지)
-function applyMatchToRecords(matchId) {
+// 순위 반영. 예전에는 '전적 저장'과 '반영됨 표시'가 서로 기다리지 않고 따로 날아가서,
+// 한쪽만 성공하면 순위가 빠진 채 잠기거나 다음에 또 눌러 두 번 더해졌다.
+// 이제 서버가 먼저 자리를 잡아 주고(claim), 전적 저장이 실패하면 자리를 되돌린다.
+// 승패 판정도 matchWinner()와 같은 규칙을 서버가 강제한다(동점이면 거부).
+async function applyMatchToRecords(matchId) {
   const m = Cache.matches.find(x => x.id === matchId);
   if (!m) return { ok: false, reason: "경기를 찾을 수 없음" };
-  if (m.counted) return { ok: false, reason: "이미 순위에 반영된 경기" };
-  if (m.status !== "done" || m.scoreA == null || m.scoreB == null)
-    return { ok: false, reason: "종료 상태 + 스코어 입력 후 반영할 수 있음" };
   if (!TEAM_MAP[m.a] || !TEAM_MAP[m.b]) return { ok: false, reason: "미정 팀은 반영 불가" };
   const stage = Cache.records.find(s => s.name === m.stage);
   if (!stage) return { ok: false, reason: `순위 전적 관리에 "${m.stage}" 스테이지가 없음 (스테이지 추가 후 반영)` };
+
+  const claim = await sb.rpc("claim_match_for_records", { p_match_id: matchId });
+  if (claim.error) {
+    if (!isMissingFunction(claim.error))
+      return { ok: false, reason: (claim.error.message || "").replace(/^.*?:\s*/, "") };
+    // schema14 실행 전 — 예전 방식으로 (동점만 여기서 막는다)
+    if (m.counted) return { ok: false, reason: "이미 순위에 반영된 경기" };
+    if (!matchWinner(m)) return { ok: false, reason: "종료 상태 + 서로 다른 스코어를 입력해 주세요" };
+  }
+  const winner = claim.data ? claim.data.winner : matchWinner(m);
 
   const rec = t => {
     let r = stage.records.find(x => x.team === t);
@@ -481,13 +504,25 @@ function applyMatchToRecords(matchId) {
     return r;
   };
   const A = rec(m.a), B = rec(m.b);
-  const aWin = m.scoreA > m.scoreB;
+  const aWin = winner === "a";
   (aWin ? A : B).w++; (aWin ? B : A).l++;
   A.sw += m.scoreA; A.sl += m.scoreB;
   B.sw += m.scoreB; B.sl += m.scoreA;
   m.counted = true;
-  saveStageRecords(Cache.records);
-  sb.from("matches").update({ counted: true }).eq("id", m.id).then(r => sbErr(r.error, "markCounted"));
+
+  const saved = await saveStageRecords(Cache.records);
+  if (saved && saved.error) {                      // 전적 저장 실패 → 자리를 되돌린다
+    (aWin ? A : B).w--; (aWin ? B : A).l--;
+    A.sw -= m.scoreA; A.sl -= m.scoreB;
+    B.sw -= m.scoreB; B.sl -= m.scoreA;
+    m.counted = false;
+    await sb.rpc("release_match_records", { p_match_id: matchId });
+    return { ok: false, reason: "전적을 저장하지 못했습니다: " + (saved.error.message || "") };
+  }
+  if (claim.error) {                               // 예전 방식일 때만 여기서 표시를 세운다
+    const r = await sb.from("matches").update({ counted: true }).eq("id", m.id);
+    if (r.error) return { ok: false, reason: "반영 표시를 저장하지 못했습니다: " + r.error.message };
+  }
   return { ok: true };
 }
 function stageStandings(stageId) {
@@ -519,11 +554,11 @@ function teamPlayers(teamId) {
 }
 function addPlayer(p) {
   Cache.players.push(p);
-  sb.from("players").insert(p).then(r => sbErr(r.error, "addPlayer"));
+  sb.from("players").insert(p).then(r => sbWriteFail(r.error, "addPlayer"));
 }
 function deletePlayer(id) {
   Cache.players = Cache.players.filter(p => p.id !== id);
-  sb.from("players").delete().eq("id", id).then(r => sbErr(r.error, "deletePlayer"));
+  sb.from("players").delete().eq("id", id).then(r => sbWriteFail(r.error, "deletePlayer"));
 }
 
 // ── 게시글 ──
@@ -574,6 +609,12 @@ function editPost(id, pw, title, body) {
 
 // 글 삭제 (같은 규칙)
 function removePost(id, pw) {
+  // 글에 붙어 있던 투표도 함께 정리한다 (예전에는 DB에 그대로 남았다)
+  const attached = Cache.polls.find(p => p.post_id === id);
+  if (attached) {
+    Cache.polls = Cache.polls.filter(p => p !== attached);
+    sb.from("polls").delete().eq("post_id", id).then(r => sbErr(r.error, "removePost.poll"));
+  }
   return sb.rpc("delete_post", { p_id: id, p_pw: pw || null }).then(r => {
     sbErr(r.error, "removePost");
     if (!r.error) Cache.posts = Cache.posts.filter(x => x.id !== id);
@@ -583,15 +624,38 @@ function removePost(id, pw) {
 function postsForMatch(matchId) {
   return Cache.posts.filter(p => p.match_id === matchId);
 }
-function updatePost(id, patch) {
-  // 조회수·추천은 서버 함수로만 증가 (임의 조작 방지)
-  Cache.posts = Cache.posts.map(p => p.id === id ? { ...p, ...patch } : p);
-  if (patch.views != null) sb.rpc("inc_views", { pid: id }).then(r => sbErr(r.error, "inc_views"));
-  if (patch.up != null) sb.rpc("upvote_post", { pid: id }).then(r => sbErr(r.error, "upvote_post"));
+// 조회수 — 서버가 1씩 올린다 (예전에는 브라우저가 절대값을 써서 아무 숫자나 넣을 수 있었다)
+function bumpPostView(id) {
+  const p = Cache.posts.find(x => x.id === id);
+  if (p) p.views = (p.views || 0) + 1;
+  sb.rpc("bump_post_view", { p_post_id: id }).then(r => {
+    if (isMissingFunction(r.error)) return sb.rpc("inc_views", { pid: id });
+    sbErr(r.error, "bumpPostView");
+  });
 }
-function deletePost(id) {
-  Cache.posts = Cache.posts.filter(p => p.id !== id);
-  sb.from("posts").delete().eq("id", id).then(r => sbErr(r.error, "deletePost"));
+// 내가 이 글을 추천했는가
+function myPostUpvote(id) {
+  return Cache.mine.postUpvotes.some(x => x.post_id === id);
+}
+// 글 추천 — 서버가 1인 1표를 보증한다 (예전에는 검사 없이 up = up + 1 이었다)
+function upvotePost(id) {
+  if (myPostUpvote(id)) return false;
+  const p = Cache.posts.find(x => x.id === id);
+  if (p) p.up = (p.up || 0) + 1;
+  Cache.mine.postUpvotes.push({ post_id: id, _p: 1 });
+  sb.rpc("upvote_post_v2", { p_post_id: id, p_voter: anonId() }).then(r => {
+    if (isMissingFunction(r.error))
+      return sb.rpc("upvote_post", { pid: id }).then(x => sbErr(x.error, "upvotePost(legacy)"));
+    if (sbWriteFail(r.error, "upvotePost")) {
+      if (p) p.up = Math.max(0, (p.up || 1) - 1);
+      Cache.mine.postUpvotes = Cache.mine.postUpvotes.filter(x => x.post_id !== id);
+    } else {
+      const cur = Cache.mine.postUpvotes.find(x => x.post_id === id);
+      if (cur) delete cur._p;
+      if (typeof r.data === "number" && p) p.up = r.data;   // 서버가 센 실제 값으로 맞춘다
+    }
+  });
+  return true;
 }
 function addComment(postId, nick, body, pw) {
   nick = Auth.profile ? Auth.profile.nick : "익명"; // 서버가 정한 닉네임으로 곧 교체됨
@@ -702,6 +766,15 @@ function myPredictionStats() {
   });
   const pending = Object.keys(votes).length - total;
   return { total, hit, pending, points: hit * 10 };
+}
+
+// 예측 랭킹 (회원만 · 5경기 이상 채점된 사람만 — 표본이 적으면 순위가 그 사람의 예측을 드러낸다)
+function predictRanking() {
+  return (Cache.stats.ranking || [])
+    .filter(r => r.total > 0)
+    .map(r => ({ nick: r.nick, team: r.fav_team || null, hit: r.hits, total: r.total,
+                 pct: Math.round((r.hits / r.total) * 100), points: r.hits * 10 }))
+    .sort((a, b) => b.points - a.points || b.pct - a.pct || a.nick.localeCompare(b.nick));
 }
 
 // ── 선수 평점 ──
@@ -857,7 +930,7 @@ function setPOM(matchId, playerId) {
   if (cur) {
     if (!playerId) {                       // 지정 해제
       Cache.pom = Cache.pom.filter(x => x !== cur);
-      sb.from("pom_awards").delete().eq("match_id", matchId).then(r => sbErr(r.error, "setPOM.del"));
+      sb.from("pom_awards").delete().eq("match_id", matchId).then(r => sbWriteFail(r.error, "setPOM.del"));
       return;
     }
     cur.player_id = playerId;
@@ -890,7 +963,7 @@ function addAward(a) {
 }
 function deleteAward(id) {
   Cache.awards = Cache.awards.filter(a => a.id !== id);
-  sb.from("awards").delete().eq("id", id).then(r => sbErr(r.error, "deleteAward"));
+  sb.from("awards").delete().eq("id", id).then(r => sbWriteFail(r.error, "deleteAward"));
 }
 
 // ── 응원팀 (팬 개인화의 축) ───────────────────────────────
@@ -910,8 +983,11 @@ function setFavTeam(teamId) {
   setFavTeamLocal(teamId);
   if (Auth.profile) {
     Auth.profile.fav_team = teamId || null;
-    sb.from("profiles").update({ fav_team: teamId || null })
-      .eq("id", Auth.profile.id).then(r => sbErr(r.error, "setFavTeam"));
+    sb.rpc("set_fav_team", { p_team: teamId || "" }).then(r => {
+      if (isMissingFunction(r.error))
+        return sb.from("profiles").update({ fav_team: teamId || null }).eq("id", Auth.profile.id);
+      sbWriteFail(r.error, "setFavTeam");
+    });
   }
 }
 
@@ -1184,7 +1260,7 @@ function saveDetailSet(matchId, pos, setData) {
     d.sets.push({ _idx: dbIdx, ...setData });
   }
   sb.from("match_details").upsert({ match_id: matchId, set_index: dbIdx, win: setData.win, players: setData.players })
-    .then(r => sbErr(r.error, "saveDetailSet"));
+    .then(r => sbWriteFail(r.error, "saveDetailSet"));
 }
 function deleteDetailSet(matchId, pos) {
   const d = Cache.details[matchId];
@@ -1193,7 +1269,7 @@ function deleteDetailSet(matchId, pos) {
   d.sets.splice(pos, 1);
   if (!d.sets.length) delete Cache.details[matchId];
   sb.from("match_details").delete().eq("match_id", matchId).eq("set_index", dbIdx)
-    .then(r => sbErr(r.error, "deleteDetailSet"));
+    .then(r => sbWriteFail(r.error, "deleteDetailSet"));
 }
 
 // ── 팬심지수: 투표 ──
@@ -1442,16 +1518,27 @@ async function sbSignIn(email, password) {
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   return { session: data.session, error };
 }
+// 프로필 만들기 — 서버 함수로 (닉네임 중복·관리자 승격을 서버가 막는다)
+async function saveProfile(nick, favTeam) {
+  const r = await sb.rpc("create_profile", { p_nick: nick, p_fav_team: favTeam || "" });
+  if (isMissingFunction(r.error)) {           // schema14 실행 전
+    const { error } = await sb.from("profiles")
+      .insert({ id: Auth.session.user.id, nick, fav_team: favTeam || null });
+    if (!error) return null;
+    return (error.code === "23505" || /duplicate/.test(error.message || ""))
+      ? { message: "이미 사용 중인 닉네임입니다." } : error;
+  }
+  if (r.error) return { message: (r.error.message || "").replace(/^.*?:\s*/, "") };
+  if (r.data) Auth.profile = r.data;
+  return null;
+}
+
 async function sbSignUp(email, password, nick, favTeam) {
   const { data, error } = await sb.auth.signUp({ email, password });
   if (error) return { error };
   if (!data.session) return { needConfirm: true }; // 이메일 확인이 켜져 있는 경우
-  const { error: pErr } = await sb.from("profiles").insert({ id: data.session.user.id, nick, fav_team: favTeam || null });
-  if (pErr) {
-    if (pErr.message.includes("duplicate") || pErr.code === "23505")
-      return { error: { message: "이미 사용 중인 닉네임입니다." } };
-    return { error: pErr };
-  }
+  const pErr = await saveProfile(nick, favTeam);
+  if (pErr) return { error: pErr };
   return { session: data.session };
 }
 async function sbSignOut() {
@@ -1467,14 +1554,9 @@ async function sbSignOut() {
 // 로그인은 됐지만 프로필이 없는 회원용 (이메일 확인을 거친 가입 등)
 async function completeProfile(nick, favTeam) {
   if (!Auth.session) return { error: { message: "로그인이 필요합니다." } };
-  const row = { id: Auth.session.user.id, nick, fav_team: favTeam || null };
-  const { error } = await sb.from("profiles").insert(row);
-  if (error) {
-    if (error.message.includes("duplicate") || error.code === "23505")
-      return { error: { message: "이미 사용 중인 닉네임입니다." } };
-    return { error };
-  }
-  Auth.profile = { ...row, is_admin: false };
+  const err = await saveProfile(nick, favTeam);
+  if (err) return { error: err };
+  Auth.profile = { id: Auth.session.user.id, nick, fav_team: favTeam || null, is_admin: false };
   return { ok: true };
 }
 
@@ -1492,6 +1574,22 @@ const storeFresh = (async () => {
 })();
 
 const storeReady = snapshotUsed ? Promise.resolve() : storeFresh;
+
+// ── LCK 경기 일정 자동 따라가기 ────────────────────────────
+// 서버가 Leaguepedia 일정표를 보고 우리 경기 표를 맞춘다. 매일 자동으로도 돌지만,
+// 요금제에 따라 하루 한 번뿐일 수 있어서 방문자가 들어올 때도 한 번 신호를 보낸다.
+// 실제 갱신 간격은 **서버가** 정한다(기본 30분) — 여러 명이 동시에 들어와도 한 번만 돈다.
+function pingScheduleSync() {
+  try {
+    if (sessionStorage.getItem("nexus_sched_ping")) return;
+    sessionStorage.setItem("nexus_sched_ping", "1");
+  } catch { /* 저장소를 못 쓰면 그냥 한 번 보낸다 */ }
+  fetch("/api/schedule-sync", { method: "GET", keepalive: true })
+    .then(r => r.ok ? r.json() : null)
+    .then(j => { if (j && j.data && j.data.갱신한경기) console.log("[일정] 갱신", j.data); })
+    .catch(() => { /* 로컬 개발 등 서버 함수가 없으면 조용히 넘어간다 */ });
+}
+storeFresh.then(pingScheduleSync).catch(() => {});
 
 // 페이지를 떠날 때 (투표·평점 등 방금 바꾼 내용까지) 스냅샷 갱신
 addEventListener("pagehide", snapshotSave);

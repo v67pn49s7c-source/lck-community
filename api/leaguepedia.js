@@ -223,7 +223,7 @@ module.exports = async (req, res) => {
       const id = "lp" + String(m.lpMatchId).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 60);
       const done = m.scoreA + m.scoreB > 0;
       matchRows.push({
-        id, tid, stage: page.split("/").pop(),
+        id, lp_id: m.lpMatchId, tid, stage: page.split("/").pop(),
         at: (m.at || "").replace(" ", "T") + (m.at ? "Z" : ""),
         a: m.a, b: m.b, label: "", odds_a: 2, odds_b: 2,
         status: done ? "done" : "upcoming",
@@ -250,6 +250,15 @@ module.exports = async (req, res) => {
         body: JSON.stringify(detailRows),
       });
     }
+
+    // 일정 자동 갱신이 어느 대회를 볼지 여기서 기억해 둔다 (api/schedule-sync.js 가 읽는다)
+    try {
+      const prev = JSON.parse((await loadSetting("schedule_sync")) || "{}");
+      const pages = [...new Set([...(prev.pages || []), page])].slice(-3);
+      await saveSetting("schedule_sync", JSON.stringify({
+        ...prev, pages, tid, stage: page.split("/").pop(),
+      }));
+    } catch { /* 기억에 실패해도 수집 자체는 성공이다 */ }
 
     return ok(res, { ...summary, 저장함: true, 저장된경기: matchRows.length, 저장된세트: detailRows.length });
   } catch (e) {

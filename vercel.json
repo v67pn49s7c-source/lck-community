@@ -4,5 +4,11 @@
     "api/*.js": {
       "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/schedule-sync",
+      "schedule": "0 18 * * *"
+    }
+  ]
 }

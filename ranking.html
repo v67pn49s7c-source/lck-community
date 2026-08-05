@@ -12,7 +12,7 @@
   <meta name="twitter:card" content="summary">
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260805b">
+  <link rel="stylesheet" href="assets/styles.css?v=20260805c">
 </head>
 <body>
   <main class="page">
@@ -58,20 +58,20 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260805b"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260805b"></script>
-  <script src="assets/store.js?v=20260805b"></script>
-  <script src="assets/app.js?v=20260805b"></script>
+  <script src="assets/data.js?v=20260805c"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260805c"></script>
+  <script src="assets/store.js?v=20260805c"></script>
+  <script src="assets/app.js?v=20260805c"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("랭킹", null);
 
     // 팬덤별 적중률 (응원팀을 설정한 회원의 예측만 집계 가능)
-    (function renderFandom() {
+    function renderFandom() {
       const rows = fandomAccuracy();
-      if (!rows.length) return;
       const card = document.getElementById("fandom-card");
-      card.style.display = "";
+      card.style.display = rows.length ? "" : "none";
+      if (!rows.length) return;
       document.getElementById("fandom-body").innerHTML = rows.map((r, i) => {
         const t = TEAM_MAP[r.team];
         if (!t) return "";
@@ -83,29 +83,50 @@
           <span style="margin-left:auto;font-weight:800;color:var(--blue)">${r.pct}%</span>
         </a>`;
       }).join("") + `<div class="admin-note">응원팀을 설정한 회원의 예측만 집계합니다. 회원가입하고 우리 팀 적중률을 끌어올려 보세요!</div>`;
-    })();
+    }
+    renderFandom();
 
     function renderRanking() {
       const me = myPredictionStats();
-      const rows = PREDICT_RANKING.map(r => ({
-        nick: r.nick, hit: r.hit, total: r.total, points: r.hit * 10, me: false,
-      }));
-      if (me.total + me.pending > 0) {
-        rows.push({ nick: (getNick() || "나") + " (나)", hit: me.hit, total: me.total, points: me.points, me: true });
-      }
-      rows.sort((a, b) => b.points - a.points || (b.hit / (b.total || 1)) - (a.hit / (a.total || 1)));
+      const myNick = Auth.profile ? Auth.profile.nick : null;
+      const rows = predictRanking();
 
-      document.getElementById("ranking-body").innerHTML = rows.map((r, i) => `
-        <div class="rank-row ${r.me ? "me" : ""}">
+      // 내 기록은 순위에 못 들었어도 맨 아래에 따로 붙여 준다
+      const inList = myNick && rows.some(r => r.nick === myNick);
+      const mine = (me.total > 0 && !inList)
+        ? { nick: (myNick || "나") + " (나)", hit: me.hit, total: me.total,
+            pct: me.total ? Math.round((me.hit / me.total) * 100) : 0, points: me.points, me: true }
+        : null;
+
+      const el = document.getElementById("ranking-body");
+      if (!rows.length && !mine) {
+        el.innerHTML = `<div class="empty-note">아직 순위가 없습니다.<br>
+          <span style="color:var(--text-dim);font-size:12px">회원이 채점된 경기를 5경기 이상 예측하면 순위에 올라옵니다.
+          비회원 기록은 순위에 넣지 않습니다.</span></div>`;
+        return;
+      }
+      el.innerHTML = rows.map((r, i) => {
+        const t = r.team ? TEAM_MAP[r.team] : null;
+        return `
+        <div class="rank-row ${myNick && r.nick === myNick ? "me" : ""}">
           <span class="no ${i < 3 ? "top" : ""}">${i + 1}</span>
-          <span class="nick">${esc(r.nick)}</span>
+          <span class="nick">${esc(r.nick)}${t ? `<span class="nick-badge" title="${esc(t.name)} 팬">${teamLogoHTML(t, 14)}</span>` : ""}</span>
           <span class="detail">${r.hit}/${r.total} 적중</span>
-          <span class="detail">${r.total ? Math.round((r.hit / r.total) * 100) : 0}%</span>
+          <span class="detail">${r.pct}%</span>
           <span class="rate">${r.points}P</span>
-        </div>`).join("");
+        </div>`;
+      }).join("")
+      + (mine ? `<div class="rank-row me">
+          <span class="no">–</span>
+          <span class="nick">${esc(mine.nick)}</span>
+          <span class="detail">${mine.hit}/${mine.total} 적중</span>
+          <span class="detail">${mine.pct}%</span>
+          <span class="rate">${mine.points}P</span>
+        </div>` : "");
     }
 
     renderRanking();
+    storeFresh.then(() => { renderRanking(); renderFandom(); }).catch(() => {});
     initSidebar();
     renderFooter();
   
