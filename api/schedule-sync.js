@@ -84,6 +84,21 @@ async function runSync({ pages, force }) {
   const byLp = {};
   existing.forEach(m => { if (m.lp_id) byLp[m.lp_id] = m; });
 
+  // 새로 만들 경기의 대회: 지정값 → 지금 경기들이 가장 많이 쓰는 대회 순.
+  // (대회가 비면 경기 목록의 대회 필터에서 통째로 안 보인다)
+  const tidCount = {};
+  existing.forEach(m => { if (m.tid) tidCount[m.tid] = (tidCount[m.tid] || 0) + 1; });
+  const defaultTid = state.tid
+    || Object.keys(tidCount).sort((x, y) => tidCount[y] - tidCount[x])[0]
+    || null;
+
+  // 순위 반영이 가능하려면 stage 가 '순위 전적'의 스테이지 이름과 같아야 한다.
+  // 새 경기는 Leaguepedia 의 주차(Week 11) 뿐이라 대개 맞지 않는다 — 몇 건인지 알려 준다.
+  let stageNames = [];
+  try {
+    stageNames = (await sb("stage_records?select=name")).map(x => x.name);
+  } catch { /* 없어도 갱신 자체는 진행 */ }
+
   const unknownTeams = new Set();
   const upserts = [];
   const used = new Set(existing.filter(m => m.lp_id).map(m => m.id));
@@ -121,7 +136,7 @@ async function runSync({ pages, force }) {
         id: prev ? prev.id : idOf(lpId),
         lp_id: lpId,
         a, b, at,
-        tid: prev ? prev.tid : (state.tid || null),
+        tid: prev ? prev.tid : defaultTid,
         stage: prev ? prev.stage : (state.stage || val(r, "Tab") || ""),
         label: "",
         odds_a: 2, odds_b: 2,
@@ -134,7 +149,9 @@ async function runSync({ pages, force }) {
       if (prev && prev.counted) {
         row.status = prev.status; row.score_a = prev.score_a; row.score_b = prev.score_b;
       }
-      if (!row.tid) delete row.tid;                 // 대회 미지정이면 기존 값 유지
+      // ⚠ 여기서 키를 지우면 안 된다. 한 번에 보내는 행들의 키가 서로 다르면
+      //    PostgREST 가 "All object keys must match" 로 통째로 거부한다.
+      //    (기존 경기는 대회가 있고 새 경기는 없어서 실제로 이 오류가 났다)
       upserts.push(row);
     }
     if (list.length > 1) await wait(1500);
@@ -155,13 +172,16 @@ async function runSync({ pages, force }) {
   }
 
   await saveSetting("schedule_sync", JSON.stringify({
-    ...state, at: Date.now(), pages: list, saved, seen,
+    ...state, at: Date.now(), pages: list, tid: defaultTid || state.tid, saved, seen,
   }));
 
+  const fresh = rows.filter(u => !existing.some(m => m.id === u.id));
   return {
     갱신한경기: saved, 훑어본일정: seen, 대회: list,
     모르는팀: [...unknownTeams],
-    새로만든경기: rows.filter(u => !existing.some(m => m.id === u.id)).length,
+    새로만든경기: fresh.length,
+    스테이지확인필요: stageNames.length
+      ? fresh.filter(u => !stageNames.includes(u.stage)).length : 0,
   };
 }
 

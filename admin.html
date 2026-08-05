@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260805d">
+  <link rel="stylesheet" href="assets/styles.css?v=20260805e">
 </head>
 <body>
   <main class="page">
@@ -301,11 +301,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260805d"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260805d"></script>
-  <script src="assets/store.js?v=20260805d"></script>
-  <script src="assets/app.js?v=20260805d"></script>
-  <script src="assets/ddragon.js?v=20260805d"></script>
+  <script src="assets/data.js?v=20260805e"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260805e"></script>
+  <script src="assets/store.js?v=20260805e"></script>
+  <script src="assets/app.js?v=20260805e"></script>
+  <script src="assets/ddragon.js?v=20260805e"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -776,6 +776,8 @@
           일정 <b>${d.훑어본일정}</b>건을 확인해 <b>${d.갱신한경기}</b>경기를 맞췄습니다
           (새로 만든 경기 ${d.새로만든경기}건).
           ${(d.모르는팀 || []).length ? `<br><span style="color:var(--accent)">이름을 못 알아본 팀: ${esc((d.모르는팀 || []).join(", "))} — 위에서 연결해 주세요.</span>` : ""}
+          ${d.스테이지확인필요 ? `<br><span style="color:var(--accent)">새 경기 ${d.스테이지확인필요}건의 <b>스테이지</b>가 Leaguepedia 주차 이름(Week 11 등)으로 들어갔습니다.
+            순위에 반영하려면 <b>경기</b> 탭에서 우리 스테이지(예: R3-4 라이즈)로 바꿔 주세요.</span>` : ""}
           </div>`;
         setTimeout(() => location.reload(), 2500);   // 결과를 읽을 시간을 준 뒤 새로 그린다
       } catch (e) {
