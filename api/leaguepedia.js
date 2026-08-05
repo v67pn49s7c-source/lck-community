@@ -14,7 +14,7 @@
 // 데이터 출처: Leaguepedia (CC-BY-SA 3.0) — 푸터에 출처를 표기하고 있다.
 
 const { ok, fail, sb, requireAdmin } = require("./_lib");
-const { val, wait, cargo, loadSetting, saveSetting, matchIdOf, stagePicker, autoLinkPlayers, resolveTid, buildNewPlayers } = require("./_lp");
+const { val, wait, cargo, loadSetting, saveSetting, matchIdOf, stagePicker, autoLinkPlayers, resolveTid, buildNewPlayers, normNick } = require("./_lp");
 
 const CACHE_MINUTES = 10;
 const isWin = v => /^(1|yes|true)$/i.test(String(v || "").trim());
@@ -275,7 +275,7 @@ module.exports = async (req, res) => {
 
     if (!apply) return ok(res, { ...summary, 미리보기: matches.slice(0, 2) });
     if (unknownTeams.size) return fail(res, 400, `팀 이름을 우리 팀과 연결해 주세요: ${[...unknownTeams].join(", ")}`);
-    let pomSaved = 0;
+    let pomSaved = 0, pomInfo = null;
     // 대회 페이지마다 우리 대회를 정한다 (없으면 만들어 준다 — 스플릿 1-2 가 스플릿 3 에 섞이지 않게)
     const tidOf = {};
     for (const pg of pages) tidOf[pg] = await resolveTid(pg, existing, tid);
@@ -361,15 +361,26 @@ module.exports = async (req, res) => {
         });
         if (pages.length > 1) await wait(1200);
       }
-      const pomRows = [];
-      Object.entries(mvpByMatch).forEach(([lpMid, counts]) => {
-        const m = byMatch[lpMid];
-        if (!m) return;
-        const id = (byLpMatch[lpMid] || {}).id || matchIdOf(lpMid);
-        const best = Object.entries(counts).sort((x, y) => y[1] - x[1])[0];
-        const pid = best && playerMap[best[0]];
-        if (pid) pomRows.push({ match_id: id, player_id: pid, pts: 100, label: "경기 MVP" });
+      // MVP 칸은 닉네임만 온다("Scout"). 선수 연결표는 Leaguepedia 링크 이름이 열쇠라
+      // "Frog (Lee Min-hoi)" 처럼 괄호가 붙은 선수는 그대로는 못 찾는다 → 닉네임으로도 찾는다.
+      const nickToId = {};
+      (await sb("players?select=id,nick")).forEach(p => {
+        const k = normNick(p.nick);
+        if (k && !nickToId[k]) nickToId[k] = p.id;
       });
+      const findPid = name => playerMap[name] || nickToId[normNick(name)] || null;
+
+      const pomRows = [];
+      let mvpUnknown = 0;
+      Object.entries(mvpByMatch).forEach(([lpMid, counts]) => {
+        const id = (byLpMatch[lpMid] || {}).id || (byMatch[lpMid] ? matchIdOf(lpMid) : null);
+        if (!id) return;                       // 우리 경기표에 없는 경기는 건너뛴다
+        const best = Object.entries(counts).sort((x, y) => y[1] - x[1])[0];
+        const pid = best && findPid(best[0]);
+        if (pid) pomRows.push({ match_id: id, player_id: pid, pts: 100, label: "경기 MVP" });
+        else if (best) mvpUnknown++;
+      });
+      pomInfo = { 받은MVP: Object.keys(mvpByMatch).length, 못찾은선수: mvpUnknown };
       if (pomRows.length) {
         // pom_awards 의 유니크 인덱스가 부분 인덱스(match_id is not null)라
         // upsert 를 못 쓴다. 해당 경기 것만 지우고 다시 넣는다 (여러 번 눌러도 안전).
@@ -378,7 +389,7 @@ module.exports = async (req, res) => {
         await sb("pom_awards", { method: "POST", body: JSON.stringify(pomRows) });
         pomSaved = pomRows.length;
       }
-    } catch (e) { /* MVP 칸이 없거나 호출 제한 — 나머지 수집은 그대로 유효하다 */ }
+    } catch (e) { pomInfo = { 실패: (e.message || String(e)).slice(0, 80) }; }
 
     // 일정 자동 갱신이 어느 대회를 볼지 여기서 기억해 둔다 (api/schedule-sync.js 가 읽는다)
     try {
@@ -390,7 +401,7 @@ module.exports = async (req, res) => {
     } catch { /* 기억에 실패해도 수집 자체는 성공이다 */ }
 
     return ok(res, { ...summary, 저장함: true, 저장된경기: matchRowsU.length, 저장된세트: detailRows.length,
-                     POM저장: pomSaved, 선수등록: madePlayers,
+                     POM저장: pomSaved, POM상세: pomInfo, 선수등록: madePlayers,
                      대회: [...new Set(Object.values(tidOf).filter(Boolean))].join(", ") });
   } catch (e) {
     return fail(res, 500, e.message || String(e));
