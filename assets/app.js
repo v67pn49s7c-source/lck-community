@@ -300,7 +300,7 @@ function renderFanHero() {
     const usPct = next.a === fav ? pct.a : pct.b; // 우리 팀 승리를 예측한 비율
     const live = next.status === "live";
     matchHTML = `
-      <a class="fh-match" href="live.html?match=${q(next.id)}">
+      <a class="fh-match" href="/match/${q(next.id)}">
         <span class="fh-side">${teamLogoHTML(A, 34)} <b>${esc(A.abbr)}</b></span>
         <span class="fh-mid">${live ? `<span class="live-badge">● LIVE</span>` : `<em>VS</em><span>${fmtWhen(next.at)}</span>`}</span>
         <span class="fh-side right"><b>${esc(B.abbr)}</b> ${teamLogoHTML(B, 34)}</span>
@@ -383,7 +383,7 @@ function sharePredictionCard(match, side) {
 
   g.textAlign = "left";
   g.fillStyle = "#667080"; g.font = "600 20px sans-serif";
-  g.fillText(`${pct.n ? pct.n + "명 참여 · " : ""}${location.host}/live.html?match=${match.id}`, 48, H - 44);
+  g.fillText(`${pct.n ? pct.n + "명 참여 · " : ""}${location.host}/match/${match.id}`, 48, H - 44);
 
   c.toBlob(async blob => {
     const file = new File([blob], "nexus-predict.png", { type: "image/png" });
@@ -635,7 +635,7 @@ function scheduleHTML(matches, opts) {
             <span class="odds-pill"><b>${Math.round(pct.b)}%</b></span>
           </div>`;
       return `
-      <a class="match-row" href="live.html?match=${q(m.id)}">
+      <a class="match-row" href="/match/${q(m.id)}">
         <span class="match-time">${fmtTime(m.at)}</span>
         ${status}
         <div class="match-teams">
@@ -797,7 +797,7 @@ function sharePollCard(poll, ctx) {
   g.fillStyle = "#667080"; g.font = "600 20px sans-serif";
   g.fillText(`${r.voters}명 참여 · 팬덤별 여론은 THE NEXUS에서`, 48, H - 72);
   g.fillStyle = "#9aa1b0";
-  g.fillText(location.host + (poll.match_id ? "/live.html?match=" + poll.match_id : ""), 48, H - 40);
+  g.fillText(location.host + (poll.match_id ? "/match/" + poll.match_id : ""), 48, H - 40);
 
   c.toBlob(async blob => {
     const file = new File([blob], "nexus-poll.png", { type: "image/png" });
@@ -915,7 +915,7 @@ function shareRatingCard(match) {
   g.fillStyle = "#667080"; g.font = "600 20px sans-serif";
   g.fillText(`${voters}명 참여 · 아군·상대·중립 팬심 평점은 THE NEXUS에서`, 48, H - 66);
   g.fillStyle = "#9aa1b0";
-  g.fillText(location.host + "/live.html?match=" + match.id, 48, H - 36);
+  g.fillText(location.host + "/match/" + match.id, 48, H - 36);
 
   c.toBlob(async blob => {
     const file = new File([blob], "nexus-rating.png", { type: "image/png" });
@@ -992,7 +992,7 @@ function renderTodayPoll() {
   card.style.display = "";
   const m = poll.match_id ? getMatches().find(x => x.id === poll.match_id) : null;
   const link = card.querySelector("#today-poll-link");
-  if (link && m) { link.href = "live.html?match=" + m.id; link.style.display = ""; }
+  if (link && m) { link.href = "/match/" + m.id; link.style.display = ""; }
   else if (link) link.style.display = "none";
   renderPollInto(card.querySelector("#today-poll"), poll,
     m ? { teamA: m.a, teamB: m.b } : {});

@@ -2,18 +2,23 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
+  <meta name="description" content="오늘 열리는 LCK 경기의 중계 링크, 세트별 선수 기록, 팬심지수 투표와 10점 팬 평점을 한 화면에서.">
+  <link rel="canonical" href="https://lck-community.vercel.app/live.html">
+  <meta property="og:url" content="https://lck-community.vercel.app/live.html">
+  <meta property="og:site_name" content="The Nexus">
+  <meta property="og:locale" content="ko_KR">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>오늘의 경기 — The Nexus</title>
+  <title>오늘의 LCK 경기 — The Nexus</title>
   <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
-  <meta property="og:title" content="The Nexus — LCK 팬 커뮤니티">
-  <meta property="og:description" content="경기마다 팬심지수 투표! 전체·양 팀 팬·중립의 여론을 비교해 보세요.">
+  <meta property="og:title" content="오늘의 LCK 경기 — The Nexus">
+  <meta property="og:description" content="오늘 열리는 LCK 경기의 중계 링크, 세트별 선수 기록, 팬심지수 투표와 10점 팬 평점을 한 화면에서.">
   <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/nexus-mobile.png">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260805j">
+  <link rel="stylesheet" href="assets/styles.css?v=20260805k">
 </head>
 <body>
   <main class="page">
@@ -75,11 +80,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260805j"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260805j"></script>
-  <script src="assets/store.js?v=20260805j"></script>
-  <script src="assets/app.js?v=20260805j"></script>
-  <script src="assets/ddragon.js?v=20260805j"></script>
+  <script src="assets/data.js?v=20260805k"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260805k"></script>
+  <script src="assets/store.js?v=20260805k"></script>
+  <script src="assets/app.js?v=20260805k"></script>
+  <script src="assets/ddragon.js?v=20260805k"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -308,7 +313,7 @@
       const ms = sortedMatches().filter(m => m.status !== "done").slice(0, 6);
       document.getElementById("upcoming-list").innerHTML =
         ms.map(m => `
-          <a class="post-row" href="live.html?match=${q(m.id)}">
+          <a class="post-row" href="/match/${q(m.id)}">
             <span style="display:flex;align-items:center;gap:5px;font-weight:700">${slotLogoHTML(m.a, 18)} ${slotName(m.a)}</span>
             <span style="color:var(--text-dim);font-size:11px">vs</span>
             <span style="display:flex;align-items:center;gap:5px;font-weight:700">${slotLogoHTML(m.b, 18)} ${slotName(m.b)}</span>

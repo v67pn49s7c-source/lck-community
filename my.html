@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
+  <meta name="robots" content="noindex, nofollow">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>팬 여권 — The Nexus</title>
   <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
@@ -12,7 +13,7 @@
   <meta name="twitter:card" content="summary">
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260805j">
+  <link rel="stylesheet" href="assets/styles.css?v=20260805k">
 </head>
 <body>
   <main class="page">
@@ -70,10 +71,10 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260805j"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260805j"></script>
-  <script src="assets/store.js?v=20260805j"></script>
-  <script src="assets/app.js?v=20260805j"></script>
+  <script src="assets/data.js?v=20260805k"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260805k"></script>
+  <script src="assets/store.js?v=20260805k"></script>
+  <script src="assets/app.js?v=20260805k"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("MY", null);
@@ -132,7 +133,7 @@
             const A = TEAM_MAP[h.match.a], B = TEAM_MAP[h.match.b];
             const pickAbbr = (h.side === "a" ? A : B).abbr;
             return `
-            <a class="post-row" href="live.html?match=${q(h.match.id)}">
+            <a class="post-row" href="/match/${q(h.match.id)}">
               <span class="pred-mark ${h.hit ? "hit" : "miss"}">${h.hit ? "적중" : "빗나감"}</span>
               <span class="post-title">${esc(A.abbr)} ${h.match.scoreA}:${h.match.scoreB} ${esc(B.abbr)}
                 <span style="color:var(--text-dim)">· 내 예측 ${esc(pickAbbr)}</span></span>

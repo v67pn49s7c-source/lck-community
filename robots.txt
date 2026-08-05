@@ -1,0 +1,23 @@
+# The Nexus — LCK 팬 커뮤니티 (비공식)
+# 검색 로봇에게 "어디를 봐도 되는지" 알려 주는 파일입니다.
+
+User-agent: *
+Allow: /
+
+# 검색에 뜰 이유가 없는 화면 (관리자·개인 기록·글쓰기·로그인)
+Disallow: /admin.html
+Disallow: /my.html
+Disallow: /write.html
+Disallow: /login.html
+Disallow: /api/
+
+# 네이버 수집기(Yeti)도 같은 규칙
+User-agent: Yeti
+Allow: /
+Disallow: /admin.html
+Disallow: /my.html
+Disallow: /write.html
+Disallow: /login.html
+Disallow: /api/
+
+Sitemap: https://lck-community.vercel.app/sitemap.xml

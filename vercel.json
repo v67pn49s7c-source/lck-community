@@ -10,5 +10,19 @@
       "path": "/api/schedule-sync",
       "schedule": "0 18 * * *"
     }
+  ],
+  "rewrites": [
+    { "source": "/match/:id", "destination": "/api/match?id=:id" },
+    { "source": "/sitemap.xml", "destination": "/api/sitemap" }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex" }]
+    },
+    {
+      "source": "/(admin|my|write|login).html",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    }
   ]
 }
