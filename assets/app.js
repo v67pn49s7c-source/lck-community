@@ -818,104 +818,112 @@ function shareRatingCard(match) {
   const voters = matchRatingVoters(match.id);
   if (!voters) { alert("아직 이 경기에 매겨진 평점이 없습니다."); return; }
 
-  const rows = fanRatingRows(match); // 포지션별 좌우 짝
+  const rows = fanRatingRows(match);
   const pog = pogForMatch(match.id);
   const pogPl = pog ? getPlayer(pog.pid) : null;
   const tierColor = a => a >= 9 ? "#f5b942" : a >= 8 ? "#2fbf71" : a >= 7 ? "#4a8cff" : a >= 6 ? "#6b7484" : "#ff4655";
 
-  const nRows = rows.length;
-  const W = 720, rowH = 64, topY = 258, H = topY + nRows * rowH + 118;
+  // 팬덤별 값은 **있는 것만** 적는다. 예전에는 참여가 적으면
+  // "아군 9.0 · 상대 — · 중립 —" 처럼 줄표만 늘어서 지저분했다.
+  const splitText = s => {
+    const parts = [];
+    if (s.home) parts.push(`아군 ${s.home.avg.toFixed(1)}`);
+    if (s.opp) parts.push(`상대 ${s.opp.avg.toFixed(1)}`);
+    if (s.neu) parts.push(`중립 ${s.neu.avg.toFixed(1)}`);
+    return parts.length > 1 ? parts.join(" · ") : "";
+  };
+
+  const W = 720, rowH = 56, padX = 44;
+  const headH = pogPl ? 236 : 190;
+  const H = headH + rows.length * rowH + 66;
   const c = document.createElement("canvas");
   c.width = W; c.height = H;
   const g = c.getContext("2d");
+  const F = (w, px) => `${w} ${px}px -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`;
 
   g.fillStyle = "#0f1015"; g.fillRect(0, 0, W, H);
-  g.fillStyle = "#ff4655"; g.fillRect(0, 0, W, 8);
-  g.fillStyle = "#ff4655"; g.font = "bold 30px sans-serif";
-  g.fillText("THE NEXUS", 48, 74);
-  g.fillStyle = "#9aa1b0"; g.font = "600 22px sans-serif";
-  g.fillText("팬심 평점", 48, 106);
+  g.fillStyle = "#ff4655"; g.fillRect(0, 0, W, 6);
 
-  // 스코어 라인
+  // 머리말 — 한 줄로 (예전에는 두 줄이라 위가 답답했다)
+  g.fillStyle = "#ff4655"; g.font = F("bold", 24);
+  g.fillText("THE NEXUS", padX, 62);
+  g.fillStyle = "#667080"; g.font = F("600", 17);
+  g.fillText("팬심 평점", padX + g.measureText("THE NEXUS").width + 132, 62);
+
+  // 스코어
   g.textAlign = "center";
-  g.fillStyle = "#e9ebf1"; g.font = "bold 36px sans-serif";
-  g.fillText(`${A.abbr}  ${match.scoreA ?? 0} : ${match.scoreB ?? 0}  ${B.abbr}`, W / 2, 158);
-  g.fillStyle = "#667080"; g.font = "500 18px sans-serif";
-  g.fillText(match.label || match.stage || "", W / 2, 186);
+  g.fillStyle = "#e9ebf1"; g.font = F("bold", 38);
+  g.fillText(`${A.abbr}  ${match.scoreA ?? 0} : ${match.scoreB ?? 0}  ${B.abbr}`, W / 2, 122);
+  g.fillStyle = "#5c6472"; g.font = F("500", 16);
+  g.fillText(match.label || match.stage || "", W / 2, 150);
 
-  // POG 배너
+  // POG 배너 (팀 이름표와 겹치지 않게 넉넉히 띄운다)
   if (pogPl) {
-    g.fillStyle = "#f5b942"; g.fillRect(48, 202, W - 96, 34);
-    g.fillStyle = "#221a06"; g.font = "bold 20px sans-serif";
-    g.fillText(`👑 팬 선정 POG — ${pogPl.nick} ${pog.avg.toFixed(1)}`, W / 2, 226);
+    g.fillStyle = "#f5b942"; g.fillRect(padX, 176, W - padX * 2, 32);
+    g.fillStyle = "#221a06"; g.font = F("bold", 18);
+    g.fillText(`팬 선정 POG   ${pogPl.nick}  ${pog.avg.toFixed(1)}`, W / 2, 199);
   }
   g.textAlign = "left";
 
-  // 후푸식 미러 배치: 이름 바깥쪽 · 점수 배지 안쪽 · 가운데 포지션
-  g.fillStyle = A.color || "#9aa1b0"; g.font = "bold 20px sans-serif";
-  g.fillText(A.abbr, 48, topY - 14);
-  g.textAlign = "right";
-  g.fillStyle = B.color || "#9aa1b0";
-  g.fillText(B.abbr, W - 48, topY - 14);
-  g.textAlign = "left";
-
-  const badgeW = 56, innerL = W / 2 - 44, innerR = W / 2 + 44;
-  const cut = v => v ? v.avg.toFixed(1) : "—";
+  const badgeW = 52, innerL = W / 2 - 40, innerR = W / 2 + 40;
   rows.forEach((r, i) => {
-    const y = topY + i * rowH;
-    // 가운데 포지션 라벨
-    g.fillStyle = "#667080"; g.font = "bold 15px sans-serif"; g.textAlign = "center";
-    g.fillText(r.pos, W / 2, y + 17);
+    const y = headH + i * rowH;
+    if (i) { g.fillStyle = "#1b1e26"; g.fillRect(padX, y - 16, W - padX * 2, 1); }
+
+    g.fillStyle = "#4a5160"; g.font = F("600", 13); g.textAlign = "center";
+    g.fillText(r.pos, W / 2, y + 14);
     g.textAlign = "left";
-    // 왼쪽 팀
-    if (r.a) {
-      g.fillStyle = "#e9ebf1"; g.font = "bold 20px sans-serif";
-      g.fillText(r.a.p.nick, 48, y + 18);
-      if (r.a.s.all) {
-        g.fillStyle = tierColor(r.a.s.all.avg);
-        g.fillRect(innerL - badgeW, y - 2, badgeW, 26);
-        g.fillStyle = r.a.s.all.avg >= 9 ? "#221a06" : "#fff";
-        g.font = "bold 18px sans-serif"; g.textAlign = "center";
-        g.fillText(r.a.s.all.avg.toFixed(1), innerL - badgeW / 2, y + 17);
-        g.textAlign = "left";
-        g.fillStyle = "#667080"; g.font = "500 13px sans-serif";
-        g.fillText(`아군 ${cut(r.a.s.home)} · 상대 ${cut(r.a.s.opp)} · 중립 ${cut(r.a.s.neu)}`, 48, y + 40);
+
+    const draw = (x, dir) => {
+      if (!x) return;
+      const right = dir === "r";
+      const nameX = right ? W - padX : padX;
+      const bx = right ? innerR : innerL - badgeW;
+      const team = right ? B : A;
+      g.textAlign = right ? "right" : "left";
+
+      // 이름 앞(뒤)에 팀 색 점 — 팀 이름표를 따로 두지 않아도 어느 팀인지 보인다
+      g.fillStyle = team.color || "#9aa1b0";
+      g.beginPath(); g.arc(right ? nameX + 9 : nameX - 9, y + 6, 4, 0, 7); g.fill();
+
+      g.fillStyle = "#e9ebf1"; g.font = F("bold", 19);
+      g.fillText(x.p.nick, nameX, y + 12);
+
+      if (x.s.all) {
+        g.fillStyle = tierColor(x.s.all.avg);
+        g.fillRect(bx, y - 6, badgeW, 25);
+        g.fillStyle = x.s.all.avg >= 9 ? "#221a06" : "#fff";
+        g.font = F("bold", 17); g.textAlign = "center";
+        g.fillText(x.s.all.avg.toFixed(1), bx + badgeW / 2, y + 12);
+        g.textAlign = right ? "right" : "left";
+        const sub = splitText(x.s);
+        if (sub) {
+          g.fillStyle = "#5c6472"; g.font = F("500", 12);
+          g.fillText(sub, nameX, y + 32);
+        }
       } else {
-        g.fillStyle = "#3a4150"; g.font = "bold 18px sans-serif"; g.textAlign = "center";
-        g.fillText("—", innerL - badgeW / 2, y + 17); g.textAlign = "left";
-        g.fillStyle = "#3a4150"; g.font = "500 13px sans-serif";
-        g.fillText("평가 없음", 48, y + 40);
+        g.fillStyle = "#2a2f3a"; g.font = F("bold", 17); g.textAlign = "center";
+        g.fillText("—", bx + badgeW / 2, y + 12);
+        g.textAlign = right ? "right" : "left";
       }
-    }
-    // 오른쪽 팀 (미러)
-    if (r.b) {
-      g.textAlign = "right";
-      g.fillStyle = "#e9ebf1"; g.font = "bold 20px sans-serif";
-      g.fillText(r.b.p.nick, W - 48, y + 18);
-      if (r.b.s.all) {
-        g.fillStyle = tierColor(r.b.s.all.avg);
-        g.fillRect(innerR, y - 2, badgeW, 26);
-        g.fillStyle = r.b.s.all.avg >= 9 ? "#221a06" : "#fff";
-        g.font = "bold 18px sans-serif"; g.textAlign = "center";
-        g.fillText(r.b.s.all.avg.toFixed(1), innerR + badgeW / 2, y + 17);
-        g.textAlign = "right";
-        g.fillStyle = "#667080"; g.font = "500 13px sans-serif";
-        g.fillText(`아군 ${cut(r.b.s.home)} · 상대 ${cut(r.b.s.opp)} · 중립 ${cut(r.b.s.neu)}`, W - 48, y + 40);
-      } else {
-        g.fillStyle = "#3a4150"; g.font = "bold 18px sans-serif"; g.textAlign = "center";
-        g.fillText("—", innerR + badgeW / 2, y + 17);
-        g.textAlign = "right";
-        g.fillStyle = "#3a4150"; g.font = "500 13px sans-serif";
-        g.fillText("평가 없음", W - 48, y + 40);
+      // 교체 출전이면 표시 (한 세트만 뛴 선수가 왜 여기 있는지 보이게)
+      if (x.sets && x.totalSets && x.sets < x.totalSets) {
+        g.fillStyle = "#4a5160"; g.font = F("500", 12);
+        g.fillText(`${x.sets}세트 출전`, nameX, y + (x.s.all && splitText(x.s) ? 32 : 30));
       }
       g.textAlign = "left";
-    }
+    };
+    draw(r.a, "l");
+    draw(r.b, "r");
   });
 
-  g.fillStyle = "#667080"; g.font = "600 20px sans-serif";
-  g.fillText(`${voters}명 참여 · 아군·상대·중립 팬심 평점은 THE NEXUS에서`, 48, H - 66);
-  g.fillStyle = "#9aa1b0";
-  g.fillText(location.host + "/match/" + match.id, 48, H - 36);
+  // 꼬리말 — 주소는 빼고 한 줄만
+  g.fillStyle = "#4a5160"; g.font = F("600", 15);
+  g.fillText(`${voters}명 참여`, padX, H - 26);
+  g.textAlign = "right";
+  g.fillStyle = "#2f3542";
+  g.fillText("THE NEXUS", W - padX, H - 26);
+  g.textAlign = "left";
 
   c.toBlob(async blob => {
     const file = new File([blob], "nexus-rating.png", { type: "image/png" });

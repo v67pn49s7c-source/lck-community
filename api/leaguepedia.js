@@ -39,11 +39,17 @@ const cacheKeyOf = page => "lp_cache_" + page.replace(/[^A-Za-z0-9]+/g, "_").sli
 // (경기 90 × 세트 3 × 선수 10) 나눠 받아야 한다. 받은 만큼 저장해 두고, 시간이 모자라면
 // 다음에 **이어서** 받는다. 서버 함수는 60초 안에 끝나야 하므로 시간 예산을 둔다.
 const PAGE_SIZE = 500;
+// 저장해 둔 원본의 형식 번호. 받아 오는 칸을 늘리면 이 숫자를 올린다.
+//   1 = KDA·CS·골드까지 / 2 = 아이템·룬·스펠·딜량·시야 추가
+// 번호가 다르면 저장분을 버리고 새로 받는다 — 안 그러면 이어받기에서
+// 아이템이 있는 행과 없는 행이 섞인다.
+const RAW_VERSION = 2;
 
 async function fetchRaw(page, deadline) {
   const ck = cacheKeyOf(page);
   let acc = null;
   try { acc = JSON.parse(await loadSetting(ck) || "null"); } catch { acc = null; }
+  if (acc && acc.v !== RAW_VERSION) acc = null;          // 옛 형식은 버린다
   if (acc && acc.done && Date.now() - acc.t < CACHE_MINUTES * 60000) {
     return { rows: acc.rows, games: acc.games, cached: true, done: true, fetched: 0 };
   }
@@ -69,7 +75,7 @@ async function fetchRaw(page, deadline) {
     fetched += batch.length;
     rows = rows.concat(batch);
     if (batch.length < PAGE_SIZE) { done = true; break; }
-    try { await saveSetting(ck, JSON.stringify({ t: Date.now(), rows, games: null, done: false })); } catch {}
+    try { await saveSetting(ck, JSON.stringify({ v: RAW_VERSION, t: Date.now(), rows, games: null, done: false })); } catch {}
   }
 
   // PlayerWin 칸이 없는 옛 대회면 경기표로 승패를 따로 받는다
@@ -82,7 +88,7 @@ async function fetchRaw(page, deadline) {
     });
   }
 
-  try { await saveSetting(ck, JSON.stringify({ t: Date.now(), rows, games, done })); } catch {}
+  try { await saveSetting(ck, JSON.stringify({ v: RAW_VERSION, t: Date.now(), rows, games, done })); } catch {}
   return { rows, games, cached: false, done, fetched };
 }
 

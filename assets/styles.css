@@ -634,6 +634,8 @@ table.detail-table tr:last-child td { border-bottom: none; }
 .dd-ic { width: 22px; height: 22px; vertical-align: middle; border: 1px solid var(--line); background: #000; margin: 1px 2px 1px 0; }
 .dd-ic.rune { border-radius: 50%; background: var(--bg-soft); }
 /* 챔피언 초상화 — 로딩 화면 타일(380x380). 인물 얼굴이 잘 보이게 살짝 위를 잡는다 */
+.fr-sub { font-size: 10px; font-weight: 700; color: var(--text-dim); border: 1px solid var(--line);
+  padding: 1px 5px; border-radius: 2px; white-space: nowrap; }
 .dd-ic.champ { width: 26px; height: 26px; object-fit: cover; object-position: center 22%; border-radius: 3px; }
 .dd-nm { vertical-align: middle; }
 .dd-miss { font-size: var(--fs-xs); color: var(--text-dim); margin-right: 4px; }

@@ -862,14 +862,27 @@ function playedPidsForMatch(matchId) {
   }));
   return played;
 }
+// 선수별로 몇 세트에 나왔는지 (교체 출전을 화면에서 구분하려고)
+function setsPlayedForMatch(matchId) {
+  const det = Cache.details[matchId];
+  const n = {};
+  ((det && det.sets) || []).forEach(s => (s.players || []).forEach(p => {
+    if (p.pid && (p.champ || "").trim()) n[p.pid] = (n[p.pid] || 0) + 1;
+  }));
+  return { count: n, total: ((det && det.sets) || []).length };
+}
 // 팬심 평점 표: 포지션별로 양 팀 선수를 짝지어 행 구성 (좌우 미러 배치용)
 function fanRatingRows(match) {
   const posOrder = ["탑", "정글", "미드", "원딜", "서폿"];
   const played = playedPidsForMatch(match.id);
+  const { count: setsOf, total: totalSets } = setsPlayedForMatch(match.id);
   const side = teamId => {
     let ps = teamPlayers(teamId);
     if (played.size) ps = ps.filter(p => played.has(p.id));
-    return ps.map(p => ({ p, s: fanSplitForPlayer(p.id, match.id) }));
+    // 많이 나온 선수부터 — 교체로 한 세트만 뛴 선수가 주전 위에 오지 않게
+    return ps.map(p => ({ p, s: fanSplitForPlayer(p.id, match.id),
+                          sets: setsOf[p.id] || 0, totalSets }))
+             .sort((x, y) => y.sets - x.sets);
   };
   const A = side(match.a), B = side(match.b);
   const rows = [], used = new Set();

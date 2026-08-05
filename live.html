@@ -18,7 +18,7 @@
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260805k">
+  <link rel="stylesheet" href="assets/styles.css?v=20260805m">
 </head>
 <body>
   <main class="page">
@@ -80,11 +80,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260805k"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260805k"></script>
-  <script src="assets/store.js?v=20260805k"></script>
-  <script src="assets/app.js?v=20260805k"></script>
-  <script src="assets/ddragon.js?v=20260805k"></script>
+  <script src="assets/data.js?v=20260805m"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260805m"></script>
+  <script src="assets/store.js?v=20260805m"></script>
+  <script src="assets/app.js?v=20260805m"></script>
+  <script src="assets/ddragon.js?v=20260805m"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -252,10 +252,13 @@
         const isPog = pog && pog.pid === p.id;
         const respect = s.opp && s.opp.n >= 2 && s.opp.avg >= 8;
         const gap = (s.home && s.opp) ? Math.round((s.home.avg - s.opp.avg) * 10) / 10 : null;
+        // 교체 출전(전 세트를 뛰지 않은 선수) — 왜 이 선수가 목록에 있는지 보이게 한다
+        const isSub = x.sets && x.totalSets && x.sets < x.totalSets;
         return `
         <div class="frate fv-cell ${dir} ${isPog ? "pog" : ""}">
           <div class="fr-head">
             <a class="fr-player" href="player.html?id=${q(p.id)}"><span class="fv-teamtag" style="color:${team.color}">${team.abbr}</span> <b>${esc(p.nick)}</b></a>
+            ${isSub ? `<span class="fr-sub" title="이 경기의 일부 세트에만 나왔습니다">교체</span>` : ""}
             ${pom && pom.player_id === p.id ? `<span class="chip-pom" title="LCK 공식 경기 MVP · ${pom.pts}pt">POM<em> +${pom.pts}pt</em></span>` : ""}
             ${isPog ? `<span class="fr-pog">👑<em> 팬 선정 POG</em></span>` : ""}
             ${respect ? `<span class="fr-respect">상대 팬도 인정</span>` : ""}
@@ -263,13 +266,18 @@
           </div>
           ${s.all ? `
           <div class="fr-cuts">
-            <span class="fr-cut"><i style="background:${team.color}"></i><em>아군 </em>${s.home ? s.home.avg.toFixed(1) : "—"}</span>
-            <span class="fr-cut"><i style="background:${opp.color}"></i><em>상대 </em>${s.opp ? s.opp.avg.toFixed(1) : "—"}</span>
-            <span class="fr-cut"><i></i><em>중립 </em>${s.neu ? s.neu.avg.toFixed(1) : "—"}</span>
+            ${/* 값이 있는 팬덤만 보여 준다 — 참여가 적을 때 줄표만 늘어서 지저분했다 */""
+              + (s.home ? `<span class="fr-cut"><i style="background:${team.color}"></i><em>아군 </em>${s.home.avg.toFixed(1)}</span>` : "")
+              + (s.opp ? `<span class="fr-cut"><i style="background:${opp.color}"></i><em>상대 </em>${s.opp.avg.toFixed(1)}</span>` : "")
+              + (s.neu ? `<span class="fr-cut"><i></i><em>중립 </em>${s.neu.avg.toFixed(1)}</span>` : "")}
             ${gap != null ? `<span class="fr-gap">팬심 온도차 ${gap > 0 ? "+" : ""}${gap.toFixed(1)}</span>` : ""}
             <span class="fr-gap">${s.all.n}명 참여</span>
+            ${isSub ? `<span class="fr-gap">${x.sets}세트 출전</span>` : ""}
           </div>` : `
-          <div class="fr-cuts"><span class="fr-gap">아직 평가가 없습니다 — 첫 평점을 남겨 보세요</span></div>`}
+          <div class="fr-cuts">
+            <span class="fr-gap">아직 평가가 없습니다 — 첫 평점을 남겨 보세요</span>
+            ${isSub ? `<span class="fr-gap">${x.sets}세트 출전</span>` : ""}
+          </div>`}
           <div class="fr-mine">
             <div class="rr-scores">
               ${Array.from({ length: 10 }, (_, i) => i + 1).map(n =>
@@ -297,7 +305,7 @@
         </div>` +
         `<div class="admin-note">평점은 즉시 저장되며 바로 반영됩니다 (1인 1표, 다시 누르면 수정).
           아군·상대 구분은 로그인 회원의 응원팀 설정 기준이며, 비회원·응원팀 미설정은 중립으로 집계됩니다.${
-          played.size ? " 경기 상세에 기록된 출전 선수만 표시됩니다." : ""}</div>`;
+          played.size ? " 경기 상세에 기록된 <b>출전 선수만</b> 표시됩니다. '교체'는 일부 세트에만 나온 선수입니다." : ""}</div>`;
 
       document.querySelectorAll(".rr-btn").forEach(b => b.addEventListener("click", () => {
         setRating(match.id, b.dataset.pid, Number(b.dataset.score));
