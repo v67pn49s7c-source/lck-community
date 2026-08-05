@@ -815,7 +815,7 @@ function sharePollCard(poll, ctx) {
 function shareRatingCard(match) {
   const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
   if (!A || !B) return;
-  const voters = new Set(Cache.ratings.filter(r => r.match_id === match.id).map(r => r.voter)).size;
+  const voters = matchRatingVoters(match.id);
   if (!voters) { alert("아직 이 경기에 매겨진 평점이 없습니다."); return; }
 
   const rows = fanRatingRows(match); // 포지션별 좌우 짝
@@ -988,11 +988,17 @@ function renderTodayPoll() {
 async function initHome() {
   await storeReady;
   renderHeader("홈", null);
-  renderFanHero();
-  renderTodayPoll();
-  renderHomeSchedule();
-  renderHotPosts();
-  renderPredictRanking();
+  const draw = () => {
+    // 응원팀을 고르는 중이면 다시 그리지 않는다 (고르던 화면이 사라진다)
+    if (!fanHeroChoosing) renderFanHero();
+    renderTodayPoll();
+    renderHomeSchedule();
+    renderHotPosts();
+    renderPredictRanking();
+  };
+  draw();
+  // 참여 비율·내 기록은 서버 집계에서 오므로, 스냅샷으로 먼저 그렸다면 도착 후 다시 그린다
+  storeFresh.then(draw).catch(() => {});
   initSidebar();
   renderFooter();
 }

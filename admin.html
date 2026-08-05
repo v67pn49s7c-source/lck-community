@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260804p">
+  <link rel="stylesheet" href="assets/styles.css?v=20260805b">
 </head>
 <body>
   <main class="page">
@@ -34,6 +34,7 @@
         <button type="button" data-tab="import">데이터 수집</button>
         <button type="button" data-tab="streams">중계 링크</button>
         <button type="button" data-tab="logos">로고</button>
+        <button type="button" data-tab="audit">참여 점검</button>
         <button type="button" data-tab="info">안내</button>
       </nav>
       <div class="admin-main">
@@ -259,6 +260,20 @@
         </div>
       </section>
 
+      <!-- 참여 점검 (부정 투표 감지) -->
+      <section class="card admin-panel" data-tab="audit">
+        <div class="card-head">
+          <h2 class="card-title">참여 점검 <span class="sub">한 사람이 비정상적으로 많이 참여했는지</span></h2>
+          <button class="btn-secondary" id="audit-run" type="button">불러오기</button>
+        </div>
+        <div class="admin-note" style="border-top:none">
+          누가 무엇에 투표했는지는 <b>운영자도 볼 수 없습니다</b>(팬들의 표는 비공개입니다).
+          여기서는 신원을 가린 채 <b>참여 횟수만</b> 봅니다. 한 사람이 유독 많으면 조작을 의심할 수 있습니다.
+          정리가 필요하면 Supabase 대시보드의 SQL 편집기에서 해당 표를 지워 주세요.
+        </div>
+        <div id="audit-body"></div>
+      </section>
+
       <!-- 안내 -->
       <section class="card admin-panel" data-tab="info">
         <div class="card-head"><h2 class="card-title">안내</h2></div>
@@ -274,11 +289,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260804p"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260804p"></script>
-  <script src="assets/store.js?v=20260804p"></script>
-  <script src="assets/app.js?v=20260804p"></script>
-  <script src="assets/ddragon.js?v=20260804p"></script>
+  <script src="assets/data.js?v=20260805b"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260805b"></script>
+  <script src="assets/store.js?v=20260805b"></script>
+  <script src="assets/app.js?v=20260805b"></script>
+  <script src="assets/ddragon.js?v=20260805b"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -723,6 +738,33 @@
         });
       });
     }
+
+    // ── 참여 점검 (신원을 가린 참여 횟수만) ──
+    document.getElementById("audit-run")?.addEventListener("click", async () => {
+      const box = document.getElementById("audit-body");
+      box.innerHTML = `<div class="empty-note">불러오는 중…</div>`;
+      const { data, error } = await sb.rpc("admin_vote_audit");
+      if (error) {
+        box.innerHTML = `<div class="empty-note">${esc(
+          isMissingFunction(error) ? "supabase/schema12_vote_privacy.sql 을 먼저 실행해 주세요."
+                                   : error.message)}</div>`;
+        return;
+      }
+      if (!data || !data.length) { box.innerHTML = `<div class="empty-note">아직 참여 기록이 없습니다</div>`; return; }
+      const many = data.filter(r => r.n >= 30).length;
+      box.innerHTML =
+        (many ? `<div class="admin-note" style="border-top:none;color:var(--accent)">
+           30회 이상 참여한 항목이 ${many}건 있습니다. 한 사람이 여러 번 눌렀는지 확인해 보세요.</div>` : "")
+        + `<div class="table-scroll"><table class="detail-table">
+        <thead><tr><th>종류</th><th>참여자(가림)</th><th>회원</th><th>횟수</th><th>처음</th></tr></thead>
+        <tbody>${data.map(r => `<tr>
+          <td>${esc(r.kind)}</td>
+          <td style="font-family:monospace">${esc(r.voter_hint)}</td>
+          <td>${r.is_member ? "회원" : "비회원"}</td>
+          <td style="font-weight:800;${r.n >= 30 ? "color:var(--accent)" : ""}">${r.n}</td>
+          <td style="color:var(--text-sub)">${r.first_at ? fmtWhen(r.first_at) : "-"}</td>
+        </tr>`).join("")}</tbody></table></div>`;
+    });
 
     // ── 좌측 메뉴 (설정 화면처럼 한 번에 한 섹션만) ──
     function initAdminTabs() {

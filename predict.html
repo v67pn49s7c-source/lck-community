@@ -12,7 +12,7 @@
   <meta name="twitter:card" content="summary">
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260804p">
+  <link rel="stylesheet" href="assets/styles.css?v=20260805b">
 </head>
 <body>
   <main class="page">
@@ -64,10 +64,10 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260804p"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260804p"></script>
-  <script src="assets/store.js?v=20260804p"></script>
-  <script src="assets/app.js?v=20260804p"></script>
+  <script src="assets/data.js?v=20260805b"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260805b"></script>
+  <script src="assets/store.js?v=20260805b"></script>
+  <script src="assets/app.js?v=20260805b"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("승부예측", null);
@@ -128,11 +128,16 @@
 
     function renderMatches() {
       const ms = sortedMatches();
-      const open = ms.filter(m => m.status === "upcoming" || m.status === "live");
+      // 마감 판정은 store.js predictOpen() 하나로 — 서버(vote_match)와 같은 규칙이라야
+      // 누를 수 있는데 저장은 안 되는 일이 없다
+      const open = ms.filter(predictOpen);
       const done = ms.filter(m => m.status === "done").reverse();
+      const closed = ms.filter(m => m.status !== "done" && !predictOpen(m));
 
       document.getElementById("open-matches").innerHTML =
-        open.map(m => matchRowHTML(m, false)).join("") || `<div class="empty-note">예측 가능한 경기가 없습니다</div>`;
+        (open.map(m => matchRowHTML(m, false)).join("")
+          || `<div class="empty-note">예측 가능한 경기가 없습니다</div>`)
+        + (closed.length ? `<div class="admin-note">진행 중이거나 곧 시작하는 경기 ${closed.length}건은 예측이 마감됐습니다.</div>` : "");
       document.getElementById("done-matches").innerHTML =
         done.map(m => matchRowHTML(m, true)).join("") || `<div class="empty-note">종료된 경기가 없습니다</div>`;
 
@@ -154,6 +159,8 @@
 
     renderMatches();
     renderPredictRanking();
+    // 참여 비율·내 표는 서버 집계에서 오므로, 스냅샷으로 먼저 그렸다면 도착 후 다시 그린다
+    storeFresh.then(() => { renderStats(); renderMatches(); renderPredictRanking(); }).catch(() => {});
     renderFooter();
   
   });

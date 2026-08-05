@@ -12,7 +12,7 @@
   <meta name="twitter:card" content="summary">
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260804p">
+  <link rel="stylesheet" href="assets/styles.css?v=20260805b">
 </head>
 <body>
   <div class="team-hero" id="player-hero"></div>
@@ -64,12 +64,12 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260804p"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260804p"></script>
-  <script src="assets/store.js?v=20260804p"></script>
-  <script src="assets/app.js?v=20260804p"></script>
-  <script src="assets/ddragon.js?v=20260804p"></script>
-  <script src="assets/player-photos.js?v=20260804p"></script>
+  <script src="assets/data.js?v=20260805b"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260805b"></script>
+  <script src="assets/store.js?v=20260805b"></script>
+  <script src="assets/app.js?v=20260805b"></script>
+  <script src="assets/ddragon.js?v=20260805b"></script>
+  <script src="assets/player-photos.js?v=20260805b"></script>
   <script>
   storeReady.then(async () => {
     const player = getPlayer(new URLSearchParams(location.search).get("id")) || getPlayers()[0];
@@ -152,10 +152,12 @@
             </tr>`).join("")}</tbody>
           </table></div>` : `<div class="empty-note">기록된 챔피언이 없습니다</div>`;
       }
+      window.renderStats = renderStats;
       renderStats();
       if (typeof ddInit === "function") ddInit().then(ok => { if (ok) renderStats(); });
 
       // 경기별 평점 (경기 단위 팬 평균 + 내 점수)
+      window.renderRatingHistory = function () {
       const history = matchRatingsForPlayer(player.id);
       const latest = history[0];
       document.getElementById("avg-label").textContent =
@@ -172,6 +174,8 @@
             </a>`;
           }).join("")
         : `<div class="empty-note">아직 평점이 없습니다. 경기 종료 후 해당 경기 페이지에서 평가할 수 있어요.</div>`;
+      };
+      renderRatingHistory();
 
       // 같은 팀 선수
       document.getElementById("teammates").innerHTML = teamPlayers(team.id)
@@ -183,6 +187,8 @@
           </a>`).join("");
     }
 
+    // 팬 평점은 서버 집계에서 오므로, 스냅샷으로 먼저 그렸다면 도착 후 다시 그린다
+    storeFresh.then(() => { if (player) { renderStats(); renderRatingHistory(); } }).catch(() => {});
     setupSidebarStandings();
     renderFooter();
   

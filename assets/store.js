@@ -11,9 +11,10 @@ const sb = window.supabase.createClient(SB_URL, SB_ANON);
 // 로그인 상태 (fetchAll에서 채움)
 const Auth = { session: null, profile: null };
 
-// 방문자 id (예측·평점 1인 1표 식별용) — 로그인 시 계정 id, 아니면 브라우저 익명 id
-function voterId() {
-  if (Auth.session) return Auth.session.user.id;
+// 이 브라우저의 익명 id. 서버에 보내는 값은 **항상 이것**이고, 로그인 상태면
+// 서버가 알아서 계정 id로 바꿔 쓴다. 계정 id를 클라이언트가 보내지 않으므로
+// 사칭이 불가능하고, 세션이 만료된 줄 모르고 누른 표도 익명 표로 남아 사라지지 않는다.
+function anonId() {
   let v = localStorage.getItem("lckdb_voter");
   if (!v) {
     v = "v" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -21,14 +22,95 @@ function voterId() {
   }
   return v;
 }
+// 내 표를 찾을 때 쓰는 신원. 서버가 확정해 준 값이 있으면 그것을 따른다.
+function voterId() {
+  if (Cache.myVoter) return Cache.myVoter;
+  if (Auth.session) return Auth.session.user.id;
+  return anonId();
+}
+// 서버가 나를 어느 팬덤으로 집계하는가 (집계에 즉시 반영할 때 서버와 규칙을 맞추기 위해)
+// — 비회원은 응원팀을 골랐더라도 서버에는 프로필이 없으므로 '중립'이다.
+function myFanTeam() {
+  return (Auth.session && Auth.profile && Auth.profile.fav_team) || "";
+}
 
 const Cache = {
   tournaments: [], matches: [], records: [], players: [],
-  posts: [], predictions: [], ratings: [], details: {}, settings: {}, pom: [], awards: [],
-  polls: [], pollVotes: [], reactions: [], commentLikes: [], founding: [], profiles: [],
+  posts: [], details: {}, settings: {}, pom: [], awards: [],
+  polls: [], founding: [], profiles: [],
+  // 남의 표는 더 이상 브라우저로 내려오지 않는다. 집계(stats)와 내 표(mine)만 온다.
+  stats: { pred: [], rating: [], ratingVoters: [], pollChoice: [], pollVoters: [], reaction: [], commentLike: [], fandom: [] },
+  mine: { predictions: [], ratings: [], pollVotes: [], reactions: [], commentLikes: [] },
+  idx: null,       // stats를 빠르게 찾기 위한 색인 (indexStats가 채운다)
+  myVoter: null,   // 서버가 확정한 내 신원
+  statsOk: false,  // 집계를 실제로 받았는가 — 못 받은 것을 "0명 참여"로 위장하지 않기 위해
 };
 
+// ── 집계 색인 ──
+// 서버가 준 집계 배열은 그대로 두고, 화면에서 자주 찾는 형태로 한 번만 색인한다.
+function indexStats() {
+  const s = Cache.stats;
+  const ix = { pred: {}, rating: {}, ratingByPlayer: {}, ratingVoters: {},
+               pollChoice: {}, pollVoters: {}, reaction: {}, commentLike: {} };
+  (s.pred || []).forEach(r => (ix.pred[r.match_id] = ix.pred[r.match_id] || []).push(r));
+  (s.rating || []).forEach(r => {
+    const k = r.match_id + "|" + r.player_id;
+    (ix.rating[k] = ix.rating[k] || {})[r.bucket] = r;
+    if (r.bucket === "all") (ix.ratingByPlayer[r.player_id] = ix.ratingByPlayer[r.player_id] || []).push(r);
+  });
+  (s.ratingVoters || []).forEach(r => { ix.ratingVoters[r.match_id] = r.n_voters; });
+  (s.pollChoice || []).forEach(r => (ix.pollChoice[r.poll_id] = ix.pollChoice[r.poll_id] || []).push(r));
+  (s.pollVoters || []).forEach(r => (ix.pollVoters[r.poll_id] = ix.pollVoters[r.poll_id] || []).push(r));
+  (s.reaction || []).forEach(r => { (ix.reaction[r.post_id] = ix.reaction[r.post_id] || {})[r.kind] = r.n; });
+  (s.commentLike || []).forEach(r => { ix.commentLike[r.comment_id] = r.n; });
+  Cache.idx = ix;
+}
+
+// 서버가 받았다고 확인해 준 표에서 '미확정' 표시를 뗀다
+function clearPending(list, match) {
+  const x = (list || []).find(match);
+  if (x) delete x._p;
+}
+
+// 집계를 못 받았을 때. 조용히 0으로 두면 "아직 아무도 참여 안 함"과 구분되지 않는다.
+function statsFailed() {
+  Cache.statsOk = false;
+  indexStats();
+  if (typeof document !== "undefined" && !document.getElementById("nx-statsfail")) {
+    const el = document.createElement("div");
+    el.id = "nx-statsfail";
+    el.className = "nx-toast";
+    el.innerHTML = `<span>팬 참여 정보를 불러오지 못했어요. 참여 수치가 실제와 다를 수 있습니다.</span><button type="button">새로고침</button>`;
+    el.querySelector("button").addEventListener("click", () => location.reload());
+    addEventListener("DOMContentLoaded", () => document.body.appendChild(el));
+    if (document.body) document.body.appendChild(el);
+  }
+}
+
+// 집계 배열에서 조건에 맞는 행을 찾거나 새로 만든다 (내 표를 즉시 반영할 때)
+function statRow(arr, match, make) {
+  let r = arr.find(match);
+  if (!r) { r = make(); arr.push(r); }
+  return r;
+}
+
 function sbErr(e, what) { if (e) console.error("[supabase]", what, e.message); }
+
+// 쓰기가 서버에서 거부됐을 때 (마감된 경기 예측 등) 사용자에게 이유를 보여 준다.
+// 예전에는 콘솔에만 찍혀서, 눌렀는데 저장이 안 된 것을 알 방법이 없었다.
+function sbWriteFail(e, what) {
+  if (!e) return false;
+  sbErr(e, what);
+  const msg = (e.message || "").replace(/^.*?:\s*/, "").trim() || "저장하지 못했습니다";
+  const el = document.createElement("div");
+  el.className = "nx-toast";
+  el.innerHTML = `<span></span><button type="button">닫기</button>`;
+  el.querySelector("span").textContent = msg;
+  el.querySelector("button").addEventListener("click", () => el.remove());
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 6000);
+  return true;
+}
 
 // 서버에 아직 함수가 없을 때 (SQL 파일 실행 전) 나는 오류인지
 function isMissingFunction(e) {
@@ -39,13 +121,23 @@ function isMissingFunction(e) {
 // 지난 방문에서 받은 데이터를 브라우저에 저장해 두고, 다음 방문에서는 그것을 먼저
 // 그려서 화면을 즉시 띄운다. 서버 데이터는 뒤에서 받아 와 달라진 게 있으면 알린다.
 // (서버가 서울에 있어 한 번 다녀오는 데만 0.3~1초씩 걸리므로 체감 차이가 크다)
-const SNAP_KEY = "nexus_snap_v1";
+// v2 = 투표 원본 비공개화. v1 스냅샷에는 **다른 사람들의 표가 통째로** 들어 있으므로
+// 키를 올려 버리고 옛 것은 지운다 (서버만 고쳐서는 이미 방문한 기기에 계속 남는다).
+const SNAP_KEY = "nexus_snap_v2";
 const LOGO_KEY = "nexus_logos_v1";
+try { localStorage.removeItem("nexus_snap_v1"); } catch (e) {}
 let snapshotUsed = false;
 
 function snapshotSave() {
   try {
-    const { settings, ...rest } = Cache;
+    const { settings, idx, myVoter, ...rest } = Cache;
+    // idx는 다시 만들면 되고, myVoter(신원)는 저장하면 안 된다 —
+    // 지난 방문의 신원이 지금 로그인 상태를 이겨 표가 엉뚱한 계정으로 들어간다.
+    // 서버가 아직 받았다고 확인해 주지 않은 표(_p)는 스냅샷에 넣지 않는다.
+    // 넣으면 저장에 실패한 표가 다음 방문에도 계속 눌린 것처럼 보인다.
+    const mine = {};
+    Object.entries(rest.mine || {}).forEach(([k, arr]) => { mine[k] = (arr || []).filter(x => !x._p); });
+    rest.mine = mine;
     // 로고(데이터 URL, 수십 KB)는 따로 보관해 스냅샷을 가볍게 유지
     const light = {};
     Object.entries(settings).forEach(([k, v]) => { if (!k.startsWith("logo_")) light[k] = v; });
@@ -64,6 +156,7 @@ function snapshotLoad() {
     const snap = JSON.parse(raw);
     if (!snap || !snap.c || !snap.c.matches) return false;
     Object.assign(Cache, snap.c);
+    indexStats();
     // 헤더의 로그인 표시·내 투표 표시가 깜빡이지 않게 (실제 인증은 서버가 다시 확인한다)
     if (snap.a) Auth.profile = snap.a;
     if (snap.s) Auth.session = snap.s;
@@ -90,8 +183,8 @@ async function loadLogosLater() {
 // 예전에는 (로그인 조회) → (테이블 10개) → (테이블 8개) 순으로 세 번 기다렸다.
 // 서버 왕복이 세 번 = 그만큼 흰 화면. 지금은 한 번에 모두 요청한다.
 async function fetchAll() {
-  const [auth, t, m, r, pl, po, co, pr, ra, de, st,
-         pq, pv, rx, cl, ff, pf, pm, aw] = await Promise.all([
+  const [auth, t, m, r, pl, po, co, fs, de, st,
+         pq, ff, pf, pm, aw] = await Promise.all([
     sb.auth.getSession().catch(e => { console.error("[supabase] auth", e); return { data: {} }; }),
     sb.from("tournaments").select("*"),
     sb.from("matches").select("*").order("at"),
@@ -99,22 +192,20 @@ async function fetchAll() {
     sb.from("players").select("*"),
     sb.from("posts").select("*").order("created_at", { ascending: false }),
     sb.from("comments").select("*").order("created_at"),
-    sb.from("predictions").select("*"),
-    sb.from("ratings").select("*"),
+    // 예측·평점·투표·반응·댓글추천은 원본 대신 **집계 + 내 표**만 받는다 (왕복 1회)
+    sb.rpc("get_fan_stats", { p_voter: anonId() }),
     sb.from("match_details").select("*").order("set_index"),
     // 로고(logo_*)는 무거워서 제외 — loadLogosLater()가 따로 받는다
     // 로고(무거움)와 수집 캐시(lp_cache_*, 아주 큼)는 방문자에게 내려보내지 않는다
     sb.from("site_settings").select("key,value").not("key", "like", "logo_%").not("key", "like", "lp_cache_%"),
     sb.from("polls").select("*").order("created_at"),
-    sb.from("poll_votes").select("*"),
-    sb.from("reactions").select("*"),
-    sb.from("comment_likes").select("*"),
     sb.from("founding_fans").select("*").order("no"),
     sb.from("profiles").select("id,nick,fav_team"),
     sb.from("pom_awards").select("*"),
     sb.from("awards").select("*").order("ord"),
   ]);
-  [t, m, r, pl, po, co, pr, ra, de].forEach((res, i) => sbErr(res.error, "load#" + i));
+  // 응답 전부에 대해 오류를 남긴다 (예전에는 앞 9개만 봐서 조용히 빈 배열이 되는 표가 있었다)
+  [t, m, r, pl, po, co, de, st, pq, ff, pf, pm, aw].forEach((res, i) => sbErr(res.error, "load#" + i));
 
   Auth.session = (auth.data && auth.data.session) || null;
   if (Auth.session) {
@@ -132,9 +223,6 @@ async function fetchAll() {
   Cache.pom = pm.data || [];
   Cache.awards = aw.data || [];
   Cache.polls = pq.data || [];
-  Cache.pollVotes = pv.data || [];
-  Cache.reactions = rx.data || [];
-  Cache.commentLikes = cl.data || [];
   Cache.founding = ff.data || [];
   Cache.profiles = pf.data || [];
 
@@ -159,23 +247,133 @@ async function fetchAll() {
     up: x.up, views: x.views, ts: Date.parse(x.created_at), comments: commentsByPost[x.id] || [],
   }));
 
-  // 스냅샷 화면에서 방금 누른 내 표가 이 응답에 없을 수 있다(요청이 클릭보다 먼저 나감).
-  // 통째로 갈아끼우면 사라져 보이므로, 서버에 아직 없는 내 표만 살려 둔다.
-  const keepMine = (fresh, mine, key) => {
-    const has = new Set((fresh || []).map(key));
-    return (fresh || []).concat(mine.filter(x => !has.has(key(x))));
-  };
-  const me = voterId();
-  Cache.predictions = keepMine(pr.data, Cache.predictions.filter(p => p.voter === me),
-    x => x.match_id + "|" + x.voter);
-  Cache.ratings = keepMine(ra.data, Cache.ratings.filter(r => r.voter === me),
-    x => x.match_id + "|" + x.player_id + "|" + x.voter);
-
   Cache.details = {};
   (de.data || []).forEach(row => {
     const d = Cache.details[row.match_id] = Cache.details[row.match_id] || { sets: [] };
     d.sets.push({ _idx: row.set_index, win: row.win, players: row.players || [] });
   });
+
+  // 집계는 matches·players·profiles가 채워진 뒤에 (예전 방식 폴백이 그것들을 쓴다)
+  await applyFanStats(fs);
+}
+
+// ── 집계·내 표 반영 ───────────────────────────────────────
+// 서버에 get_fan_stats가 아직 없으면(= schema12를 실행하기 전) 예전처럼 원본을 읽어
+// **같은 모양**으로 만들어 둔다. 화면 코드는 어느 쪽인지 알 필요가 없다.
+async function applyFanStats(res) {
+  if (res && !res.error && res.data) {
+    const d = res.data;
+    Cache.stats = {
+      pred: d.pred || [], rating: d.rating || [], ratingVoters: d.ratingVoters || [],
+      pollChoice: d.pollChoice || [], pollVoters: d.pollVoters || [],
+      reaction: d.reaction || [], commentLike: d.commentLike || [], fandom: d.fandom || [],
+    };
+    const mine = d.mine || {};
+    Cache.mine = keepMyPending({
+      predictions: mine.predictions || [], ratings: mine.ratings || [],
+      pollVotes: mine.pollVotes || [], reactions: mine.reactions || [],
+      commentLikes: mine.commentLikes || [],
+    });
+    Cache.myVoter = d.voter || null;
+    Cache.statsOk = true;
+    indexStats();
+    return;
+  }
+  if (res && res.error && !isMissingFunction(res.error)) {
+    sbErr(res.error, "get_fan_stats");
+    statsFailed();
+    return;
+  }
+  await legacyFanStats();     // schema12 실행 전 — 예전 경로
+}
+
+// 방금 누른 내 표가 서버 응답보다 늦게 도착할 수 있다(요청이 클릭보다 먼저 나감).
+// **아직 서버 확인을 못 받은 표(_p)만** 살려 둔다. 확정된 옛 표까지 되살리면
+// 서버에서 지워진 표나 로그아웃 전 표가 영영 내 표로 남는다.
+function keepMyPending(fresh) {
+  const keep = (f, m, key) => {
+    const has = new Set((f || []).map(key));
+    return (f || []).concat((m || []).filter(x => x._p && !has.has(key(x))));
+  };
+  const old = Cache.mine || {};
+  return {
+    predictions: keep(fresh.predictions, old.predictions, x => x.match_id),
+    ratings: keep(fresh.ratings, old.ratings, x => x.match_id + "|" + x.player_id),
+    pollVotes: keep(fresh.pollVotes, old.pollVotes, x => x.poll_id),
+    reactions: keep(fresh.reactions, old.reactions, x => x.post_id + "|" + x.kind),
+    commentLikes: keep(fresh.commentLikes, old.commentLikes, x => String(x.comment_id)),
+  };
+}
+
+// schema12 실행 전에도 사이트가 그대로 돌아가도록 하는 예전 경로.
+// SQL을 실행하고 나면 원본 권한이 없어 여기로 오지 않는다.
+async function legacyFanStats() {
+  const me = voterId();
+  const [pr, ra, pv, rx, cl] = await Promise.all([
+    sb.from("predictions").select("*"), sb.from("ratings").select("*"),
+    sb.from("poll_votes").select("*"), sb.from("reactions").select("*"),
+    sb.from("comment_likes").select("*"),
+  ]);
+  if (pr.error) { sbErr(pr.error, "legacy stats"); statsFailed(); return; }
+  const favOf = {};
+  Cache.profiles.forEach(p => { favOf[p.id] = p.fav_team || null; });
+  const M = {}; Cache.matches.forEach(m => { M[m.id] = m; });
+  const P = {}; Cache.players.forEach(p => { P[p.id] = p; });
+
+  const pred = [], rating = [], ratingVoters = [], pollChoice = [], pollVoters = [],
+        reaction = [], commentLike = [], fandom = [];
+  (pr.data || []).forEach(p => {
+    statRow(pred, x => x.match_id === p.match_id, () => ({ match_id: p.match_id, a: 0, b: 0 }))[p.side]++;
+  });
+  const votersByMatch = {};
+  (ra.data || []).forEach(r => {
+    const pl = P[r.player_id], m = M[r.match_id];
+    if (!pl || !m) return;
+    const fav = favOf[r.voter] || null;
+    const opp = pl.team === m.a ? m.b : pl.team === m.b ? m.a : null;
+    const bucket = fav == null ? "neu" : fav === pl.team ? "own" : (opp && fav === opp) ? "opp" : "neu";
+    [bucket, "all"].forEach(b => {
+      const row = statRow(rating, x => x.match_id === r.match_id && x.player_id === r.player_id && x.bucket === b,
+        () => ({ match_id: r.match_id, player_id: r.player_id, bucket: b, n: 0, total: 0 }));
+      row.n++; row.total += r.score;
+    });
+    (votersByMatch[r.match_id] = votersByMatch[r.match_id] || new Set()).add(r.voter);
+  });
+  Object.keys(votersByMatch).forEach(mid => ratingVoters.push({ match_id: mid, n_voters: votersByMatch[mid].size }));
+  (pv.data || []).forEach(v => {
+    const ft = v.fav_team || favOf[v.voter] || "";
+    statRow(pollVoters, x => x.poll_id === v.poll_id && x.fan_team === ft,
+      () => ({ poll_id: v.poll_id, fan_team: ft, n: 0 })).n++;
+    (Array.isArray(v.choices) ? v.choices : []).forEach(c => {
+      if (typeof c !== "number") return;
+      statRow(pollChoice, x => x.poll_id === v.poll_id && x.fan_team === ft && x.choice_idx === c,
+        () => ({ poll_id: v.poll_id, fan_team: ft, choice_idx: c, n: 0 })).n++;
+    });
+  });
+  (rx.data || []).forEach(r =>
+    statRow(reaction, x => x.post_id === r.post_id && x.kind === r.kind,
+      () => ({ post_id: r.post_id, kind: r.kind, n: 0 })).n++);
+  (cl.data || []).forEach(l =>
+    statRow(commentLike, x => String(x.comment_id) === String(l.comment_id),
+      () => ({ comment_id: l.comment_id, n: 0 })).n++);
+  (pr.data || []).forEach(p => {
+    const team = favOf[p.voter]; if (!team) return;
+    const w = matchWinner(M[p.match_id]); if (!w) return;
+    const t = statRow(fandom, x => x.team === team, () => ({ team, n: 0, hits: 0 }));
+    t.n++; if (p.side === w) t.hits++;
+  });
+
+  Cache.stats = { pred, rating, ratingVoters, pollChoice, pollVoters, reaction, commentLike, fandom };
+  Cache.mine = keepMyPending({
+    predictions: (pr.data || []).filter(x => x.voter === me).map(x => ({ match_id: x.match_id, side: x.side })),
+    ratings: (ra.data || []).filter(x => x.voter === me).map(x => ({ match_id: x.match_id, player_id: x.player_id, score: x.score })),
+    pollVotes: (pv.data || []).filter(x => x.voter === me).map(x => ({ poll_id: x.poll_id, choices: x.choices })),
+    reactions: (rx.data || []).filter(x => x.voter === me).map(x => ({ post_id: x.post_id, kind: x.kind })),
+    commentLikes: (cl.data || []).filter(x => x.voter === me).map(x => ({ comment_id: x.comment_id })),
+  });
+  Cache.myVoter = me;
+  Cache.statsOk = true;
+  indexStats();
 }
 
 // "새로고침하면 볼 게 있는가"를 판단하는 요약값.
@@ -439,25 +637,54 @@ function removeComment(commentId, pw) {
 
 // ── 승부예측 ──
 function getVotes() {
-  const me = voterId();
   const out = {};
-  Cache.predictions.forEach(p => { if (p.voter === me) out[p.match_id] = p.side; });
+  Cache.mine.predictions.forEach(p => { out[p.match_id] = p.side; });
   return out;
 }
 function setVote(matchId, side) {
-  const me = voterId();
-  const existing = Cache.predictions.find(p => p.match_id === matchId && p.voter === me);
-  if (existing) existing.side = side;
-  else Cache.predictions.push({ match_id: matchId, voter: me, side });
-  sb.from("predictions").upsert({ match_id: matchId, voter: me, side }).then(r => sbErr(r.error, "setVote"));
+  const prev = Cache.mine.predictions.find(p => p.match_id === matchId);
+  const before = prev ? prev.side : null;            // 되돌릴 때 쓸 예전 선택
+  if (before === side) return;
+  // 집계에도 바로 반영 (예전 선택에서 1 빼고 새 선택에 1 더한다)
+  const row = statRow(Cache.stats.pred, x => x.match_id === matchId,
+    () => ({ match_id: matchId, a: 0, b: 0 }));
+  if (before) row[before] = Math.max(0, row[before] - 1);
+  row[side]++;
+  if (prev) { prev.side = side; prev._p = 1; }
+  else Cache.mine.predictions.push({ match_id: matchId, side, _p: 1 });
+  indexStats();
+  sb.rpc("vote_match", { p_match_id: matchId, p_voter: anonId(), p_side: side }).then(r => {
+    if (isMissingFunction(r.error))
+      return sb.from("predictions").upsert({ match_id: matchId, voter: voterId(), side })
+        .then(x => { sbErr(x.error, "setVote(legacy)"); if (!x.error) clearPending(Cache.mine.predictions, p => p.match_id === matchId); });
+    if (sbWriteFail(r.error, "setVote")) {           // 거부되면 화면도 원래대로 되돌린다
+      row[side] = Math.max(0, row[side] - 1);
+      if (before) { row[before]++; if (prev) { prev.side = before; delete prev._p; } }
+      else Cache.mine.predictions = Cache.mine.predictions.filter(p => p.match_id !== matchId);
+      indexStats();
+    } else {
+      const cur = Cache.mine.predictions.find(p => p.match_id === matchId);
+      if (cur) delete cur._p;                        // 서버가 받았다 — 확정
+      if (r.data) Cache.myVoter = r.data;
+    }
+  });
 }
+// 아직 예측할 수 있는 경기인가 — 서버(vote_match)와 **같은 규칙**이어야 한다.
+// 승부예측 화면이 "마감: 경기 시작 5분 전"이라고 안내하므로 그대로 지킨다.
+function predictOpen(m) {
+  if (!m || m.status === "done") return false;
+  if (!m.at) return true;
+  return Date.now() < new Date(m.at).getTime() - 5 * 60 * 1000;
+}
+
 // 실제 참여자 비율 (없으면 배당 기반 추정으로 폴백)
 function communityPct(m) {
-  const votes = Cache.predictions.filter(p => p.match_id === m.id);
-  if (votes.length) {
-    const a = votes.filter(v => v.side === "a").length;
-    const pa = Math.round((a / votes.length) * 1000) / 10;
-    return { a: pa, b: Math.round((100 - pa) * 10) / 10, n: votes.length };
+  const rows = (Cache.idx && Cache.idx.pred[m.id]) || [];
+  const a = rows.reduce((s, r) => s + r.a, 0), b = rows.reduce((s, r) => s + r.b, 0);
+  const total = a + b;
+  if (total) {
+    const pa = Math.round((a / total) * 1000) / 10;
+    return { a: pa, b: Math.round((100 - pa) * 10) / 10, n: total };
   }
   const ia = 1 / (m.oddsA || 2), ib = 1 / (m.oddsB || 2);
   const pa = Math.round((ia / (ia + ib)) * 1000) / 10;
@@ -479,56 +706,79 @@ function myPredictionStats() {
 
 // ── 선수 평점 ──
 function getRatings() {
-  const me = voterId();
   const out = {};
-  Cache.ratings.forEach(r => {
-    if (r.voter === me) (out[r.match_id] = out[r.match_id] || {})[r.player_id] = r.score;
-  });
+  Cache.mine.ratings.forEach(r => (out[r.match_id] = out[r.match_id] || {})[r.player_id] = r.score);
   return out;
 }
+// 내가 이 평점에서 어느 팬덤 칸에 들어가는가 (서버 규칙과 같아야 한다)
+function myRatingBucket(matchId, playerId) {
+  const fav = myFanTeam();
+  if (!fav) return "neu";
+  const pl = getPlayer(playerId), m = Cache.matches.find(x => x.id === matchId);
+  if (!pl || !m) return "neu";
+  if (fav === pl.team) return "own";
+  const opp = pl.team === m.a ? m.b : pl.team === m.b ? m.a : null;
+  return opp && fav === opp ? "opp" : "neu";
+}
 function setRating(matchId, playerId, score) {
-  const me = voterId();
-  const existing = Cache.ratings.find(r => r.match_id === matchId && r.player_id === playerId && r.voter === me);
-  if (existing) existing.score = score;
-  else Cache.ratings.push({ match_id: matchId, player_id: playerId, voter: me, score });
-  sb.from("ratings").upsert({ match_id: matchId, player_id: playerId, voter: me, score }).then(r => sbErr(r.error, "setRating"));
+  const prev = Cache.mine.ratings.find(r => r.match_id === matchId && r.player_id === playerId);
+  const before = prev ? prev.score : null;
+  if (before === score) return;
+  // 처음 매길 때 쓴 칸을 기억해 둔다. 도중에 응원팀을 바꿔도 같은 칸에서 고쳐야
+  // 한 사람이 두 칸에 세어지지 않는다.
+  const bucket = (prev && prev.b) || myRatingBucket(matchId, playerId);
+  const rows = [bucket, "all"].map(b => statRow(Cache.stats.rating,
+    x => x.match_id === matchId && x.player_id === playerId && x.bucket === b,
+    () => ({ match_id: matchId, player_id: playerId, bucket: b, n: 0, total: 0 })));
+  rows.forEach(r => { if (before == null) r.n++; r.total += score - (before || 0); });
+  if (before == null) {
+    const v = statRow(Cache.stats.ratingVoters, x => x.match_id === matchId,
+      () => ({ match_id: matchId, n_voters: 0 }));
+    // 이 경기에 내가 처음 평점을 매길 때만 인원이 는다
+    if (!Cache.mine.ratings.some(r => r.match_id === matchId)) v.n_voters++;
+  }
+  if (prev) { prev.score = score; prev._p = 1; }
+  else Cache.mine.ratings.push({ match_id: matchId, player_id: playerId, score, b: bucket, _p: 1 });
+  indexStats();
+  sb.rpc("rate_player", { p_match_id: matchId, p_player_id: playerId, p_voter: anonId(), p_score: score })
+    .then(r => {
+      if (isMissingFunction(r.error))
+        return sb.from("ratings").upsert({ match_id: matchId, player_id: playerId, voter: voterId(), score })
+          .then(x => { sbErr(x.error, "setRating(legacy)"); if (!x.error) clearPending(Cache.mine.ratings, y => y.match_id === matchId && y.player_id === playerId); });
+      if (sbWriteFail(r.error, "setRating")) {
+        rows.forEach(x => { if (before == null) x.n = Math.max(0, x.n - 1); x.total -= score - (before || 0); });
+        if (before == null) Cache.mine.ratings = Cache.mine.ratings.filter(x => !(x.match_id === matchId && x.player_id === playerId));
+        else if (prev) { prev.score = before; delete prev._p; }
+        // 이 경기 첫 평점이었다면 늘려 둔 참여 인원도 되돌린다
+        if (before == null && !Cache.mine.ratings.some(x => x.match_id === matchId)) {
+          const v = Cache.stats.ratingVoters.find(x => x.match_id === matchId);
+          if (v) v.n_voters = Math.max(0, v.n_voters - 1);
+        }
+        indexStats();
+      } else {
+        const cur = Cache.mine.ratings.find(x => x.match_id === matchId && x.player_id === playerId);
+        if (cur) delete cur._p;
+        if (r.data) Cache.myVoter = r.data;
+      }
+    });
 }
 function myRatingsForPlayer(playerId) {
-  const me = voterId();
-  return Cache.ratings.filter(r => r.player_id === playerId && r.voter === me)
+  return Cache.mine.ratings.filter(r => r.player_id === playerId)
     .map(r => ({ matchId: r.match_id, score: r.score }));
 }
-function myAvgForPlayer(playerId) {
-  const list = myRatingsForPlayer(playerId);
-  if (!list.length) return null;
-  return Math.round(list.reduce((s, x) => s + x.score, 0) / list.length * 10) / 10;
-}
-// 전체 팬 평균 (matchId를 주면 해당 경기 한정)
-function communityAvgForPlayer(playerId, matchId) {
-  let list = Cache.ratings.filter(r => r.player_id === playerId);
-  if (matchId) list = list.filter(r => r.match_id === matchId);
-  if (!list.length) return null;
-  const voters = new Set(list.map(r => r.voter)).size;
-  return { avg: Math.round(list.reduce((s, x) => s + x.score, 0) / list.length * 10) / 10, n: voters };
-}
 // 팬심 평점: 한 경기·한 선수의 평점을 아군 팬·상대 팬·중립으로 나눠 평균
-// (평가자가 로그인 회원이면 profiles.fav_team으로 소속 팬덤을 판별, 비회원은 중립)
-function fanSplitForPlayer(playerId, matchId, ownTeam, oppTeam) {
-  const favOf = {};
-  Cache.profiles.forEach(p => { favOf[p.id] = p.fav_team || null; });
-  const g = { all: [], home: [], opp: [], neu: [] };
-  Cache.ratings.filter(r => r.match_id === matchId && r.player_id === playerId).forEach(r => {
-    g.all.push(r.score);
-    const fav = favOf[r.voter] || null;
-    if (fav === ownTeam) g.home.push(r.score);
-    else if (fav === oppTeam) g.opp.push(r.score);
-    else g.neu.push(r.score);
-  });
-  const stat = list => list.length
-    ? { avg: Math.round(list.reduce((s, x) => s + x, 0) / list.length * 10) / 10, n: list.length }
-    : null;
-  return { all: stat(g.all), home: stat(g.home), opp: stat(g.opp), neu: stat(g.neu) };
+// (팬덤 판별은 서버가 profiles.fav_team으로 한다. 비회원은 중립)
+function fanSplitForPlayer(playerId, matchId) {
+  const g = (Cache.idx && Cache.idx.rating[matchId + "|" + playerId]) || {};
+  const stat = k => g[k] && g[k].n ? { avg: Math.round(g[k].total / g[k].n * 10) / 10, n: g[k].n } : null;
+  return { all: stat("all"), home: stat("own"), opp: stat("opp"), neu: stat("neu") };
 }
+// 이 경기에 평점을 매긴 인원 (중복 제외). 선수별 인원을 더하면 한 사람이 10명을
+// 평가했을 때 10명으로 세어지므로, 서버가 따로 세어 준 값을 쓴다.
+function matchRatingVoters(matchId) {
+  return (Cache.idx && Cache.idx.ratingVoters[matchId]) || 0;
+}
+
 // 경기에 실제 출전한 선수 id 집합 (경기 상세 기록 기준 · 기록 없으면 빈 집합)
 // 챔피언 칸이 비어 있는 행은 "명단에만 있고 출전 안 함"으로 보고 제외한다.
 function playedPidsForMatch(matchId) {
@@ -543,12 +793,12 @@ function playedPidsForMatch(matchId) {
 function fanRatingRows(match) {
   const posOrder = ["탑", "정글", "미드", "원딜", "서폿"];
   const played = playedPidsForMatch(match.id);
-  const side = (teamId, oppId) => {
+  const side = teamId => {
     let ps = teamPlayers(teamId);
     if (played.size) ps = ps.filter(p => played.has(p.id));
-    return ps.map(p => ({ p, s: fanSplitForPlayer(p.id, match.id, teamId, oppId) }));
+    return ps.map(p => ({ p, s: fanSplitForPlayer(p.id, match.id) }));
   };
-  const A = side(match.a, match.b), B = side(match.b, match.a);
+  const A = side(match.a), B = side(match.b);
   const rows = [], used = new Set();
   posOrder.forEach(pos => {
     const as = A.filter(x => x.p.pos === pos), bs = B.filter(x => x.p.pos === pos);
@@ -565,19 +815,19 @@ function fanRatingRows(match) {
 }
 
 // 경기 POG: 전체 평균 1위 선수 (동률이면 참여자 많은 쪽 · 출전 기록이 있으면 출전 선수만)
+// 완전 동률일 때는 선수 id 순으로 확정한다 — 그러지 않으면 DB가 행을 돌려주는 순서에 따라
+// 새로고침할 때마다 MVP가 바뀐다 (실제로 10.0점 6명 동률인 경기가 있었다).
 function pogForMatch(matchId) {
   const played = playedPidsForMatch(matchId);
-  const by = {};
-  Cache.ratings.filter(r => r.match_id === matchId).forEach(r => {
-    if (played.size && !played.has(r.player_id)) return;
-    const s = by[r.player_id] = by[r.player_id] || { sum: 0, n: 0 };
-    s.sum += r.score; s.n++;
-  });
   let best = null;
-  Object.keys(by).forEach(pid => {
-    const avg = by[pid].sum / by[pid].n;
-    if (!best || avg > best.avg + 1e-9 || (Math.abs(avg - best.avg) < 1e-9 && by[pid].n > best.n))
-      best = { pid, avg: Math.round(avg * 10) / 10, n: by[pid].n };
+  (Cache.stats.rating || []).forEach(r => {
+    if (r.match_id !== matchId || r.bucket !== "all" || !r.n) return;
+    if (played.size && !played.has(r.player_id)) return;
+    const avg = r.total / r.n;
+    const tie = best && Math.abs(avg - best.exact) < 1e-9;
+    if (!best || avg > best.exact + 1e-9 || (tie && r.n > best.n) ||
+        (tie && r.n === best.n && r.player_id < best.pid))
+      best = { pid: r.player_id, avg: Math.round(avg * 10) / 10, n: r.n, exact: avg };
   });
   return best;
 }
@@ -677,12 +927,12 @@ function matchWinner(m) {
   return m.scoreA > m.scoreB ? "a" : "b";
 }
 
-function matchParticipationOf(voter) {
+// 내가 참여한 경기 id 집합 (예측·평점·투표 어느 것이든)
+function myParticipation() {
   const ids = new Set();
-  Cache.predictions.forEach(p => { if (p.voter === voter) ids.add(p.match_id); });
-  Cache.ratings.forEach(r => { if (r.voter === voter) ids.add(r.match_id); });
-  Cache.pollVotes.forEach(v => {
-    if (v.voter !== voter) return;
+  Cache.mine.predictions.forEach(p => ids.add(p.match_id));
+  Cache.mine.ratings.forEach(r => ids.add(r.match_id));
+  Cache.mine.pollVotes.forEach(v => {
     const poll = Cache.polls.find(p => p.id === v.poll_id);
     if (poll && poll.match_id) ids.add(poll.match_id);
   });
@@ -692,10 +942,10 @@ function matchParticipationOf(voter) {
 function myFanRecord() {
   const me = voterId();
   const doneMatches = sortedMatches().filter(m => m.status === "done" && knownTeams(m));
-  const participated = matchParticipationOf(me);
+  const participated = myParticipation();
 
   // 승부예측 성적 (끝난 경기만 채점)
-  const myPreds = Cache.predictions.filter(p => p.voter === me);
+  const myPreds = Cache.mine.predictions;
   let predDone = 0, predHits = 0;
   const history = [];
   doneMatches.forEach(m => {
@@ -710,7 +960,7 @@ function myFanRecord() {
   // 스코어 적중 (경기 전 "결과는?" 투표 — 보기 형식: "DK 2:0 승")
   let scoreTried = 0, scoreHits = 0;
   Cache.polls.filter(p => p.phase === "pre" && p.match_id).forEach(poll => {
-    const v = Cache.pollVotes.find(x => x.poll_id === poll.id && x.voter === me);
+    const v = Cache.mine.pollVotes.find(x => x.poll_id === poll.id);
     const m = Cache.matches.find(x => x.id === poll.match_id);
     if (!v || !matchWinner(m)) return;             // 채점 가능한 경기만
     const idx = (v.choices || [])[0];
@@ -724,8 +974,7 @@ function myFanRecord() {
   });
 
   // 팬 선정 POG(MVP) 투표 횟수
-  const pogVotes = Cache.pollVotes.filter(v => {
-    if (v.voter !== me) return false;
+  const pogVotes = Cache.mine.pollVotes.filter(v => {
     const poll = Cache.polls.find(p => p.id === v.poll_id);
     return poll && poll.phase === "post_pom";
   }).length;
@@ -738,7 +987,7 @@ function myFanRecord() {
   }
 
   // 평점 매긴 선수 수
-  const ratedPlayers = new Set(Cache.ratings.filter(r => r.voter === me).map(r => r.player_id)).size;
+  const ratedPlayers = new Set(Cache.mine.ratings.map(r => r.player_id)).size;
 
   // 팬 성향 (응원팀 경기 예측에서 자기 팀을 얼마나 골랐나 — 표본 3경기 이상일 때만)
   const fav = getFavTeam();
@@ -783,20 +1032,9 @@ function fanBadges(rec) {
 
 // ── 팬덤별 예측 적중률 (회원 응원팀 기준 — 익명 표는 팀을 알 수 없어 제외) ──
 function fandomAccuracy() {
-  const teamOf = {};
-  Cache.profiles.forEach(p => { if (p.fav_team) teamOf[p.id] = p.fav_team; });
-  const acc = {};
-  Cache.predictions.forEach(p => {
-    const team = teamOf[p.voter];
-    if (!team) return;
-    const m = Cache.matches.find(x => x.id === p.match_id);
-    const winner = matchWinner(m);
-    if (!winner) return;
-    const t = (acc[team] = acc[team] || { team, n: 0, hits: 0 });
-    t.n++; if (p.side === winner) t.hits++;
-  });
-  return Object.values(acc)
-    .map(t => ({ ...t, pct: Math.round((t.hits / t.n) * 100) }))
+  return (Cache.stats.fandom || [])
+    .filter(t => t.n > 0)
+    .map(t => ({ team: t.team, n: t.n, hits: t.hits, pct: Math.round((t.hits / t.n) * 100) }))
     .sort((a, b) => b.pct - a.pct || b.n - a.n);
 }
 
@@ -912,18 +1150,12 @@ function radarData(pid, tid) {
 
 // 선수의 경기별 평점 목록 (최신 경기 순)
 function matchRatingsForPlayer(playerId) {
-  const me = voterId();
-  const byMatch = {};
-  Cache.ratings.filter(r => r.player_id === playerId).forEach(r => {
-    const g = byMatch[r.match_id] = byMatch[r.match_id] || { sum: 0, n: 0, mine: null };
-    g.sum += r.score; g.n++;
-    if (r.voter === me) g.mine = r.score;
-  });
-  return Object.keys(byMatch).map(mid => {
-    const m = Cache.matches.find(x => x.id === mid);
-    const g = byMatch[mid];
-    return { matchId: mid, match: m, at: m ? m.at : 0,
-      avg: Math.round(g.sum / g.n * 10) / 10, n: g.n, mine: g.mine };
+  const rows = (Cache.idx && Cache.idx.ratingByPlayer[playerId]) || [];
+  return rows.filter(r => r.n).map(r => {
+    const m = Cache.matches.find(x => x.id === r.match_id);
+    const mine = Cache.mine.ratings.find(x => x.match_id === r.match_id && x.player_id === playerId);
+    return { matchId: r.match_id, match: m, at: m ? m.at : 0,
+      avg: Math.round(r.total / r.n * 10) / 10, n: r.n, mine: mine ? mine.score : null };
   }).sort((a, b) => new Date(b.at) - new Date(a.at));
 }
 // 가장 최근 경기의 평점 (선수 카드용)
@@ -981,38 +1213,61 @@ function createPoll(p) {
 }
 
 function myPollVote(pollId) {
-  const me = voterId();
-  return Cache.pollVotes.find(v => v.poll_id === pollId && v.voter === me) || null;
+  return Cache.mine.pollVotes.find(v => v.poll_id === pollId) || null;
 }
 function votePoll(pollId, choices) {
-  const me = voterId();
-  const row = {
-    poll_id: pollId, voter: me, choices,
-    fav_team: Auth.profile?.fav_team || null,
-    is_member: !!Auth.session,
-  };
-  const existing = Cache.pollVotes.find(v => v.poll_id === pollId && v.voter === me);
-  if (existing) Object.assign(existing, row);
-  else Cache.pollVotes.push(row);
-  sb.from("poll_votes").upsert(row).then(r => sbErr(r.error, "votePoll"));
+  const prev = myPollVote(pollId);
+  const before = prev ? (prev.choices || []).slice() : null;
+  const ft = (prev && prev.ft != null) ? prev.ft : myFanTeam();   // 처음 쓴 칸에서 고친다
+  const bump = (list, d) => (list || []).forEach(c => {
+    if (typeof c !== "number") return;
+    const row = statRow(Cache.stats.pollChoice,
+      x => x.poll_id === pollId && x.fan_team === ft && x.choice_idx === c,
+      () => ({ poll_id: pollId, fan_team: ft, choice_idx: c, n: 0 }));
+    row.n = Math.max(0, row.n + d);
+  });
+  bump(before, -1); bump(choices, +1);
+  if (!prev) statRow(Cache.stats.pollVoters, x => x.poll_id === pollId && x.fan_team === ft,
+    () => ({ poll_id: pollId, fan_team: ft, n: 0 })).n++;
+  if (prev) { prev.choices = choices; prev._p = 1; }
+  else Cache.mine.pollVotes.push({ poll_id: pollId, choices, ft, _p: 1 });
+  indexStats();
+  sb.rpc("vote_poll", { p_poll_id: pollId, p_voter: anonId(), p_choices: choices }).then(r => {
+    if (isMissingFunction(r.error))
+      return sb.from("poll_votes").upsert({ poll_id: pollId, voter: voterId(), choices,
+        fav_team: Auth.profile?.fav_team || null, is_member: !!Auth.session })
+        .then(x => { sbErr(x.error, "votePoll(legacy)"); if (!x.error) clearPending(Cache.mine.pollVotes, y => y.poll_id === pollId); });
+    if (sbWriteFail(r.error, "votePoll")) {
+      bump(choices, -1); bump(before, +1);
+      if (!prev) {
+        const v = Cache.stats.pollVoters.find(x => x.poll_id === pollId && x.fan_team === ft);
+        if (v) v.n = Math.max(0, v.n - 1);
+        Cache.mine.pollVotes = Cache.mine.pollVotes.filter(x => x.poll_id !== pollId);
+      } else { prev.choices = before; delete prev._p; }
+      indexStats();
+    } else {
+      const cur = Cache.mine.pollVotes.find(x => x.poll_id === pollId);
+      if (cur) delete cur._p;
+      if (r.data) Cache.myVoter = r.data;
+    }
+  });
 }
 // 집계: 전체 + 팬덤별 (teamA/teamB 팬 · 중립=그 외 전부)
 function pollResults(poll, teamA, teamB) {
-  const votes = Cache.pollVotes.filter(v => v.poll_id === poll.id);
   const n = poll.options.length;
   const bucket = () => ({ counts: Array(n).fill(0), total: 0 });
   const overall = bucket(), a = bucket(), b = bucket(), neutral = bucket();
-  votes.forEach(v => {
-    const targets = [overall];
-    if (teamA && v.fav_team === teamA) targets.push(a);
-    else if (teamB && v.fav_team === teamB) targets.push(b);
-    else targets.push(neutral);
-    (v.choices || []).forEach(c => {
-      if (c >= 0 && c < n) targets.forEach(t => t.counts[c]++);
-    });
-    targets.forEach(t => t.total++);
+  const pick = ft => (teamA && ft === teamA) ? a : (teamB && ft === teamB) ? b : neutral;
+  ((Cache.idx && Cache.idx.pollChoice[poll.id]) || []).forEach(r => {
+    if (r.choice_idx < 0 || r.choice_idx >= n) return;
+    overall.counts[r.choice_idx] += r.n;
+    pick(r.fan_team).counts[r.choice_idx] += r.n;
   });
-  return { overall, teamA: a, teamB: b, neutral, voters: votes.length };
+  let voters = 0;
+  ((Cache.idx && Cache.idx.pollVoters[poll.id]) || []).forEach(r => {
+    overall.total += r.n; pick(r.fan_team).total += r.n; voters += r.n;
+  });
+  return { overall, teamA: a, teamB: b, neutral, voters };
 }
 
 // ── 빠른 반응 (글) ──
@@ -1025,39 +1280,65 @@ const REACTION_KINDS = [
 function reactionCounts(postId) {
   const out = {};
   REACTION_KINDS.forEach(k => out[k.kind] = 0);
-  Cache.reactions.filter(r => r.post_id === postId).forEach(r => out[r.kind] = (out[r.kind] || 0) + 1);
+  Object.entries((Cache.idx && Cache.idx.reaction[postId]) || {}).forEach(([k, n]) => out[k] = n);
   return out;
 }
 function myReactions(postId) {
-  const me = voterId();
-  return new Set(Cache.reactions.filter(r => r.post_id === postId && r.voter === me).map(r => r.kind));
+  return new Set(Cache.mine.reactions.filter(r => r.post_id === postId).map(r => r.kind));
 }
 function toggleReaction(postId, kind) {
-  const me = voterId();
-  const i = Cache.reactions.findIndex(r => r.post_id === postId && r.voter === me && r.kind === kind);
-  if (i >= 0) {
-    Cache.reactions.splice(i, 1);
-    sb.from("reactions").delete().eq("post_id", postId).eq("voter", me).eq("kind", kind)
-      .then(r => sbErr(r.error, "delReaction"));
-  } else {
-    Cache.reactions.push({ post_id: postId, voter: me, kind });
-    sb.from("reactions").insert({ post_id: postId, voter: me, kind }).then(r => sbErr(r.error, "addReaction"));
-  }
+  const on = !Cache.mine.reactions.some(r => r.post_id === postId && r.kind === kind);
+  const row = statRow(Cache.stats.reaction, x => x.post_id === postId && x.kind === kind,
+    () => ({ post_id: postId, kind, n: 0 }));
+  row.n = Math.max(0, row.n + (on ? 1 : -1));
+  if (on) Cache.mine.reactions.push({ post_id: postId, kind, _p: 1 });
+  else Cache.mine.reactions = Cache.mine.reactions.filter(r => !(r.post_id === postId && r.kind === kind));
+  indexStats();
+  sb.rpc("toggle_reaction", { p_post_id: postId, p_voter: anonId(), p_kind: kind }).then(r => {
+    if (isMissingFunction(r.error)) {
+      const q = on ? sb.from("reactions").insert({ post_id: postId, voter: voterId(), kind })
+                   : sb.from("reactions").delete().eq("post_id", postId).eq("voter", voterId()).eq("kind", kind);
+      return q.then(x => { sbErr(x.error, "toggleReaction(legacy)"); if (!x.error) clearPending(Cache.mine.reactions, y => y.post_id === postId && y.kind === kind); });
+    }
+    if (sbWriteFail(r.error, "toggleReaction")) {
+      row.n = Math.max(0, row.n + (on ? -1 : 1));
+      if (on) Cache.mine.reactions = Cache.mine.reactions.filter(x => !(x.post_id === postId && x.kind === kind));
+      else Cache.mine.reactions.push({ post_id: postId, kind });
+      indexStats();
+    } else {
+      const cur = Cache.mine.reactions.find(x => x.post_id === postId && x.kind === kind);
+      if (cur) delete cur._p;
+    }
+  });
 }
 
 // ── 댓글 추천 ──
 function commentLikeCount(commentId) {
-  return Cache.commentLikes.filter(l => l.comment_id === commentId).length;
+  return (Cache.idx && Cache.idx.commentLike[commentId]) || 0;
 }
 function myCommentLike(commentId) {
-  const me = voterId();
-  return Cache.commentLikes.some(l => l.comment_id === commentId && l.voter === me);
+  return Cache.mine.commentLikes.some(l => String(l.comment_id) === String(commentId));
 }
 function likeComment(commentId) {
-  const me = voterId();
   if (myCommentLike(commentId)) return false;
-  Cache.commentLikes.push({ comment_id: commentId, voter: me });
-  sb.from("comment_likes").insert({ comment_id: commentId, voter: me }).then(r => sbErr(r.error, "likeComment"));
+  statRow(Cache.stats.commentLike, x => String(x.comment_id) === String(commentId),
+    () => ({ comment_id: commentId, n: 0 })).n++;
+  Cache.mine.commentLikes.push({ comment_id: commentId, _p: 1 });
+  indexStats();
+  sb.rpc("like_comment", { p_comment_id: commentId, p_voter: anonId() }).then(r => {
+    if (isMissingFunction(r.error))
+      return sb.from("comment_likes").insert({ comment_id: commentId, voter: voterId() })
+        .then(x => { sbErr(x.error, "likeComment(legacy)"); if (!x.error) clearPending(Cache.mine.commentLikes, y => String(y.comment_id) === String(commentId)); });
+    if (sbWriteFail(r.error, "likeComment")) {
+      const row = Cache.stats.commentLike.find(x => String(x.comment_id) === String(commentId));
+      if (row) row.n = Math.max(0, row.n - 1);
+      Cache.mine.commentLikes = Cache.mine.commentLikes.filter(x => String(x.comment_id) !== String(commentId));
+      indexStats();
+    } else {
+      const cur = Cache.mine.commentLikes.find(x => String(x.comment_id) === String(commentId));
+      if (cur) delete cur._p;
+    }
+  });
   return true;
 }
 
@@ -1152,6 +1433,11 @@ async function sbGetSession() {
   const { data } = await sb.auth.getSession();
   return data.session;
 }
+// (보류) 익명 시절 기록을 계정으로 옮기는 기능은 아직 없다.
+// 익명 id가 비밀이 아니라서 — 예전에 predictions가 공개 조회였으므로 이미 유출됐을 수 있다 —
+// "id를 아는 사람이 주인"이라고 인정하면 가입 한 번으로 남의 기록을 가져갈 수 있다.
+// 브라우저가 비밀 토큰을 갖는 구조로 바꾼 뒤에 만든다. (supabase/schema12_vote_privacy.sql 4번 항목)
+
 async function sbSignIn(email, password) {
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   return { session: data.session, error };
@@ -1173,6 +1459,8 @@ async function sbSignOut() {
   // 스냅샷에 로그인 상태가 남으면 다음 방문에서 이전 회원의 팀·기록이 보인다
   Auth.session = null;
   Auth.profile = null;
+  Cache.myVoter = null;
+  Cache.mine = { predictions: [], ratings: [], pollVotes: [], reactions: [], commentLikes: [] };
   try { localStorage.removeItem(SNAP_KEY); } catch {}
   snapshotSave();
 }

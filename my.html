@@ -12,7 +12,7 @@
   <meta name="twitter:card" content="summary">
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260804p">
+  <link rel="stylesheet" href="assets/styles.css?v=20260805b">
 </head>
 <body>
   <main class="page">
@@ -47,8 +47,9 @@
           <div class="card-head"><h2 class="card-title">기록을 계정에 남기기</h2></div>
           <div class="admin-note" style="border-top:none">
             지금 기록은 <b>이 브라우저에만</b> 남는 기록입니다.
-            회원가입하면 기기가 바뀌어도 시즌 기록이 이어지고, 팀 게시판 글쓰기와
-            창립 팬 100인에도 참여할 수 있어요.<br>
+            회원가입하면 <b>가입한 뒤부터의</b> 기록이 기기가 바뀌어도 이어지고,
+            팀 게시판 글쓰기와 창립 팬 100인에도 참여할 수 있어요.
+            <span style="color:var(--text-dim)">(지금까지의 익명 기록은 이 브라우저에 남습니다)</span><br>
             <a href="login.html" style="text-decoration:underline; font-weight:700">회원가입 하러 가기 →</a>
           </div>
         </section>
@@ -69,10 +70,10 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260804p"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260804p"></script>
-  <script src="assets/store.js?v=20260804p"></script>
-  <script src="assets/app.js?v=20260804p"></script>
+  <script src="assets/data.js?v=20260805b"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260805b"></script>
+  <script src="assets/store.js?v=20260805b"></script>
+  <script src="assets/app.js?v=20260805b"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("MY", null);

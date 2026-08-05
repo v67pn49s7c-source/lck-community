@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260804p">
+  <link rel="stylesheet" href="assets/styles.css?v=20260805b">
 </head>
 <body>
   <main class="page">
@@ -75,11 +75,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260804p"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260804p"></script>
-  <script src="assets/store.js?v=20260804p"></script>
-  <script src="assets/app.js?v=20260804p"></script>
-  <script src="assets/ddragon.js?v=20260804p"></script>
+  <script src="assets/data.js?v=20260805b"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260805b"></script>
+  <script src="assets/store.js?v=20260805b"></script>
+  <script src="assets/app.js?v=20260805b"></script>
+  <script src="assets/ddragon.js?v=20260805b"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -301,8 +301,11 @@
     }
 
     renderBanner();
-    // 중계 링크 같은 설정값은 지난 방문 스냅샷에 없을 수 있어, 서버 데이터가 도착하면 다시 그린다
-    storeFresh.then(() => renderStreams());
+    // 중계 링크·팬 평점·투표 결과는 지난 방문 스냅샷에 없거나 오래됐을 수 있어,
+    // 서버 데이터가 도착하면 다시 그린다
+    storeFresh.then(() => {
+      renderStreams(); renderFanPulse(); renderRatingPanel();
+    }).catch(() => {});
     renderFanPulse();
     renderDetails();
     ddInit().then(ok => { if (ok) renderDetails(); }); // 아이템·룬·스펠 아이콘 로드 후 다시 그림

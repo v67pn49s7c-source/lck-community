@@ -295,6 +295,13 @@ async function initPostPage() {
     });
   };
   render();
+  // 반응·댓글 추천 수는 서버 집계에서 오므로, 스냅샷으로 먼저 그렸다면 도착 후 다시 그린다.
+  // 단, 댓글을 쓰고 있거나 수정 폼을 열어 둔 상태면 건드리지 않는다 (쓰던 글이 날아간다).
+  storeFresh.then(() => {
+    const busy = [...document.querySelectorAll("#post-view textarea, #post-view input")]
+      .some(el => el === document.activeElement || (el.value || "").trim());
+    if (!busy) render();
+  }).catch(() => {});
   initSidebar();
   renderFooter();
 }
