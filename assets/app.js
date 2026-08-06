@@ -111,9 +111,9 @@ function applyTheme(theme) {
 
 // ── 헤더 / 푸터 ──
 const NAV_MENUS = [
-  ["홈", "index.html"], ["경기", "matches.html"], ["순위", "standings.html"], ["승부예측", "predict.html"],
-  ["오늘의 경기", "live.html"], ["커뮤니티", "community.html"], ["팀", "teams.html"], ["선수", "players.html"],
-  ["수상", "awards.html"], ["랭킹", "ranking.html"],
+  ["홈", "index.html"], ["경기", "matches.html"], ["순위", "standings.html"], ["경우의 수", "race.html"],
+  ["승부예측", "predict.html"], ["오늘의 경기", "live.html"], ["커뮤니티", "community.html"], ["팀", "teams.html"],
+  ["선수", "players.html"], ["수상", "awards.html"], ["랭킹", "ranking.html"],
 ];
 
 function renderHeader(activeMenu, activeTeamId) {
@@ -307,8 +307,8 @@ function renderFanHero() {
       </a>
       <div class="fh-predict">
         ${my
-          ? `<span class="fh-note"><b style="color:var(--accent)">${esc((my === "a" ? A : B).abbr)} 승리</b> 예측 중 ·
-               전체 예측 중 ${esc(t.abbr)} 승리 ${usPct}%${pct.n ? ` · ${pct.n}명 참여` : ""}</span>
+          ? `<span class="fh-note"><b style="color:var(--accent)">${esc((my === "a" ? A : B).abbr)} 승리</b> 예측 중${
+               pct.n ? ` · 전체 예측 중 ${esc(t.abbr)} 승리 ${usPct}% · ${pct.n}명 참여` : ""}</span>
              <button type="button" class="btn-secondary" id="fh-share">📷 예측 카드</button>`
           : `<span class="fh-note">아직 예측 전 — 누가 이길까요?</span>
              <button type="button" class="btn-secondary fh-vote" data-side="a">${esc(A.abbr)} 승</button>
@@ -347,6 +347,11 @@ function renderFanHero() {
   el.querySelector("#fh-share")?.addEventListener("click", () => sharePredictionCard(next, my));
 }
 
+// 밖으로 나가는 카드에 참여 인원을 적는 최소 기준.
+// 이보다 적을 때 "2명 참여"가 박힌 카드가 돌면, 퍼뜨리려고 만든 물건이
+// 사이트가 비어 있다는 증거를 스스로 광고하게 된다 (2026-08-06).
+const CARD_MIN_N = 20;
+
 // ── 예측 공유 카드 ("나는 ○○ 승리를 예측했습니다") ─────────
 function sharePredictionCard(match, side) {
   const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
@@ -374,16 +379,23 @@ function sharePredictionCard(match, side) {
   g.fillStyle = pick.color || "#ff4655"; g.font = "bold 40px sans-serif";
   g.fillText(`나는 ${pick.abbr} 승리를 예측했습니다`, W / 2, 300);
 
-  const aW = (W - 96) * pct.a / 100;
-  g.fillStyle = "#4a8cff"; g.fillRect(48, 340, aW, 16);
-  g.fillStyle = "#ff4655"; g.fillRect(48 + aW, 340, (W - 96) - aW, 16);
-  g.fillStyle = "#9aa1b0"; g.font = "600 20px sans-serif";
-  g.textAlign = "left"; g.fillText(`${A.abbr} ${pct.a}%`, 48, 390);
-  g.textAlign = "right"; g.fillText(`${pct.b}% ${B.abbr}`, W - 48, 390);
+  // 밖으로 나가는 카드의 참여 비율은 실제 표가 있을 때만 그린다.
+  // (표 0건의 배당 폴백 = 거짓 비율, 소수 인원 표기 = "죽은 사이트" 광고)
+  if (pct.n) {
+    const aW = (W - 96) * pct.a / 100;
+    g.fillStyle = "#4a8cff"; g.fillRect(48, 340, aW, 16);
+    g.fillStyle = "#ff4655"; g.fillRect(48 + aW, 340, (W - 96) - aW, 16);
+    g.fillStyle = "#9aa1b0"; g.font = "600 20px sans-serif";
+    g.textAlign = "left"; g.fillText(`${A.abbr} ${pct.a}%`, 48, 390);
+    g.textAlign = "right"; g.fillText(`${pct.b}% ${B.abbr}`, W - 48, 390);
+  } else {
+    g.fillStyle = "#9aa1b0"; g.font = "600 22px sans-serif";
+    g.fillText("당신의 예상은?", W / 2, 360);
+  }
 
   g.textAlign = "left";
   g.fillStyle = "#667080"; g.font = "600 20px sans-serif";
-  g.fillText(`${pct.n ? pct.n + "명 참여 · " : ""}${location.host}/match/${match.id}`, 48, H - 44);
+  g.fillText(`${pct.n >= CARD_MIN_N ? pct.n + "명 참여 · " : ""}${location.host}/match/${match.id}`, 48, H - 44);
 
   c.toBlob(async blob => {
     const file = new File([blob], "nexus-predict.png", { type: "image/png" });
@@ -425,7 +437,7 @@ async function renderTeamVideos(teamId) {
 const TAB_BAR = [
   { menu: "홈", href: "index.html", label: "홈",
     icon: `<path d="M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>` },
-  { menu: "경기", href: "matches.html", label: "경기", alt: ["오늘의 경기", "순위"],
+  { menu: "경기", href: "matches.html", label: "경기", alt: ["오늘의 경기", "순위", "경우의 수"],
     icon: `<rect x="3" y="4.5" width="18" height="17" rx="2"/><path d="M8 2.5v4M16 2.5v4M3 10h18"/>` },
   { menu: "승부예측", href: "predict.html", label: "예측", alt: ["랭킹"],
     icon: `<path d="M12 3l2.6 5.6 6.4.8-4.7 4.3 1.3 6.3L12 17l-5.6 3 1.3-6.3L3 9.4l6.4-.8z"/>` },
@@ -630,10 +642,13 @@ function scheduleHTML(matches, opts) {
         ? `${pomPl ? `<span class="chip-pom" title="LCK 공식 POM · ${pom.pts}pt">POM ${esc(pomPl.nick)}</span>` : ""}
            ${pogPl ? `<span class="chip-pog" title="팬 선정 POG · ${pog.n}명 평가">👑 ${esc(pogPl.nick)} <b>${pog.avg.toFixed(1)}</b></span>` : ""}
            ${opts.showStage ? `<span class="chip-stage">${esc(shortStage(m.stage))}</span>` : ""}`
-        : `<div class="odds" title="승부예측 비율${pct.n ? ` · ${pct.n}명 참여` : " (예상)"}">
-            <span class="odds-pill"><b>${Math.round(pct.a)}%</b></span>
-            <span class="odds-pill"><b>${Math.round(pct.b)}%</b></span>
-          </div>`;
+        : pct.n
+          ? `<div class="odds" title="승부예측 비율 · ${pct.n}명 참여">
+              <span class="odds-pill"><b>${Math.round(pct.a)}%</b></span>
+              <span class="odds-pill"><b>${Math.round(pct.b)}%</b></span>
+            </div>`
+          // 표가 0건일 때 배당 추정치를 그대로 보여 주면 "팬심 50:50"이라는 거짓말이 된다
+          : `<div class="odds" title="아직 예측이 없습니다"><span class="odds-pill">예측 대기</span></div>`;
       return `
       <a class="match-row" href="/match/${q(m.id)}">
         <span class="match-time">${fmtTime(m.at)}</span>
@@ -685,14 +700,14 @@ function renderPollInto(el, poll, ctx) {
             <div class="por-break">
               ${A ? `<span style="color:${A.color}">${A.abbr}팬 ${pct(r.teamA.counts[i], r.teamA.total)}%</span>` : ""}
               ${B ? `<span style="color:${B.color}">${B.abbr}팬 ${pct(r.teamB.counts[i], r.teamB.total)}%</span>` : ""}
-              <span>중립 ${pct(r.neutral.counts[i], r.neutral.total)}%</span>
+              <span title="제3팀 팬·응원팀 미등록 포함">기타 ${pct(r.neutral.counts[i], r.neutral.total)}%</span>
             </div>` : "") : ""}
         </div>`;
       }).join("")}
       ${(A || B) && !canBreak ? `
         <div class="poll-gate">
           <div class="poll-gate-blur">
-            ${A ? `${A.abbr}팬 ▮▮▮▮▮ · ` : ""}${B ? `${B.abbr}팬 ▮▮▮▮ · ` : ""}중립 ▮▮▮
+            ${A ? `${A.abbr}팬 ▮▮▮▮▮ · ` : ""}${B ? `${B.abbr}팬 ▮▮▮▮ · ` : ""}기타 ▮▮▮
           </div>
           <a class="btn-primary" href="login.html">간편 가입하고 팬덤별 결과 보기</a>
         </div>` : ""}
@@ -788,14 +803,15 @@ function sharePollCard(poll, ctx) {
       const parts = [];
       if (A) parts.push(`${A.abbr}팬 ${pctOf(r.teamA.counts[i], r.teamA.total)}%`);
       if (B) parts.push(`${B.abbr}팬 ${pctOf(r.teamB.counts[i], r.teamB.total)}%`);
-      parts.push(`중립 ${pctOf(r.neutral.counts[i], r.neutral.total)}%`);
+      // '중립'이라 쓰면 거짓 — 이 통에는 제3팀 팬과 비로그인이 함께 들어간다
+      parts.push(`기타 ${pctOf(r.neutral.counts[i], r.neutral.total)}%`);
       g.fillText(parts.join(" · "), 48, y + 8); y += 26;
     }
     y += 18;
   });
 
   g.fillStyle = "#667080"; g.font = "600 20px sans-serif";
-  g.fillText(`${r.voters}명 참여 · 팬덤별 여론은 THE NEXUS에서`, 48, H - 72);
+  g.fillText(`${r.voters >= CARD_MIN_N ? r.voters + "명 참여 · " : ""}팬덤별 여론은 THE NEXUS에서`, 48, H - 72);
   g.fillStyle = "#9aa1b0";
   g.fillText(location.host + (poll.match_id ? "/match/" + poll.match_id : ""), 48, H - 40);
 
@@ -829,7 +845,7 @@ function shareRatingCard(match) {
     const parts = [];
     if (s.home) parts.push(`아군 ${s.home.avg.toFixed(1)}`);
     if (s.opp) parts.push(`상대 ${s.opp.avg.toFixed(1)}`);
-    if (s.neu) parts.push(`중립 ${s.neu.avg.toFixed(1)}`);
+    if (s.neu) parts.push(`기타 ${s.neu.avg.toFixed(1)}`);
     return parts.length > 1 ? parts.join(" · ") : "";
   };
 
@@ -917,9 +933,9 @@ function shareRatingCard(match) {
     draw(r.b, "r");
   });
 
-  // 꼬리말 — 주소는 빼고 한 줄만
+  // 꼬리말 — 주소는 빼고 한 줄만 (인원은 충분히 모였을 때만 적는다)
   g.fillStyle = "#4a5160"; g.font = F("600", 15);
-  g.fillText(`${voters}명 참여`, padX, H - 26);
+  g.fillText(voters >= CARD_MIN_N ? `${voters}명 참여` : "팬 평점", padX, H - 26);
   g.textAlign = "right";
   g.fillStyle = "#2f3542";
   g.fillText("THE NEXUS", W - padX, H - 26);
@@ -966,6 +982,56 @@ function renderHotPosts() {
       <span class="post-meta"><span class="up">▲ ${p.up}</span><span class="cmt">💬 ${p.comments.length}</span><span>${fmtAgo(p.ts)}</span></span>
     </a>`;
   }).join("");
+}
+
+// ── 창립 팬 100인 레이스 (홈 사이드바) ─────────────────────
+// 팀당 선착순 100명 — 응원팀을 등록해야만 참여할 수 있어서,
+// 이 위젯이 곧 팬덤별 집계(아군/상대)의 표본을 채우는 입구가 된다.
+function renderFoundingRace() {
+  const el = document.getElementById("founding-race");
+  if (!el) return;
+  const counts = TEAMS.map(t => ({ t, n: Cache.founding.filter(f => f.team === t.id).length }))
+    .sort((a, b) => b.n - a.n || a.t.abbr.localeCompare(b.t.abbr));
+  const total = counts.reduce((s, x) => s + x.n, 0);
+  const totalEl = document.getElementById("founding-total");
+  if (totalEl) totalEl.textContent = total ? `${total}명 등록` : "";
+
+  const fav = myFanTeam();
+  const myNo = fav && Auth.session ? myFoundingNo(fav) : null;
+  const favT = fav ? TEAM_MAP[fav] : null;
+
+  // 참여 동선: 회원+응원팀 → 바로 등록 버튼 / 회원인데 팀 미설정 → 홈에서 팀 고르기 /
+  // 비회원 → 가입 안내. "어디서 하는 건지 모르겠다"가 없도록 버튼 하나로.
+  const cta = myNo
+    ? `<a class="btn-secondary" href="team.html?team=${q(fav)}">내 번호 <b>#${myNo}</b> · ${esc(favT.abbr)} 명단 보기 ›</a>`
+    : (Auth.session && fav)
+    ? `<button type="button" class="btn-primary" id="founding-claim">${esc(favT.abbr)} 창립 팬 번호 받기</button>`
+    : Auth.session
+    ? `<span class="fh-note">응원팀을 고르면 참여할 수 있어요 — <a href="index.html" style="text-decoration:underline">위에서 팀 고르기</a></span>`
+    : `<a class="btn-primary" href="login.html">가입하고 창립 팬 번호 받기</a>`;
+
+  el.innerHTML = `
+    ${counts.slice(0, 5).map(({ t, n }) => `
+      <div style="display:flex;align-items:center;gap:9px;padding:5px 0">
+        <span style="display:inline-flex;align-items:center;gap:6px;width:64px;flex:none">
+          ${teamLogoHTML(t, 18)} <b style="font-size:13px">${esc(t.abbr)}</b></span>
+        <span style="flex:1;height:8px;border-radius:4px;background:var(--line);overflow:hidden">
+          <span style="display:block;height:100%;width:${n}%;background:${t.color};border-radius:4px"></span></span>
+        <span style="width:52px;text-align:right;font-size:12.5px;color:var(--text-sub);font-variant-numeric:tabular-nums">${n} / 100</span>
+      </div>`).join("")}
+    <div style="padding:10px 0 4px;display:flex;flex-direction:column;gap:6px">${cta}</div>
+    <div class="admin-note" style="margin-top:8px">각 팀 100명이 차면 그 팀 명단은 영구히 닫힙니다.
+      번호는 등록 순서대로 매겨지고, 닉네임 옆에 <b>#번호</b> 배지가 붙습니다.</div>`;
+
+  el.querySelector("#founding-claim")?.addEventListener("click", async () => {
+    const btn = el.querySelector("#founding-claim");
+    btn.disabled = true; btn.textContent = "등록 중…";
+    const r = await claimFounding(fav);
+    if (r.error) {
+      sbWriteFail(r.error, "claimFounding");
+      btn.disabled = false; btn.textContent = `${favT.abbr} 창립 팬 번호 받기`;
+    } else renderFoundingRace();
+  });
 }
 
 function renderPredictRanking() {
@@ -1015,6 +1081,7 @@ async function initHome() {
     renderTodayPoll();
     renderHomeSchedule();
     renderHotPosts();
+    renderFoundingRace();
     renderPredictRanking();
   };
   draw();

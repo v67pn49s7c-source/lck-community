@@ -537,18 +537,47 @@ async function applyMatchToRecords(matchId) {
   }
   return { ok: true };
 }
+// 스테이지 전적을 저장값이 아니라 **실제 경기 결과에서 계산**한다 (2026-08-06).
+// 예전에는 관리자가 경기마다 '순위 반영'을 눌러야 stage_records 가 갱신됐는데,
+// 하루만 늦어도 순위표가 틀린 채 노출됐다 (8/5 경기 2건 누락 사고).
+// 이제 저장된 records 는 팀 명단(소속·표시 순서)으로만 쓰고, 승패·세트는 matches 에서 센다.
+// 경기와 스테이지는 이름으로 잇는다 — "Road To MSI"/"Road to MSI" 같은 표기 차이를 흡수한다.
+function computedStageRecords(s) {
+  const key = x => String(x || "").trim().toLowerCase();
+  const played = Cache.matches.filter(m =>
+    m.status === "done" && key(m.stage) === key(s.name) &&
+    m.scoreA != null && m.scoreB != null && m.scoreA !== m.scoreB &&
+    TEAM_MAP[m.a] && TEAM_MAP[m.b]);
+  if (!played.length) return s.records || []; // 경기 기록이 없는 스테이지는 저장값 그대로
+  const acc = {};
+  const rec = t => acc[t] = acc[t] || { team: t, w: 0, l: 0, sw: 0, sl: 0 };
+  (s.records || []).forEach(r => rec(r.team)); // 0승 팀도 명단에 남긴다
+  played.forEach(m => {
+    const A = rec(m.a), B = rec(m.b), aWin = m.scoreA > m.scoreB;
+    (aWin ? A : B).w++; (aWin ? B : A).l++;
+    A.sw += m.scoreA; A.sl += m.scoreB;
+    B.sw += m.scoreB; B.sl += m.scoreA;
+  });
+  return Object.values(acc);
+}
+// 시즌 중간에는 팀마다 치른 경기 수가 달라서 승수만으로 줄 세우면 틀린다
+// (15승 5패가 15승 6패 아래로 가는 사고). 승률 → 세트득실 순.
+// 마지막 팀 id 는 화면이 매번 같은 순서로 나오게 하는 고정핀일 뿐,
+// 승률·득실이 모두 같은 팀의 실제 순위는 규정(순위 결정전 등)에 달려 있어 여기서 단정하지 않는다.
+const winRate = r => (r.w + r.l) ? r.w / (r.w + r.l) : -1;
+const standingsSort = (a, b) => winRate(b) - winRate(a) || b.pt - a.pt || String(a.team).localeCompare(String(b.team));
 function stageStandings(stageId) {
   const s = Cache.records.find(x => x.id === stageId);
   if (!s) return [];
-  return s.records.slice().map(r => ({ ...r, pt: r.sw - r.sl })).sort((a, b) => b.w - a.w || b.pt - a.pt);
+  return computedStageRecords(s).map(r => ({ ...r, pt: r.sw - r.sl })).sort(standingsSort);
 }
 function cumulativeStandings() {
   const acc = {};
-  Cache.records.filter(stageInTotal).forEach(s => s.records.forEach(r => {
+  Cache.records.filter(stageInTotal).forEach(s => computedStageRecords(s).forEach(r => {
     const t = acc[r.team] = acc[r.team] || { team: r.team, w: 0, l: 0, sw: 0, sl: 0 };
     t.w += r.w; t.l += r.l; t.sw += r.sw; t.sl += r.sl;
   }));
-  return Object.values(acc).map(r => ({ ...r, pt: r.sw - r.sl })).sort((a, b) => b.w - a.w || b.pt - a.pt);
+  return Object.values(acc).map(r => ({ ...r, pt: r.sw - r.sl })).sort(standingsSort);
 }
 function cumulativeRankOf(teamId) {
   const rows = cumulativeStandings();
@@ -753,7 +782,10 @@ function predictOpen(m) {
   return Date.now() < new Date(m.at).getTime() - 5 * 60 * 1000;
 }
 
-// 실제 참여자 비율 (없으면 배당 기반 추정으로 폴백)
+// 실제 참여자 비율. 표가 0건이면 est(추정) 표시와 함께 배당 기반 값을 돌려준다.
+// ⚠ 자동 생성 경기는 배당이 전부 2:2 라 폴백이 정확히 50.0:50.0 이 된다 —
+//   아무도 투표 안 했는데 "팬심이 반반"이라는 거짓 화면이 되므로,
+//   표시하는 쪽은 반드시 n(또는 est)을 보고 숫자를 감춰야 한다 (2026-08-06).
 function communityPct(m) {
   const rows = (Cache.idx && Cache.idx.pred[m.id]) || [];
   const a = rows.reduce((s, r) => s + r.a, 0), b = rows.reduce((s, r) => s + r.b, 0);
@@ -764,7 +796,7 @@ function communityPct(m) {
   }
   const ia = 1 / (m.oddsA || 2), ib = 1 / (m.oddsB || 2);
   const pa = Math.round((ia / (ia + ib)) * 1000) / 10;
-  return { a: pa, b: Math.round((100 - pa) * 10) / 10, n: 0 };
+  return { a: pa, b: Math.round((100 - pa) * 10) / 10, n: 0, est: true };
 }
 function myPredictionStats() {
   const votes = getVotes();
@@ -814,7 +846,15 @@ function myRatingBucket(matchId, playerId) {
   const opp = pl.team === m.a ? m.b : pl.team === m.b ? m.a : null;
   return opp && fav === opp ? "opp" : "neu";
 }
+// 평점을 받는 기간 — 경기 시작 후 48시간까지 (서버 rate_player 와 같은 규칙, schema16).
+// 마감이 없으면 결과 카드를 발행한 뒤에도 표가 들어와 카드와 사이트 숫자가 갈린다.
+function ratingOpen(m) {
+  if (!m || !m.at) return true;
+  return Date.now() < new Date(m.at).getTime() + 48 * 3600 * 1000;
+}
 function setRating(matchId, setIndex, playerId, score) {
+  const m0 = Cache.matches.find(x => x.id === matchId);
+  if (m0 && !ratingOpen(m0)) { sbWriteFail({ message: "평점이 마감된 경기입니다 (경기 후 48시간)" }, "setRating(마감)"); return; }
   const si = setIndex ?? -1;
   const prev = Cache.mine.ratings.find(r =>
     r.match_id === matchId && (r.set_index ?? -1) === si && r.player_id === playerId);

@@ -16,6 +16,7 @@ const STATIC = [
   ["/", "1.0", "hourly"],
   ["/matches.html", "0.9", "hourly"],
   ["/standings.html", "0.8", "daily"],
+  ["/race.html", "0.8", "daily"],
   ["/predict.html", "0.8", "hourly"],
   ["/live.html", "0.7", "hourly"],
   ["/community.html", "0.7", "hourly"],
@@ -25,7 +26,6 @@ const STATIC = [
   ["/ranking.html", "0.5", "daily"],
   ["/terms.html", "0.2", "yearly"],
 ];
-const TEAM_IDS = ["t1", "gen", "hle", "dk", "kt", "bro", "bfx", "krx", "ns", "dns"];
 
 module.exports = async (req, res) => {
   const url = (loc, pri, freq, lastmod) =>
@@ -34,7 +34,9 @@ module.exports = async (req, res) => {
     + `<changefreq>${freq}</changefreq><priority>${pri}</priority></url>`;
 
   let body = STATIC.map(([l, p, f]) => url(l, p, f)).join("");
-  body += TEAM_IDS.map(t => url(`/team.html?team=${t}`, "0.6", "daily")).join("");
+  // 팀·선수 페이지는 브라우저에서 그리는 화면이라 로봇에게는 빈 껍데기로 보인다.
+  // 빈 페이지 수백 장을 제출하면 검색 평가만 깎이므로, 서버가 미리 그려 주는
+  // 주소(/match/…)와 정적 안내가 있는 화면만 알린다 (2026-08-06).
 
   try {
     // 경기: 서버가 미리 그려 주는 주소(/match/<id>)를 넣는다
@@ -46,11 +48,6 @@ module.exports = async (req, res) => {
       const pri = m.status === "done" ? "0.7" : "0.8";
       return url(`/match/${encodeURIComponent(m.id)}`, pri, freq, last);
     }).join("");
-
-    // 선수 페이지도 검색 대상이다 ("페이커 기록" 같은 검색어)
-    const players = await sb("players?select=id&limit=500").catch(() => []);
-    body += (players || []).map(p =>
-      url(`/player.html?id=${encodeURIComponent(p.id)}`, "0.5", "weekly")).join("");
   } catch (e) {
     // DB 를 못 읽어도 고정 주소만이라도 내보낸다 (빈 사이트맵보다 낫다)
   }
