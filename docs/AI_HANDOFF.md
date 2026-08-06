@@ -583,3 +583,10 @@ Roamer 1~2세트 · Loki 3세트인데 둘 다 한 화면에 떠서 한쪽이 �
 - CSS·JS 주소에는 `?v=날짜` 가 붙으므로 내용이 바뀌면 주소가 달라진다 → 길게 잡아도 안전.
 - 브랜드 이미지는 주소가 안 바뀌므로 `immutable` 대신 30일로 둔다.
 - ⚠ vercel.json 은 JSON 이라 주석(`_comment` 포함)을 넣으면 **배포가 거부된다** (2026-08-07 사고).
+
+## 브랜드 이미지에도 ?v= 를 붙인다 (2026-08-07)
+`/assets/*` 에 30일 캐시가 걸려 있으므로, 로고를 바꾸면 **주소도 바꿔야** 사용자에게 반영된다.
+브랜드 이미지 주소는 아래 4곳에 있고, CSS·JS 버전 범프와 **같은 값**으로 함께 올린다:
+- 모든 `*.html` 의 `<link rel="icon" ... nexus-icon.png?v=…>`
+- `assets/styles.css` 의 로딩 마크 `url("brand/nexus-icon.png?v=…")`
+- `assets/app.js` · `assets/store.js` 의 `brandLogoURL(...)` 대체본 경로
