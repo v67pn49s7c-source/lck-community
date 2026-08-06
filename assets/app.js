@@ -352,9 +352,10 @@ function renderFanHero() {
 // 사이트가 비어 있다는 증거를 스스로 광고하게 된다 (2026-08-06).
 const CARD_MIN_N = 20;
 
-// 공식 SNS 계정 — 카드·푸터·캡션이 전부 이 한 곳을 참조한다 (인스타그램·스레드 공용)
+// 공식 SNS 계정·문의 메일 — 카드·푸터·캡션이 전부 이 한 곳을 참조한다 (인스타그램·스레드 공용)
 const SNS_HANDLE = "@thenexus.lolgg";
 const SNS_URL = "https://instagram.com/thenexus.lolgg";
+const CONTACT_EMAIL = "thenexus.lolgg@gmail.com";
 
 // ── 예측 공유 카드 ("나는 ○○ 승리를 예측했습니다") ─────────
 function sharePredictionCard(match, side) {
@@ -491,7 +492,8 @@ function renderFooter() {
       <p class="foot-links">
         모든 예측 참여는 무료이며 포인트는 환전·거래할 수 없습니다.
         · <a href="terms.html">이용약관</a>
-        · 문의·신고: <a href="${SNS_URL}" target="_blank" rel="noopener noreferrer">인스타그램 ${SNS_HANDLE} DM</a>
+        · 문의·신고: <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>
+          / <a href="${SNS_URL}" target="_blank" rel="noopener noreferrer">인스타그램 ${SNS_HANDLE} DM</a>
         · <a href="admin.html">관리자</a>
       </p>
     </div>`;
