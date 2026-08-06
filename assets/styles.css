@@ -7,8 +7,12 @@
   --line: #282c38;
   --text: #e9ebf1;
   --text-sub: #9aa1b0;
-  --text-dim: #667080;
+  --text-dim: #818b9c;
   --accent: #ff4655;
+  /* 흰 글자를 얹는 배경 전용 — 브랜드 빨강(#ff4655)은 흰 글자와 명암비가 3.4:1 로
+     읽기 기준(4.5:1)에 못 미친다. 글자·테두리·막대에는 밝은 --accent 를 그대로 쓰고,
+     버튼처럼 흰 글자가 올라가는 면에만 이 색을 쓴다 (4.9:1). (2026-08-07) */
+  --accent-solid: #d92838;
   --accent-soft: rgba(255, 70, 85, .12);
   --blue: #4a8cff;
   --logo-tile: #101218;
@@ -31,9 +35,10 @@
   --line: #dfe2ea;
   --text: #171a22;
   --text-sub: #565f6e;
-  --text-dim: #99a1af;
-  --accent: #e8323f;
-  --accent-soft: rgba(232, 50, 63, .08);
+  --text-dim: #646c7a;
+  --accent: #cf2333;
+  --accent-solid: #cf2333;
+  --accent-soft: rgba(207, 35, 51, .08);
   --blue: #2b6fe0;
   --logo-tile: #5b4a50;
   --logo-line: #76626a;
@@ -49,7 +54,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260807i") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260807k") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -236,7 +241,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
 }
 .chip-today {
   font-size: 10px; font-weight: 700; color: #fff;
-  background: var(--accent); padding: 1px 7px;
+  background: var(--accent-solid); padding: 1px 7px;
   clip-path: polygon(0 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%);
 }
 .chip-stage {
@@ -270,7 +275,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
 .match-time { font-size: var(--fs-sm); font-weight: 700; color: var(--text-sub); font-variant-numeric: tabular-nums; }
 .match-status { font-size: 10px; font-weight: 700; text-align: center; padding: 2px 0; }
 .match-status.done { color: var(--text-sub); background: var(--bg-soft); border: 1px solid var(--line); }
-.match-status.live { color: #fff; background: var(--accent); animation: pulse 1.4s infinite; }
+.match-status.live { color: #fff; background: var(--accent-solid); animation: pulse 1.4s infinite; }
 .match-status.upcoming { color: var(--text-dim); }
 @keyframes pulse { 50% { opacity: .6; } }
 .match-teams { display: grid; grid-template-columns: 1fr 82px 1fr; align-items: center; gap: 8px; }
@@ -349,7 +354,7 @@ table.board-table tr.notice .col-title { font-weight: 700; }
   padding: 1px 7px; color: var(--text-sub);
   border: 1px solid var(--line); background: var(--bg-soft);
 }
-.cat-chip.notice { color: #fff; background: var(--accent); border-color: var(--accent); }
+.cat-chip.notice { color: #fff; background: var(--accent-solid); border-color: var(--accent-solid); }
 
 .board-foot {
   display: flex; align-items: center; justify-content: center; position: relative;
@@ -361,7 +366,7 @@ table.board-table tr.notice .col-title { font-weight: 700; }
   font-size: var(--fs-sm); font-weight: 700; color: var(--text-sub);
   background: var(--bg-soft); border: 1px solid var(--line);
 }
-.pager button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pager button.active { background: var(--accent-solid); border-color: var(--accent-solid); color: #fff; }
 .board-foot .btn-primary { position: absolute; right: 14px; }
 
 /* ── 글 보기 ── */
@@ -385,7 +390,7 @@ table.board-table tr.notice .col-title { font-weight: 700; }
   border: 1px solid var(--accent); color: var(--accent); background: var(--accent-soft);
   clip-path: polygon(0 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%);
 }
-.vote-btn:hover { background: var(--accent); color: #fff; }
+.vote-btn:hover { background: var(--accent-solid); color: #fff; }
 
 .comments-head { padding: 10px 14px; font-size: var(--fs-md); font-weight: 800; border-bottom: 1px solid var(--line); }
 .comments-head em { font-style: normal; color: var(--accent); }
@@ -410,7 +415,7 @@ table.board-table tr.notice .col-title { font-weight: 700; }
 
 .btn-primary {
   padding: 7px 18px;
-  background: var(--accent); color: #fff; font-weight: 700; font-size: var(--fs-sm);
+  background: var(--accent-solid); color: #fff; font-weight: 700; font-size: var(--fs-sm);
   transition: opacity .15s;
   clip-path: polygon(0 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%);
 }
@@ -426,7 +431,7 @@ table.board-table tr.notice .col-title { font-weight: 700; }
   padding: 5px 12px; font-size: var(--fs-xs); font-weight: 700;
   color: var(--accent); border: 1px solid var(--accent); background: none;
 }
-.btn-danger:hover { background: var(--accent); color: #fff; }
+.btn-danger:hover { background: var(--accent-solid); color: #fff; }
 
 /* ── 사이드바 위젯 ── */
 .predict-widget { text-align: center; padding: 14px; }
@@ -463,7 +468,7 @@ table.board-table tr.notice .col-title { font-weight: 700; }
   background: var(--bg-soft); border: 1px solid var(--line);
   clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
 }
-.standing-tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.standing-tabs button.active { background: var(--accent-solid); border-color: var(--accent-solid); color: #fff; }
 table.standings { width: 100%; border-collapse: collapse; }
 table.standings th { font-size: var(--fs-xs); font-weight: 600; color: var(--text-dim); text-align: left; padding: 8px 6px 4px; white-space: nowrap; }
 table.standings td { padding: 6px; border-top: 1px solid var(--line); font-size: var(--fs-sm); }
@@ -554,7 +559,7 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
 .live-badge {
   display: inline-flex; align-items: center; gap: 5px;
   font-size: var(--fs-xs); font-weight: 800; color: #fff;
-  background: var(--accent); padding: 2px 9px;
+  background: var(--accent-solid); padding: 2px 9px;
   animation: pulse 1.4s infinite;
 }
 
@@ -596,7 +601,7 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
 .admin-item input.score { width: 44px; text-align: center; }
 .badge-status { font-size: 10px; font-weight: 800; padding: 2px 8px; }
 .badge-status.upcoming { color: var(--text-sub); border: 1px solid var(--line); }
-.badge-status.live { color: #fff; background: var(--accent); }
+.badge-status.live { color: #fff; background: var(--accent-solid); }
 .badge-status.done { color: var(--text-dim); background: var(--bg-soft); border: 1px solid var(--line); }
 .admin-note { padding: 10px 14px; font-size: var(--fs-sm); color: var(--text-dim); line-height: 1.7; background: var(--bg-soft); border-top: 1px solid var(--line); }
 
@@ -718,7 +723,7 @@ table.award-table td a:hover b { color: var(--accent); }
   font-size: var(--fs-xs); font-weight: 700; color: var(--text-sub);
   border: 1px solid var(--line); background: var(--bg-soft); padding: 4px 10px;
 }
-.ddp-tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ddp-tabs button.active { background: var(--accent-solid); border-color: var(--accent-solid); color: #fff; }
 .ddp-grid { flex: 1; overflow-y: auto; padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; }
 .ddp-sec { width: 100%; display: flex; align-items: center; gap: 10px; font-size: var(--fs-xs); font-weight: 800; color: var(--text-dim); margin: 8px 0 2px; }
 .ddp-row { width: 100%; display: flex; flex-wrap: wrap; gap: 6px; }
@@ -795,7 +800,7 @@ table.award-table td a:hover b { color: var(--accent); }
 .fr-badge.t8 { background: #2fbf71; }
 .fr-badge.t7 { background: var(--blue); }
 .fr-badge.t6 { background: #6b7484; }
-.fr-badge.t5 { background: var(--accent); }
+.fr-badge.t5 { background: var(--accent-solid); }
 .fr-badge.none { background: var(--bg-soft); color: var(--text-dim); border: 1px solid var(--line); }
 .fr-pog {
   font-size: 10px; font-weight: 900; color: #221a06; background: #f5b942;
@@ -826,7 +831,7 @@ table.award-table td a:hover b { color: var(--accent); }
 }
 .rr-btn:hover { border-color: var(--accent); color: var(--accent); }
 .rr-btn.filled { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
-.rr-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.rr-btn.active { background: var(--accent-solid); color: #fff; border-color: var(--accent-solid); }
 .rr-my { width: 40px; text-align: right; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
 
 /* ── 선수 아바타 (이니셜 카드) ── */
@@ -901,7 +906,7 @@ table.award-table td a:hover b { color: var(--accent); }
 .poll-opt-result .por-label { font-weight: 600; color: var(--text-sub); }
 .poll-opt-result.mine .por-label { color: var(--text); font-weight: 800; }
 .por-my {
-  font-size: 10px; font-weight: 800; color: #fff; background: var(--accent);
+  font-size: 10px; font-weight: 800; color: #fff; background: var(--accent-solid);
   padding: 1px 6px; margin-left: 4px;
   clip-path: polygon(0 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%);
 }
@@ -986,7 +991,7 @@ table.award-table td a:hover b { color: var(--accent); }
   border: 1px solid var(--line); background: var(--bg-soft); color: var(--text-sub);
   border-radius: 999px;
 }
-.chip-row button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chip-row button.active { background: var(--accent-solid); border-color: var(--accent-solid); color: #fff; }
 
 /* ── 모바일 하단 탭바 ── */
 .tab-bar { display: none; }
@@ -1082,8 +1087,14 @@ table.award-table td a:hover b { color: var(--accent); }
 .site-footer b { color: var(--text-sub); }
 .site-footer a { text-decoration: underline; }
 .foot-disclaimer { max-width: 780px; }
-.foot-disclaimer.en { color: color-mix(in srgb, var(--text-dim) 78%, transparent); margin-top: 6px; }
+/* 비제휴 고지는 법적 보호 장치다 — 흐리게 만들지 않는다 (2026-08-07) */
+.foot-disclaimer.en { color: var(--text-dim); margin-top: 6px; }
 .foot-links { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+
+/* 팀 색 글자 — 팀 색을 그대로 쓰면 밝은 색(금색·주황 등)이 흰 배경에서 안 읽힌다.
+   색조는 유지한 채 라이트 모드에서만 명도를 낮춘다. 작은 글자에 쓴다. */
+.team-text { color: var(--team-color); }
+:root[data-theme="light"] .team-text { color: color-mix(in srgb, var(--team-color) 62%, #000); }
 
 /* ── 반응형 ── */
 @media (max-width: 960px) {
@@ -1240,7 +1251,7 @@ table.award-table td a:hover b { color: var(--accent); }
 .fh-mid em { font-style: normal; font-weight: 800; color: var(--text-dim); }
 /* 배지는 .fh-mid em/span 규칙에 색·크기를 뺏기지 않도록 명시한다 */
 .fh-mid .live-badge {
-  display: inline-block; color: #fff; background: var(--accent);
+  display: inline-block; color: #fff; background: var(--accent-solid);
   font-size: var(--fs-xs); font-weight: 800;
 }
 .fh-mid span { font-size: var(--fs-xs); color: var(--text-dim); }

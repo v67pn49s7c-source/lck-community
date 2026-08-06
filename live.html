@@ -15,10 +15,10 @@
   <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/nexus-mobile.png">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807i">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807k">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807i">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807k">
 </head>
 <body>
   <main class="page">
@@ -96,12 +96,12 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807i"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807i"></script>
-  <script src="assets/store.js?v=20260807i"></script>
-  <script src="assets/app.js?v=20260807i"></script>
-  <script src="assets/ddragon.js?v=20260807i"></script>
-  <script src="assets/race.js?v=20260807i"></script>
+  <script src="assets/data.js?v=20260807k"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807k"></script>
+  <script src="assets/store.js?v=20260807k"></script>
+  <script src="assets/app.js?v=20260807k"></script>
+  <script src="assets/ddragon.js?v=20260807k"></script>
+  <script src="assets/race.js?v=20260807k"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -289,7 +289,7 @@
         return `
         <div class="frate fv-cell ${dir} ${isPog ? "pog" : ""}">
           <div class="fr-head">
-            <a class="fr-player" href="player.html?id=${q(p.id)}"><span class="fv-teamtag" style="color:${team.color}">${team.abbr}</span> <b>${esc(p.nick)}</b></a>
+            <a class="fr-player" href="player.html?id=${q(p.id)}"><span class="fv-teamtag team-text" style="--team-color:${team.color}">${team.abbr}</span> <b>${esc(p.nick)}</b></a>
             ${isSub ? `<span class="fr-sub" title="이 경기 ${x.totalSets}세트 중 ${x.sets}세트만 나왔습니다">${x.sets}/${x.totalSets}세트</span>` : ""}
             ${pom && pom.player_id === p.id ? `<span class="chip-pom" title="LCK 공식 경기 MVP · ${pom.pts}pt">POM<em> +${pom.pts}pt</em></span>` : ""}
             ${isPog ? `<span class="fr-pog">👑<em> 팬 선정 POG</em></span>` : ""}
@@ -384,8 +384,8 @@
           const sOf = (res, t) => res?.rows.find(x => x.team === t)?.cuts[ci].safe;
           const f = v => v == null ? "자력 불가" : v === 0 ? "확보" : `자력 ${v}승`;
           stakes = `<div class="admin-note"><b>${esc(cut.label)}</b>이 걸린 경기입니다 —
-            <b style="color:${A.color}">${esc(A.abbr)}</b> 이기면 ${f(sOf(ifA, match.a))} · 지면 ${f(sOf(ifB, match.a))} &nbsp;/&nbsp;
-            <b style="color:${B.color}">${esc(B.abbr)}</b> 이기면 ${f(sOf(ifB, match.b))} · 지면 ${f(sOf(ifA, match.b))}
+            <b class="team-text" style="--team-color:${A.color}">${esc(A.abbr)}</b> 이기면 ${f(sOf(ifA, match.a))} · 지면 ${f(sOf(ifB, match.a))} &nbsp;/&nbsp;
+            <b class="team-text" style="--team-color:${B.color}">${esc(B.abbr)}</b> 이기면 ${f(sOf(ifB, match.b))} · 지면 ${f(sOf(ifA, match.b))}
             &nbsp;<a href="race.html?team=${q(match.a)}" style="text-decoration:underline">경우의 수 전체 →</a></div>`;
         }
       }

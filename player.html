@@ -15,9 +15,9 @@
   <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/nexus-mobile.png">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807i">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807k">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807i">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807k">
 </head>
 <body>
   <div class="team-hero" id="player-hero"></div>
@@ -69,12 +69,12 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807i"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807i"></script>
-  <script src="assets/store.js?v=20260807i"></script>
-  <script src="assets/app.js?v=20260807i"></script>
-  <script src="assets/ddragon.js?v=20260807i"></script>
-  <script src="assets/player-photos.js?v=20260807i"></script>
+  <script src="assets/data.js?v=20260807k"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807k"></script>
+  <script src="assets/store.js?v=20260807k"></script>
+  <script src="assets/app.js?v=20260807k"></script>
+  <script src="assets/ddragon.js?v=20260807k"></script>
+  <script src="assets/player-photos.js?v=20260807k"></script>
   <script>
   storeReady.then(async () => {
     const player = getPlayer(new URLSearchParams(location.search).get("id")) || getPlayers()[0];
@@ -93,7 +93,7 @@
         <div class="container team-hero-inner">
           ${playerAvatarHTML(player, team.color, true)}
           <div class="team-hero-info">
-            <h1><span style="color:${team.color}">${esc(player.nick)}</span> ${esc(player.name)}</h1>
+            <h1><span class="team-text" style="--team-color:${team.color}">${esc(player.nick)}</span> ${esc(player.name)}</h1>
             <p class="desc">${team.name} · ${esc(player.pos)} · ${teamRecordSummary()}</p>
             ${pomPointsFor(player.id) ? `<p class="desc" style="margin-top:4px">
               <b style="color:var(--blue)">POM ${pomPointsFor(player.id).toLocaleString()}pt</b>

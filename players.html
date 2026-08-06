@@ -15,9 +15,9 @@
   <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/nexus-mobile.png">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807i">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807k">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807i">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807k">
 </head>
 <body>
   <main class="page">
@@ -29,11 +29,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807i"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807i"></script>
-  <script src="assets/store.js?v=20260807i"></script>
-  <script src="assets/app.js?v=20260807i"></script>
-  <script src="assets/player-photos.js?v=20260807i"></script>
+  <script src="assets/data.js?v=20260807k"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807k"></script>
+  <script src="assets/store.js?v=20260807k"></script>
+  <script src="assets/app.js?v=20260807k"></script>
+  <script src="assets/player-photos.js?v=20260807k"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("선수", null);
@@ -44,7 +44,7 @@
       return `
       <section class="card" style="margin-bottom:14px">
         <div class="card-head">
-          <h2 class="card-title">${t.name} <span class="sub" style="color:${t.color}">${t.abbr}</span></h2>
+          <h2 class="card-title">${t.name} <span class="sub team-text" style="--team-color:${t.color}">${t.abbr}</span></h2>
           <a class="card-more" href="team.html?team=${t.id}">팀 게시판 ›</a>
         </div>
         <div class="team-grid" style="padding:14px">

@@ -15,9 +15,9 @@
   <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/nexus-mobile.png">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807i">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807k">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807i">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807k">
 </head>
 <body>
   <main class="page">
@@ -60,11 +60,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807i"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807i"></script>
-  <script src="assets/store.js?v=20260807i"></script>
-  <script src="assets/app.js?v=20260807i"></script>
-  <script src="assets/race.js?v=20260807i"></script>
+  <script src="assets/data.js?v=20260807k"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807k"></script>
+  <script src="assets/store.js?v=20260807k"></script>
+  <script src="assets/app.js?v=20260807k"></script>
+  <script src="assets/race.js?v=20260807k"></script>
   <script>
   storeReady.then(() => {
     renderHeader("경우의 수", null);
@@ -156,7 +156,7 @@
         const b = base[t.id], w = safeOf(win, t.id), l = safeOf(lose, t.id);
         const f = v => v == null ? "자력 불가" : v === 0 ? "확보" : `자력 ${v}승`;
         if (b == null && w == null && l == null) return "";
-        return `<b style="color:${t.color}">${esc(t.abbr)}</b> — 이기면 ${f(w)} · 지면 ${f(l)} <span style="color:var(--text-dim)">(지금 ${f(b)})</span>`;
+        return `<b class="team-text" style="--team-color:${t.color}">${esc(t.abbr)}</b> — 이기면 ${f(w)} · 지면 ${f(l)} <span style="color:var(--text-dim)">(지금 ${f(b)})</span>`;
       };
       document.getElementById("race-next").innerHTML = `
         <div class="admin-note" style="border-top:none">
