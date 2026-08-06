@@ -153,7 +153,7 @@ Some content is provided courtesy of Leaguepedia, under a CC-BY-SA 3.0 license.<
 <script>
 // 사람이 열었으면 원래 경기 화면으로 넘긴다. 검색 로봇은 자바스크립트를 돌리지 않거나
 // 돌리더라도 위 내용을 이미 읽은 뒤라 색인에는 영향이 없다.
-location.replace("/live.html?match=${encodeURIComponent(m.id)}");
+location.replace("/live.html?match=${encodeURIComponent(m.id)}" + location.hash);
 </script>
 </body>
 </html>`;

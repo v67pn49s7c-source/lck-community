@@ -1023,7 +1023,18 @@ function renderHomeSchedule() {
 function renderHotPosts() {
   const el = document.getElementById("hot-posts");
   if (!el) return;
-  const posts = getPosts().slice().sort((a, b) => b.up - a.up).slice(0, 7);
+  // 홈 첫인상 품질 기준 — 참여가 실제로 있는 글(추천 2+ 또는 댓글 1+)과 공지만.
+  // 기준이 없으면 "ㅏㅏㅓ" 같은 글이 인기 글로 노출되고, 참여 0인 자동 토론글이
+  // 유령 도시처럼 홈을 덮는다 (2026-08-07 코덱스 지적 반영).
+  const quality = p => p.cat === "공지" || p.up >= 2 || p.comments.length >= 1;
+  const posts = getPosts().filter(quality)
+    .sort((a, b) => b.up - a.up || b.comments.length - a.comments.length || b.ts - a.ts)
+    .slice(0, 7);
+  if (!posts.length) {
+    el.innerHTML = `<div class="empty-note">오늘의 인기 글을 모으는 중입니다 —
+      <a href="community.html" style="text-decoration:underline">첫 글을 남겨 보세요</a></div>`;
+    return;
+  }
   el.innerHTML = posts.map(p => {
     const t = p.team ? TEAM_MAP[p.team] : null;
     return `
@@ -1093,10 +1104,14 @@ function renderPredictRanking() {
   if (!el) return;
   const rows = predictRanking();
   if (!rows.length) {
-    el.innerHTML = `<div class="empty-note">아직 순위를 매길 만큼 기록이 쌓이지 않았습니다.<br>
-      <span style="color:var(--text-dim);font-size:12px">회원이 5경기 이상 예측하면 여기에 올라옵니다.</span></div>`;
+    // 빈 랭킹을 홈에 걸어두면 "아무도 없다"는 광고가 된다 — 카드째 접는다.
+    // 표본이 생기면 다음 렌더에서 다시 펼쳐진다.
+    const card = el.closest(".card");
+    if (card) card.style.display = "none";
     return;
   }
+  const card0 = el.closest(".card");
+  if (card0) card0.style.display = "";
   el.innerHTML = rows.slice(0, 5).map((r, i) => {
     const t = r.team ? TEAM_MAP[r.team] : null;
     return `

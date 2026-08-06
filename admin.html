@@ -14,7 +14,7 @@
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807d">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807e">
 </head>
 <body>
   <main class="page">
@@ -323,11 +323,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807d"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807d"></script>
-  <script src="assets/store.js?v=20260807d"></script>
-  <script src="assets/app.js?v=20260807d"></script>
-  <script src="assets/ddragon.js?v=20260807d"></script>
+  <script src="assets/data.js?v=20260807e"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807e"></script>
+  <script src="assets/store.js?v=20260807e"></script>
+  <script src="assets/app.js?v=20260807e"></script>
+  <script src="assets/ddragon.js?v=20260807e"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -1322,12 +1322,23 @@
         const A = TEAM_MAP[m.a], B = TEAM_MAP[m.b];
         const dateStr = fmtWhen(m.at);
         // 경기 전: 승부 예측 투표 (마감 = 경기 시작)
-        if (!Cache.polls.some(p => p.match_id === m.id && p.phase === "pre")) {
+        const prePoll = Cache.polls.find(p => p.match_id === m.id && p.phase === "pre");
+        if (!prePoll) {
           createPoll({
             match_id: m.id, phase: "pre",
             question: `${A.abbr} vs ${B.abbr}, 결과는? (${dateStr})`,
             options: [`${A.abbr} 2:0 승`, `${A.abbr} 2:1 승`, `${B.abbr} 2:1 승`, `${B.abbr} 2:0 승`],
             closes_at: m.at,
+          });
+          made++;
+        } else if (m.at && prePoll.closes_at &&
+                   new Date(prePoll.closes_at).getTime() !== new Date(m.at).getTime()) {
+          // ★ 일정 갱신이 경기 시각을 옮겼는데 투표 마감이 옛 시각에 박제된 경우 —
+          //   17시 경기 투표가 10시에 닫혀 골든타임을 통째로 버리는 사고 (2026-08-07 발견).
+          //   마감과 질문의 날짜를 새 시각으로 맞춘다.
+          updatePoll(prePoll.id, {
+            closes_at: m.at,
+            question: `${A.abbr} vs ${B.abbr}, 결과는? (${dateStr})`,
           });
           made++;
         }
@@ -1372,6 +1383,11 @@
             });
             made++;
           }
+          // 경기 시각이 나중에 바뀐 경우 사후 투표 마감(경기+48시간)도 따라간다
+          Cache.polls.filter(p => p.match_id === m.id &&
+              (p.phase === "post_pom" || p.phase === "post_key") &&
+              p.closes_at && new Date(p.closes_at).getTime() !== new Date(closes).getTime())
+            .forEach(p => { updatePoll(p.id, { closes_at: closes }); made++; });
         }
       });
       if (made) console.log(`[팬심지수] ${made}개 투표·토론 글 자동 생성`);

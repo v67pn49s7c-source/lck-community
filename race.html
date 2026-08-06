@@ -17,7 +17,7 @@
   <meta name="twitter:card" content="summary">
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807d">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807e">
 </head>
 <body>
   <main class="page">
@@ -60,16 +60,24 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807d"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807d"></script>
-  <script src="assets/store.js?v=20260807d"></script>
-  <script src="assets/app.js?v=20260807d"></script>
-  <script src="assets/race.js?v=20260807d"></script>
+  <script src="assets/data.js?v=20260807e"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807e"></script>
+  <script src="assets/store.js?v=20260807e"></script>
+  <script src="assets/app.js?v=20260807e"></script>
+  <script src="assets/race.js?v=20260807e"></script>
   <script>
   storeReady.then(() => {
     renderHeader("경우의 수", null);
 
+    // SNS 딥링크: race.html?team=kt 로 들어오면 그 팀 그룹을 바로 펼치고 줄을 강조한다
+    // (인스타에서 온 사람이 팀 고르기부터 다시 하지 않게 — 첫 댓글 링크용)
+    const deepTeam = new URLSearchParams(location.search).get("team");
     let tab = "r34L";
+    if (deepTeam) {
+      const home = Object.keys(RACE_CUTS).find(id =>
+        (Cache.records.find(s => s.id === id)?.records || []).some(r => r.team === deepTeam));
+      if (home) tab = home;
+    }
     const TABS = [["r34L", "레전드 그룹"], ["r34R", "라이즈 그룹"]];
 
     function cellHTML(row, c) {
@@ -108,7 +116,7 @@
           <tbody>
             ${r.rows.map((row, i) => {
               const t = TEAM_MAP[row.team];
-              return `<tr>
+              return `<tr${row.team === deepTeam ? ` style="background:color-mix(in srgb, ${t.color} 12%, transparent)"` : ""}>
                 <td>${i + 1}</td>
                 <td style="text-align:left"><span style="display:inline-flex;align-items:center;gap:7px">${teamLogoHTML(t, 20)} <b>${esc(t.abbr)}</b></span></td>
                 <td>${row.w}승 ${row.l}패</td>

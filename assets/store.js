@@ -1401,6 +1401,14 @@ function createPoll(p) {
   }).then(r => { sbErr(r.error, "createPoll"); return r; });
   return p.id;
 }
+// 투표 질문·마감 고치기 (관리자 전용 — RLS admin_all_polls).
+// 일정 갱신이 경기 시각을 옮기면 투표 마감이 옛 시각에 박제되는 사고를 고치는 용도.
+function updatePoll(pollId, fields) {
+  const p = Cache.polls.find(x => x.id === pollId);
+  if (p) Object.assign(p, fields);
+  return sb.from("polls").update(fields).eq("id", pollId)
+    .then(r => { sbErr(r.error, "updatePoll"); return r; });
+}
 
 function myPollVote(pollId) {
   return Cache.mine.pollVotes.find(v => v.poll_id === pollId) || null;
