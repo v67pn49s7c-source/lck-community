@@ -232,6 +232,190 @@ function drawNumberCard(cand) {
     firstComment: "전 경기 기록: https://lck-community.vercel.app/matches.html" };
 }
 
+// ── 방송 그래픽 공통 배경 ──────────────────────────────────
+// 사진 없이 방송 중계 그래픽의 질감을 낸다: 어두운 비네트 + 양 팀 색의
+// 사선 빛 + 미세한 입자. (선수 사진은 초상권·저작권 문제로 쓰지 않는다)
+function broadcastBg(g, colA, colB) {
+  const W = CARD_W, H = CARD_H;
+  const bg = g.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#12141d"); bg.addColorStop(0.55, "#0b0c12"); bg.addColorStop(1, "#08090d");
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  const wash = (x, y, color) => {
+    const r = g.createRadialGradient(x, y, 40, x, y, 620);
+    r.addColorStop(0, color + "26"); r.addColorStop(1, color + "00");
+    g.fillStyle = r; g.fillRect(0, 0, W, H);
+  };
+  wash(W * 0.12, H * 0.3, colA || "#4a8cff");
+  wash(W * 0.88, H * 0.72, colB || "#ff4655");
+  // 입자 — 사진 없는 배경이 밋밋해 보이지 않게
+  g.fillStyle = "#ffffff";
+  for (let i = 0; i < 420; i++) {
+    g.globalAlpha = Math.random() * 0.05;
+    g.fillRect(Math.random() * W, Math.random() * H, 1.3, 1.3);
+  }
+  g.globalAlpha = 1;
+  g.fillStyle = "#ff4655"; g.fillRect(0, 0, W, 8);
+}
+const bLine = (g, y, x0, x1) => {
+  const ln = g.createLinearGradient(x0, 0, x1, 0);
+  ln.addColorStop(0, "#ffffff00"); ln.addColorStop(0.5, "#ffffff59"); ln.addColorStop(1, "#ffffff00");
+  g.fillStyle = ln; g.fillRect(x0, y, x1 - x0, 2);
+};
+
+// ── ⑤ 경기 결과 캐러셀 (3장) — 헤드라인 · 스코어보드 · 선수 기록 ──
+function drawResultCarousel(matchId, headline) {
+  const m = Cache.matches.find(x => x.id === matchId);
+  if (!m || m.status !== "done" || m.scoreA == null || m.scoreB == null || m.scoreA === m.scoreB) return null;
+  const A = TEAM_MAP[m.a], B = TEAM_MAP[m.b];
+  if (!A || !B) return null;
+  const aWin = m.scoreA > m.scoreB;
+  const WIN = aWin ? A : B, LOSE = aWin ? B : A;
+  const ws = Math.max(m.scoreA, m.scoreB), ls = Math.min(m.scoreA, m.scoreB);
+  const d = m.at ? new Date(m.at) : new Date();
+  const kicker = `2026 LCK · ${shortStage(m.stage) || "정규시즌"} · ${d.getMonth() + 1}월 ${d.getDate()}일`;
+  const pom = pomForMatch(m.id);
+  const pomPl = pom ? getPlayer(pom.player_id) : null;
+  const slides = [];
+
+  // ── 1장: 헤드라인 ──
+  {
+    const c = document.createElement("canvas");
+    c.width = CARD_W; c.height = CARD_H;
+    const g = c.getContext("2d");
+    broadcastBg(g, WIN.color, LOSE.color);
+    g.font = CF("bold", 40); g.fillStyle = "#ff4655";
+    g.fillText("THE NEXUS", CARD_PAD, 118);
+
+    g.font = CF("600", 30); g.fillStyle = "#8a92a3";
+    g.fillText(kicker, CARD_PAD, 560);
+
+    // 헤드라인 — 비우면 자동 문장, 최대 2줄 자동 줄바꿈
+    const text = (headline || "").trim() || `${WIN.abbr}, ${LOSE.abbr} ${ws}대${ls} ${ls === 0 ? "제압" : "승리"}`;
+    g.fillStyle = "#f2f4f8"; g.font = CF("bold", 96);
+    const words = text.split(" "), lines = [""];
+    words.forEach(w => {
+      const t = (lines[lines.length - 1] + " " + w).trim();
+      if (g.measureText(t).width > CARD_W - CARD_PAD * 2 && lines[lines.length - 1]) lines.push(w);
+      else lines[lines.length - 1] = t;
+    });
+    lines.slice(0, 2).forEach((ln, i) => g.fillText(ln, CARD_PAD, 680 + i * 118));
+
+    // 점수 줄 — 팀 약칭은 팀 색으로
+    const y = 680 + Math.min(lines.length, 2) * 118 + 40;
+    g.font = CF("bold", 52);
+    let x = CARD_PAD;
+    [[A.abbr, A.color], [`  ${m.scoreA} : ${m.scoreB}  `, "#f2f4f8"], [B.abbr, B.color]].forEach(([t, col]) => {
+      g.fillStyle = col; g.fillText(t, x, y); x += g.measureText(t).width;
+    });
+    cardEnd(g);
+    slides.push(c);
+  }
+
+  // ── 2장: 스코어보드 (방송 그래픽 구도) ──
+  {
+    const c = document.createElement("canvas");
+    c.width = CARD_W; c.height = CARD_H;
+    const g = c.getContext("2d");
+    broadcastBg(g, A.color, B.color);
+    g.font = CF("bold", 40); g.fillStyle = "#ff4655";
+    g.fillText("THE NEXUS", CARD_PAD, 118);
+
+    const cy = CARD_H * 0.47;
+    if (pomPl) {
+      g.textAlign = "center"; g.font = CF("600", 30); g.fillStyle = "#aab1c0";
+      g.fillText(`POM · ${WIN.abbr} ${pomPl.nick}`, CARD_W / 2, cy - 168);
+    }
+    bLine(g, cy - 128, CARD_PAD, CARD_W - CARD_PAD);
+    bLine(g, cy + 96, CARD_PAD, CARD_W - CARD_PAD);
+
+    g.textAlign = "center";
+    g.font = CF("bold", 96);
+    g.fillStyle = A.color || "#e9ebf1"; g.fillText(A.abbr, CARD_W * 0.17, cy + 34);
+    g.fillStyle = B.color || "#e9ebf1"; g.fillText(B.abbr, CARD_W * 0.83, cy + 34);
+    g.fillStyle = "#f2f4f8"; g.font = CF("bold", 170);
+    g.fillText(String(m.scoreA), CARD_W * 0.40, cy + 58);
+    g.fillText(String(m.scoreB), CARD_W * 0.60, cy + 58);
+    g.fillStyle = "#ffffff40"; g.fillRect(CARD_W / 2 - 2, cy - 92, 4, 130);
+
+    g.font = CF("bold", 34); g.fillStyle = "#e9ebf1";
+    g.fillText("경기 종료", CARD_W / 2, cy + 160);
+    g.font = CF("600", 28); g.fillStyle = "#7c8496";
+    g.fillText(kicker, CARD_W / 2, cy + 206);
+    g.textAlign = "left";
+    cardEnd(g);
+    slides.push(c);
+  }
+
+  // ── 3장: 선수 기록 — 팬 평점이 충분히 모였으면 평점, 아니면 경기 합산 KDA ──
+  {
+    const det = Cache.details[m.id];
+    const rows = (det && det.sets.length) ? fanRatingRows(m) : [];
+    if (rows.length) {
+      const voters = matchRatingVoters(m.id);
+      const useRating = voters >= CARD_MIN_N;   // 표본 부족이면 평점 숫자를 밖에 내지 않는다
+      // 경기 합산 KDA
+      const kda = {};
+      det.sets.forEach(s => (s.players || []).forEach(p => {
+        if (!p.pid) return;
+        const r = kda[p.pid] = kda[p.pid] || { k: 0, d: 0, a: 0 };
+        r.k += +p.k || 0; r.d += +p.d || 0; r.a += +p.a || 0;
+      }));
+
+      const c = document.createElement("canvas");
+      c.width = CARD_W; c.height = CARD_H;
+      const g = c.getContext("2d");
+      broadcastBg(g, A.color, B.color);
+      g.font = CF("bold", 40); g.fillStyle = "#ff4655";
+      g.fillText("THE NEXUS", CARD_PAD, 118);
+
+      g.textAlign = "center";
+      g.font = CF("bold", 44); g.fillStyle = "#f2f4f8";
+      g.fillText(useRating ? "팬 평점" : "선수 기록", CARD_W / 2, 208);
+      g.font = CF("600", 26); g.fillStyle = "#7c8496";
+      g.fillText(useRating ? `${voters}명 참여 · 세트 평점 합산` : `${A.abbr} ${m.scoreA} : ${m.scoreB} ${B.abbr} · 경기 합산 K/D/A`, CARD_W / 2, 252);
+
+      const top = 330, rowH = 118;
+      const chip = (x, y, color, text) => {
+        g.beginPath();
+        if (g.roundRect) g.roundRect(x - 74, y - 40, 148, 62, 10); else g.rect(x - 74, y - 40, 148, 62);
+        g.fillStyle = color || "#3a4150"; g.fill();
+        g.fillStyle = "#ffffff"; g.font = CF("bold", 30);
+        g.fillText(text, x, y + 3);
+      };
+      rows.slice(0, 5).forEach((r, i) => {
+        const y = top + i * rowH;
+        g.font = CF("600", 24); g.fillStyle = "#5b6373";
+        g.fillText(r.pos, CARD_W / 2, y + 3);
+        if (r.a) {
+          const v = useRating ? (r.a.s.all ? r.a.s.all.avg.toFixed(1) : "—")
+            : (x => x ? `${x.k}/${x.d}/${x.a}` : "—")(kda[r.a.p.id]);
+          g.textAlign = "left"; g.font = CF("bold", 32); g.fillStyle = "#e9ebf1";
+          g.fillText(r.a.p.nick, CARD_PAD, y + 4);
+          g.textAlign = "center"; chip(CARD_W * 0.36, y, A.color, v);
+        }
+        if (r.b) {
+          const v = useRating ? (r.b.s.all ? r.b.s.all.avg.toFixed(1) : "—")
+            : (x => x ? `${x.k}/${x.d}/${x.a}` : "—")(kda[r.b.p.id]);
+          chip(CARD_W * 0.64, y, B.color, v);
+          g.textAlign = "right"; g.font = CF("bold", 32); g.fillStyle = "#e9ebf1";
+          g.fillText(r.b.p.nick, CARD_W - CARD_PAD, y + 4);
+          g.textAlign = "center";
+        }
+      });
+      g.textAlign = "left";
+      cardEnd(g, useRating ? "당신의 평점은? 사이트에서" : "팬 평점은 사이트에서");
+      slides.push(c);
+    }
+  }
+
+  const cap = (headline || "").trim() || `${WIN.abbr}, ${LOSE.abbr} ${ws}대${ls} ${ls === 0 ? "제압" : "승리"}`;
+  return {
+    slides,
+    caption: `${cap}\n${A.abbr} ${m.scoreA} : ${m.scoreB} ${B.abbr} · ${shortStage(m.stage) || ""}${pomPl ? `\n공식 POM ${pomPl.nick}` : ""}\n당신의 평점은?\n#LCK #${WIN.abbr}`,
+    firstComment: `세트별 팬 평점 참여: https://lck-community.vercel.app/match/${m.id}`,
+  };
+}
+
 // ── ④ 매치데이 카드 ────────────────────────────────────────
 function drawMatchdayCard(matchId) {
   const m = Cache.matches.find(x => x.id === matchId);
