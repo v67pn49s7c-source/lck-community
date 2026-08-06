@@ -137,7 +137,9 @@ function isMissingFunction(e) {
 // v2 = 투표 원본 비공개화. v1 스냅샷에는 **다른 사람들의 표가 통째로** 들어 있으므로
 // 키를 올려 버리고 옛 것은 지운다 (서버만 고쳐서는 이미 방문한 기기에 계속 남는다).
 const SNAP_KEY = "nexus_snap_v2";
-const LOGO_KEY = "nexus_logos_v1";
+// 이름 뒤 번호를 올리면 모든 방문자가 로고를 한 번 다시 받는다 —
+// 업로드본을 지우거나 로고를 바꿨는데 캐시(하루) 때문에 옛것이 남을 때 쓴다.
+const LOGO_KEY = "nexus_logos_v2";
 try { localStorage.removeItem("nexus_snap_v1"); } catch (e) {}
 let snapshotUsed = false;
 
@@ -191,15 +193,21 @@ async function loadLogosLater() {
   const { data } = await sb.from("site_settings").select("key,value").like("key", "logo_%");
   if (!data) return;
   const logos = Object.fromEntries(data.map(x => [x.key, x.value]));
+  // ★ 서버에서 지워진 업로드본은 화면에서도 지운다.
+  //   Object.assign 만 하면 없어진 키가 그대로 남아, 업로드본을 삭제해도
+  //   옛 로고가 계속 보인다 (2026-08-07 사고).
+  Object.keys(Cache.settings).forEach(k => {
+    if (k.startsWith("logo_") && !(k in logos)) delete Cache.settings[k];
+  });
   Object.assign(Cache.settings, logos);
   try {
     localStorage.setItem(LOGO_KEY, JSON.stringify(logos));
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807h"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807h"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807h"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807i"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807i"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807i"); });
 }
 
 // ── 초기 로드 ──
