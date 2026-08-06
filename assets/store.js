@@ -179,17 +179,27 @@ function snapshotLoad() {
   } catch (e) { return false; }
 }
 
-// 로고는 크기가 커서(수십 KB) 첫 화면을 막지 않도록 따로, 나중에 받는다
+// 로고는 크기가 커서(업로드본이 60KB 안팎) 첫 화면을 막지 않도록 따로, 나중에 받는다.
+// 게다가 로고는 거의 안 바뀌므로 하루에 한 번만 다시 받는다 —
+// 그러지 않으면 페이지를 옮길 때마다 60KB를 새로 내려받는다 (2026-08-07).
+const LOGO_TTL = 24 * 3600 * 1000;
 async function loadLogosLater() {
+  try {
+    const at = Number(localStorage.getItem(LOGO_KEY + "_at") || 0);
+    if (localStorage.getItem(LOGO_KEY) && Date.now() - at < LOGO_TTL) return; // 캐시가 아직 싱싱하다
+  } catch {}
   const { data } = await sb.from("site_settings").select("key,value").like("key", "logo_%");
   if (!data) return;
   const logos = Object.fromEntries(data.map(x => [x.key, x.value]));
   Object.assign(Cache.settings, logos);
-  try { localStorage.setItem(LOGO_KEY, JSON.stringify(logos)); } catch {}
+  try {
+    localStorage.setItem(LOGO_KEY, JSON.stringify(logos));
+    localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
+  } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
   document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png"); });
   document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-mobile.png"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png"); });
 }
 
 // ── 초기 로드 ──
@@ -1626,6 +1636,8 @@ async function uploadBrandLogo(slot, file) {
     const { error } = await sb.from("site_settings").upsert({ key: "logo_" + slot, value: dataUrl });
     if (error) return { error };
     Cache.settings["logo_" + slot] = dataUrl;
+    // 로고 캐시(하루)를 무효화 — 바꾼 로고가 바로 보이게
+    try { localStorage.removeItem(LOGO_KEY + "_at"); } catch {}
     return { ok: true };
   } catch (e) {
     return { error: { message: "이미지를 읽을 수 없습니다 (" + e.message + ")" } };
