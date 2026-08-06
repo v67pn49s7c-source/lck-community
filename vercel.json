@@ -17,7 +17,6 @@
   ],
   "headers": [
     {
-      "_comment": "자산은 30일 캐시. 기본값(max-age=0)이면 페이지를 옮길 때마다 서버에 다시 물어본다. CSS·JS 주소에는 ?v=날짜가 붙어 있어 내용이 바뀌면 주소가 달라지므로(= 즉시 새로 받음) 길게 잡아도 안전하다. 로고 이미지는 주소가 안 바뀌므로 무기한(immutable) 대신 30일로 둔다.",
       "source": "/assets/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=2592000" }]
     },
