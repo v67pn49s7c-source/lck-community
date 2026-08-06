@@ -491,7 +491,7 @@ function renderFooter() {
       </p>
       <p class="foot-links">
         모든 예측 참여는 무료이며 포인트는 환전·거래할 수 없습니다.
-        · <a href="terms.html">이용약관</a>
+        · <a href="terms.html">이용약관</a> · <a href="privacy.html">개인정보 처리방침</a>
         · 문의·신고: <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>
           / <a href="${SNS_URL}" target="_blank" rel="noopener noreferrer">인스타그램 ${SNS_HANDLE} DM</a>
         · <a href="admin.html">관리자</a>

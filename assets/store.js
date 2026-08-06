@@ -1632,9 +1632,12 @@ async function sbSignIn(email, password) {
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   return { session: data.session, error };
 }
-// 프로필 만들기 — 서버 함수로 (닉네임 중복·관리자 승격을 서버가 막는다)
-async function saveProfile(nick, favTeam) {
-  const r = await sb.rpc("create_profile", { p_nick: nick, p_fav_team: favTeam || "" });
+// 프로필 만들기 — 서버 함수로 (닉네임 중복·관리자 승격을 서버가 막고,
+// 약관·개인정보 동의 없이는 가입 자체를 거부한다 — schema17)
+async function saveProfile(nick, favTeam, agreed) {
+  let r = await sb.rpc("create_profile", { p_nick: nick, p_fav_team: favTeam || "", p_terms: !!agreed });
+  if (isMissingFunction(r.error))             // schema17 실행 전 — 동의 인자 없는 판으로
+    r = await sb.rpc("create_profile", { p_nick: nick, p_fav_team: favTeam || "" });
   if (isMissingFunction(r.error)) {           // schema14 실행 전
     const { error } = await sb.from("profiles")
       .insert({ id: Auth.session.user.id, nick, fav_team: favTeam || null });
@@ -1647,11 +1650,11 @@ async function saveProfile(nick, favTeam) {
   return null;
 }
 
-async function sbSignUp(email, password, nick, favTeam) {
+async function sbSignUp(email, password, nick, favTeam, agreed) {
   const { data, error } = await sb.auth.signUp({ email, password });
   if (error) return { error };
   if (!data.session) return { needConfirm: true }; // 이메일 확인이 켜져 있는 경우
-  const pErr = await saveProfile(nick, favTeam);
+  const pErr = await saveProfile(nick, favTeam, agreed);
   if (pErr) return { error: pErr };
   return { session: data.session };
 }
@@ -1666,9 +1669,9 @@ async function sbSignOut() {
   snapshotSave();
 }
 // 로그인은 됐지만 프로필이 없는 회원용 (이메일 확인을 거친 가입 등)
-async function completeProfile(nick, favTeam) {
+async function completeProfile(nick, favTeam, agreed) {
   if (!Auth.session) return { error: { message: "로그인이 필요합니다." } };
-  const err = await saveProfile(nick, favTeam);
+  const err = await saveProfile(nick, favTeam, agreed);
   if (err) return { error: err };
   Auth.profile = { id: Auth.session.user.id, nick, fav_team: favTeam || null, is_admin: false };
   return { ok: true };

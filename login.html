@@ -13,7 +13,7 @@
   <meta name="twitter:card" content="summary">
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260806c">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807a">
 </head>
 <body>
   <main class="page">
@@ -47,6 +47,22 @@
             <div class="form-label">비밀번호 (6자 이상)</div>
             <input id="auth-pw" type="password" required minlength="6" autocomplete="current-password" style="width:100%">
           </div>
+          <!-- 가입 약관 동의 — 회원가입·프로필 완성 때만 보인다. 서버(create_profile)도 동의 없이는 거부한다 -->
+          <div id="consent-field" style="display:none">
+            <div class="form-label">가입 동의 (모두 필수)</div>
+            <label style="display:flex;gap:8px;align-items:flex-start;padding:4px 0;cursor:pointer">
+              <input type="checkbox" id="agree-age" style="margin-top:3px">
+              <span>만 14세 이상입니다</span>
+            </label>
+            <label style="display:flex;gap:8px;align-items:flex-start;padding:4px 0;cursor:pointer">
+              <input type="checkbox" id="agree-terms" style="margin-top:3px">
+              <span><a href="terms.html" target="_blank" style="text-decoration:underline">이용약관</a>에 동의합니다</span>
+            </label>
+            <label style="display:flex;gap:8px;align-items:flex-start;padding:4px 0;cursor:pointer">
+              <input type="checkbox" id="agree-privacy" style="margin-top:3px">
+              <span><a href="privacy.html" target="_blank" style="text-decoration:underline">개인정보 처리방침</a>(이메일·닉네임·응원팀 수집)에 동의합니다</span>
+            </label>
+          </div>
           <button class="btn-primary" type="submit" id="auth-submit">로그인</button>
           <div class="admin-note" style="border:none; background:none; padding:4px 0 0">
             회원이 되면 닉네임이 고정되어 사칭을 막을 수 있고,
@@ -58,16 +74,20 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260806c"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260806c"></script>
-  <script src="assets/store.js?v=20260806c"></script>
-  <script src="assets/app.js?v=20260806c"></script>
+  <script src="assets/data.js?v=20260807a"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807a"></script>
+  <script src="assets/store.js?v=20260807a"></script>
+  <script src="assets/app.js?v=20260807a"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
     renderFooter();
 
     if (Auth.session && Auth.profile) { location.href = "index.html"; return; }
+
+    // 동의 확인 — 셋 다 체크해야 true (가입은 프로필 생성 시점에 서버가 다시 검사한다)
+    const allAgreed = () => ["agree-age", "agree-terms", "agree-privacy"]
+      .every(id => document.getElementById(id).checked);
 
     // 로그인은 됐지만 프로필(닉네임·응원팀)이 없는 회원 → 프로필 완성 모드
     const completing = !!Auth.session && !Auth.profile;
@@ -82,6 +102,7 @@
       document.getElementById("auth-pw").required = false;
       document.getElementById("nick-field").style.display = "";
       document.getElementById("team-field").style.display = "";
+      document.getElementById("consent-field").style.display = "";
       document.getElementById("auth-nick").required = true;
       document.getElementById("auth-title").textContent = "프로필 완성";
       document.getElementById("auth-submit").textContent = "저장하고 시작하기";
@@ -89,7 +110,8 @@
         e.preventDefault();
         const nick = document.getElementById("auth-nick").value.trim();
         if (!nick) return;
-        const res = await completeProfile(nick, document.getElementById("auth-team").value);
+        if (!allAgreed()) { alert("가입 동의 항목(만 14세·이용약관·개인정보)에 모두 체크해 주세요."); return; }
+        const res = await completeProfile(nick, document.getElementById("auth-team").value, true);
         if (res.error) { alert("저장 실패: " + res.error.message); return; }
         alert(`환영합니다, ${nick}님!`);
         location.href = "index.html";
@@ -109,6 +131,7 @@
       tabS.classList.toggle("active", m === "signup");
       document.getElementById("nick-field").style.display = m === "signup" ? "" : "none";
       document.getElementById("team-field").style.display = m === "signup" ? "" : "none";
+      document.getElementById("consent-field").style.display = m === "signup" ? "" : "none";
       document.getElementById("auth-nick").required = m === "signup";
       document.getElementById("auth-title").textContent = m === "login" ? "로그인" : "회원가입";
       document.getElementById("auth-submit").textContent = m === "login" ? "로그인" : "가입하기";
@@ -129,8 +152,12 @@
         if (error) { alert("로그인 실패: " + error.message); return; }
         location.href = "index.html";
       } else {
+        if (!allAgreed()) {
+          alert("가입 동의 항목(만 14세·이용약관·개인정보)에 모두 체크해 주세요.");
+          btn.disabled = false; return;
+        }
         const nick = document.getElementById("auth-nick").value.trim();
-        const res = await sbSignUp(email, pw, nick, document.getElementById("auth-team").value);
+        const res = await sbSignUp(email, pw, nick, document.getElementById("auth-team").value, true);
         btn.disabled = false;
         if (res.error) { alert("가입 실패: " + res.error.message); return; }
         if (res.needConfirm) { alert("가입 확인 이메일이 발송되었습니다. 메일함을 확인해 주세요."); return; }
