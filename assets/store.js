@@ -1581,6 +1581,14 @@ function setSetting(key, value) {
   Cache.settings[key] = value;
   sb.from("site_settings").upsert({ key, value }).then(r => sbErr(r.error, "setSetting"));
 }
+// 서버가 바꾼 설정을 다시 읽어 온다.
+// 수집기(api/leaguepedia.js)가 lp_aliases 에 자동 연결을 덧붙이므로, 수집 직후에는
+// 화면이 들고 있는 값이 옛것이다. 그대로 저장하면 방금 이어진 이름이 날아간다.
+async function reloadSetting(key) {
+  const r = await sb.from("site_settings").select("value").eq("key", key).maybeSingle();
+  if (!r.error && r.data) Cache.settings[key] = r.data.value || "";
+  return getSetting(key);
+}
 // slot: "desktop-light" | "desktop-dark" | "mobile"
 // 업로드된 로고(데이터 URL)가 있으면 그것, 없으면 기본 파일
 function brandLogoURL(slot, fallback) {

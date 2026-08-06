@@ -14,7 +14,7 @@
 // 데이터 출처: Leaguepedia (CC-BY-SA 3.0) — 푸터에 출처를 표기하고 있다.
 
 const { ok, fail, sb, requireAdmin } = require("./_lib");
-const { val, wait, cargo, loadSetting, saveSetting, matchIdOf, stagePicker, autoLinkPlayers, resolveTid, buildNewPlayers, normNick, loadNameMaps, splitList } = require("./_lp");
+const { val, wait, cargo, loadSetting, saveSetting, matchIdOf, stagePicker, autoLinkPlayers, checkAliases, resolveTid, buildNewPlayers, normNick, loadNameMaps, splitList } = require("./_lp");
 
 const CACHE_MINUTES = 10;
 const isWin = v => /^(1|yes|true)$/i.test(String(v || "").trim());
@@ -287,11 +287,15 @@ module.exports = async (req, res) => {
       if (!p.pid && playerMap[p.lpName]) p.pid = playerMap[p.lpName];
     })));
 
+    // 이름 연결표가 망가져 있으면 알려 준다 (두 이름 → 한 선수 = 기록이 조용히 사라진다)
+    const health = checkAliases(playerMap, roster);
+
     const summary = {
       page, 경기수: matches.length,
       세트수: matches.reduce((n, m) => n + m.sets.length, 0),
       모르는팀: [...unknownTeams], 모르는선수: [...unknownPlayers].slice(0, 60),
       자동연결: Object.keys(auto.linked).length, 이름겹침: auto.ambiguous.slice(0, 10),
+      연결겹침: health.merged.slice(0, 10), 연결의심: health.suspect.slice(0, 10),
       진행: progress, 끝까지받음: allDone, 선수등록: 0,
       저장된자료사용: !!cached, 저장함: false,
     };

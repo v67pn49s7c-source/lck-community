@@ -109,6 +109,39 @@ function autoLinkPlayers(lpNames, players) {
   return { linked, ambiguous, missing };
 }
 
+// ── 이름 연결표 건강 검사 ─────────────────────────────────
+// 서로 다른 두 이름이 **한 선수 id** 를 가리키면, 그 세트에 같은 선수가 두 번 저장되고
+// 진짜 주인의 기록은 통째로 사라진다. 2026-08 에 실제로 일어났다
+// ("Chovy"·"Canyon" 이 모두 gen-canyon → 쵸비 0행 / 캐니언 108행,
+//  되돌린 SQL: supabase/fix5_merged_players.sql).
+// 조용히 덮어써지는 사고라 아무도 모르고 지나간다 → 수집할 때마다 알려 준다.
+//
+//   겹침 : 두 이름 → 한 사람. 단, 같은 사람의 표기 차이("Frog" / "Frog (Lee Min-hoi)")는 정상이라 뺀다.
+//   의심 : 이름과 똑같은 닉네임의 선수가 우리 DB 에 딱 한 명 있는데, 다른 사람에게 이어져 있다.
+function checkAliases(map, players) {
+  const byNick = {};
+  (players || []).forEach(p => {
+    const k = normNick(p.nick);
+    if (k) (byNick[k] = byNick[k] || []).push(p);
+  });
+  const byId = {};
+  Object.entries(map || {}).forEach(([name, pid]) => {
+    if (pid) (byId[pid] = byId[pid] || []).push(name);
+  });
+  const merged = [];
+  Object.entries(byId).forEach(([pid, names]) => {
+    // 이름이 여럿이어도 정규화한 닉네임이 하나면 같은 사람의 다른 표기다
+    if (new Set(names.map(normNick)).size < 2) return;
+    merged.push({ pid, names });
+  });
+  const suspect = [];
+  Object.entries(map || {}).forEach(([name, pid]) => {
+    const hit = byNick[normNick(name)];
+    if (hit && hit.length === 1 && hit[0].id !== pid) suspect.push({ name, pid, should: hit[0].id });
+  });
+  return { merged, suspect };
+}
+
 // ── Data Dragon 이름표 (영어 → 한글) ──────────────────────
 // Leaguepedia 는 아이템·룬·스펠을 영어로 준다("Infinity Edge"). 우리 화면은 한글 이름으로
 // 아이콘을 찾으므로 서버에서 미리 바꿔 준다. 챔피언 이름과 같은 방식.
@@ -246,7 +279,7 @@ async function resolveTid(page, existing, explicitTid) {
 
 module.exports = {
   API, UA, wait, val, cargo, loadSetting, saveSetting,
-  matchIdOf, pageTag, stageTag, stagePicker, autoLinkPlayers, normNick,
+  matchIdOf, pageTag, stageTag, stagePicker, autoLinkPlayers, checkAliases, normNick,
   koTournamentName, resolveTid, buildNewPlayers, posOf, splitLink,
   loadNameMaps, splitList,
 };
