@@ -352,6 +352,10 @@ function renderFanHero() {
 // 사이트가 비어 있다는 증거를 스스로 광고하게 된다 (2026-08-06).
 const CARD_MIN_N = 20;
 
+// 공식 SNS 계정 — 카드·푸터·캡션이 전부 이 한 곳을 참조한다 (인스타그램·스레드 공용)
+const SNS_HANDLE = "@thenexus.lolgg";
+const SNS_URL = "https://instagram.com/thenexus.lolgg";
+
 // ── 예측 공유 카드 ("나는 ○○ 승리를 예측했습니다") ─────────
 function sharePredictionCard(match, side) {
   const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
@@ -396,6 +400,7 @@ function sharePredictionCard(match, side) {
   g.textAlign = "left";
   g.fillStyle = "#667080"; g.font = "600 20px sans-serif";
   g.fillText(`${pct.n >= CARD_MIN_N ? pct.n + "명 참여 · " : ""}${location.host}/match/${match.id}`, 48, H - 44);
+  g.textAlign = "right"; g.fillText(SNS_HANDLE, W - 48, H - 44); g.textAlign = "left";
 
   c.toBlob(async blob => {
     const file = new File([blob], "nexus-predict.png", { type: "image/png" });
@@ -485,7 +490,9 @@ function renderFooter() {
       </p>
       <p class="foot-links">
         모든 예측 참여는 무료이며 포인트는 환전·거래할 수 없습니다.
-        · <a href="terms.html">이용약관</a> · 문의: report@lcklounge.example · <a href="admin.html">관리자</a>
+        · <a href="terms.html">이용약관</a>
+        · 문의·신고: <a href="${SNS_URL}" target="_blank" rel="noopener noreferrer">인스타그램 ${SNS_HANDLE} DM</a>
+        · <a href="admin.html">관리자</a>
       </p>
     </div>`;
   document.body.appendChild(f);
@@ -814,6 +821,7 @@ function sharePollCard(poll, ctx) {
   g.fillText(`${r.voters >= CARD_MIN_N ? r.voters + "명 참여 · " : ""}팬덤별 여론은 THE NEXUS에서`, 48, H - 72);
   g.fillStyle = "#9aa1b0";
   g.fillText(location.host + (poll.match_id ? "/match/" + poll.match_id : ""), 48, H - 40);
+  g.textAlign = "right"; g.fillStyle = "#667080"; g.fillText(SNS_HANDLE, W - 48, H - 40); g.textAlign = "left";
 
   c.toBlob(async blob => {
     const file = new File([blob], "nexus-poll.png", { type: "image/png" });
@@ -938,7 +946,7 @@ function shareRatingCard(match) {
   g.fillText(voters >= CARD_MIN_N ? `${voters}명 참여` : "팬 평점", padX, H - 26);
   g.textAlign = "right";
   g.fillStyle = "#2f3542";
-  g.fillText("THE NEXUS", W - padX, H - 26);
+  g.fillText(`THE NEXUS · ${SNS_HANDLE}`, W - padX, H - 26);
   g.textAlign = "left";
 
   c.toBlob(async blob => {

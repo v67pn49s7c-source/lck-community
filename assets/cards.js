@@ -28,8 +28,9 @@ function cardEnd(g, extra) {
   g.font = CF("600", 24); g.fillStyle = "#667080"; g.textAlign = "left";
   g.fillText(`${d.getMonth() + 1}월 ${d.getDate()}일 기준${extra ? " · " + extra : ""}`, CARD_PAD, CARD_H - 92);
   g.fillText("Leaguepedia 기록 기준 · 비영리 팬 프로젝트", CARD_PAD, CARD_H - 56);
-  g.textAlign = "right"; g.fillStyle = "#3a4150";
-  g.fillText("lck-community.vercel.app", CARD_W - CARD_PAD, CARD_H - 56);
+  g.textAlign = "right";
+  g.fillStyle = "#9aa1b0"; g.fillText(SNS_HANDLE, CARD_W - CARD_PAD, CARD_H - 92);
+  g.fillStyle = "#3a4150"; g.fillText("lck-community.vercel.app", CARD_W - CARD_PAD, CARD_H - 56);
   g.textAlign = "left";
 }
 function cardSave(c, name) {
