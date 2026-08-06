@@ -1242,11 +1242,18 @@
         if (m.status === "done") {
           const closes = new Date(new Date(m.at).getTime() + 48 * 3600e3).toISOString();
           if (!Cache.polls.some(p => p.match_id === m.id && p.phase === "post_pom")) {
-            const starters = [...teamPlayers(m.a), ...teamPlayers(m.b)];
+            // POM 은 LCK 관례대로 **승리팀에서만** 뽑는다. 양 팀을 다 올리면
+            // 팬이 많은 팀이 항상 유리해져 투표가 왜곡된다 (2026-08-07).
+            // 세트 기록이 있으면 실제 출전한 선수만 후보로 올린다 (교체 명단 제외).
+            const winner = matchWinner(m);
+            const winTeam = winner === "a" ? m.a : winner === "b" ? m.b : null;
+            const played = playedPidsForMatch(m.id);
+            const starters = winTeam
+              ? teamPlayers(winTeam).filter(p => !played.size || played.has(p.id)) : [];
             if (starters.length) {
               createPoll({
                 match_id: m.id, phase: "post_pom",
-                question: `팬 선정 POM은? (${A.abbr} ${m.scoreA ?? ""}:${m.scoreB ?? ""} ${B.abbr})`,
+                question: `팬 선정 POM은? — 승리팀 ${TEAM_MAP[winTeam].abbr} (${A.abbr} ${m.scoreA ?? ""}:${m.scoreB ?? ""} ${B.abbr})`,
                 options: starters.map(p => `${p.nick} (${TEAM_MAP[p.team].abbr} ${p.pos})`),
                 closes_at: closes,
               });
