@@ -1017,7 +1017,23 @@ function renderHomeSchedule() {
   const now = Date.now();
   const past = ms.filter(m => m.status === "done" || new Date(m.at) <= now);
   const soon = ms.filter(m => m.status !== "done" && new Date(m.at) > now);
-  el.innerHTML = scheduleHTML([...past.slice(-3), ...soon.slice(0, 7)]);
+
+  // 오늘 경기가 있으면 맨 위에 경기방 입구를 크게 — 홈의 주 행동은
+  // "일정 훑기"가 아니라 "지금 이 경기 이야기하기"다 (경기방 v1, 2026-08-07)
+  const today = ms.find(m => {
+    if (!m.at || !TEAM_MAP[m.a] || !TEAM_MAP[m.b]) return false;
+    const d = new Date(m.at), n = new Date();
+    return kstParts(d.getTime()).day === kstParts(n.getTime()).day &&
+           kstParts(d.getTime()).month === kstParts(n.getTime()).month;
+  });
+  const cta = today ? `
+    <a class="admin-note" href="/match/${q(today.id)}"
+       style="display:flex;align-items:center;gap:8px;text-decoration:none;border-top:none;font-weight:700">
+      💬 오늘 ${esc(TEAM_MAP[today.a].abbr)} vs ${esc(TEAM_MAP[today.b].abbr)}
+      ${today.status === "done" ? "어떻게 보셨나요? — 평점·토론" : "이야기하기 — 예측·미리보기·토론"}
+      <span style="margin-left:auto">→</span>
+    </a>` : "";
+  el.innerHTML = cta + scheduleHTML([...past.slice(-3), ...soon.slice(0, 7)]);
 }
 
 function renderHotPosts() {

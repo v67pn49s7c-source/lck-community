@@ -1401,6 +1401,12 @@ function createPoll(p) {
   }).then(r => { sbErr(r.error, "createPoll"); return r; });
   return p.id;
 }
+// 경기 토론 글 — 관리자 화면이 경기마다 자동 생성하는 "[경기 토론]" 글.
+// 경기 페이지(경기방)의 댓글이 이 글에 달린다. 글과 경기방은 같은 대화를 공유한다.
+function matchTalkPost(matchId) {
+  return Cache.posts.find(p => p.match_id === matchId && /^\[경기 토론\]/.test(p.title)) || null;
+}
+
 // 투표 질문·마감 고치기 (관리자 전용 — RLS admin_all_polls).
 // 일정 갱신이 경기 시각을 옮기면 투표 마감이 옛 시각에 박제되는 사고를 고치는 용도.
 function updatePoll(pollId, fields) {

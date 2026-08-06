@@ -18,7 +18,7 @@
   <link rel="icon" type="image/png" href="assets/brand/nexus-mobile.png">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807e">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807f">
 </head>
 <body>
   <main class="page">
@@ -31,6 +31,13 @@
           </div>
           <div class="live-banner" id="live-banner"></div>
           <div class="stream-links" id="stream-links" style="display:none"></div>
+        </section>
+
+        <section class="card" id="preview-card" style="display:none">
+          <div class="card-head">
+            <h2 class="card-title">미리보기 <span class="sub">상대 전적 · 최근 흐름 · 이 경기에 걸린 것</span></h2>
+          </div>
+          <div id="preview-body"></div>
         </section>
 
         <section class="card" id="fanpulse-card" style="display:none">
@@ -61,6 +68,14 @@
           <div id="rating-body"></div>
         </section>
 
+        <section class="card" id="talk-card" style="display:none">
+          <div class="card-head">
+            <h2 class="card-title">경기 토론 <span class="sub" id="talk-sub"></span></h2>
+            <a class="card-more" id="talk-more" href="#">글로 보기 ›</a>
+          </div>
+          <div id="talk-body"></div>
+        </section>
+
       </div>
 
       <aside class="stack">
@@ -81,11 +96,12 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807e"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807e"></script>
-  <script src="assets/store.js?v=20260807e"></script>
-  <script src="assets/app.js?v=20260807e"></script>
-  <script src="assets/ddragon.js?v=20260807e"></script>
+  <script src="assets/data.js?v=20260807f"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807f"></script>
+  <script src="assets/store.js?v=20260807f"></script>
+  <script src="assets/app.js?v=20260807f"></script>
+  <script src="assets/ddragon.js?v=20260807f"></script>
+  <script src="assets/race.js?v=20260807f"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -337,6 +353,97 @@
       if (match) shareRatingCard(match);
     });
 
+    // ── 미리보기 (예정 경기 전용) — 상대 전적 · 최근 5경기 · 이 경기에 걸린 것 ──
+    // "경기 전엔 알아보러 온다" — 예정 경기 페이지가 투표만 있고 정보가 없던 걸 채운다.
+    function renderPreview() {
+      const card = document.getElementById("preview-card");
+      if (!match || match.status === "done" || !knownTeams(match)) { card.style.display = "none"; return; }
+      const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
+      const done = getMatches().filter(x => x.status === "done"
+        && x.scoreA != null && x.scoreB != null && x.scoreA !== x.scoreB);
+      let hA = 0, hB = 0;
+      done.forEach(x => {
+        if (x.a === match.a && x.b === match.b) (x.scoreA > x.scoreB ? hA++ : hB++);
+        if (x.a === match.b && x.b === match.a) (x.scoreA > x.scoreB ? hB++ : hA++);
+      });
+      const form = t => done.filter(x => x.a === t || x.b === t)
+        .sort((x, y) => new Date(y.at) - new Date(x.at)).slice(0, 5).reverse()
+        .map(x => ((x.a === t) === (x.scoreA > x.scoreB)) ? "승" : "패").join("") || "-";
+
+      // 경우의 수 — 같은 그룹 경기일 때만 (race.js)
+      let stakes = "";
+      const sid = Object.keys(RACE_CUTS).find(id => {
+        const ts = (Cache.records.find(s => s.id === id)?.records || []).map(r => r.team);
+        return ts.includes(match.a) && ts.includes(match.b);
+      });
+      if (sid) {
+        const r0 = raceFromCache(sid);
+        if (r0 && r0.remain.some(x => x.id === match.id)) {
+          const ci = 0, cut = r0.cuts[ci];
+          const ifA = raceWhatIf(sid, match.id, "a"), ifB = raceWhatIf(sid, match.id, "b");
+          const sOf = (res, t) => res?.rows.find(x => x.team === t)?.cuts[ci].safe;
+          const f = v => v == null ? "자력 불가" : v === 0 ? "확보" : `자력 ${v}승`;
+          stakes = `<div class="admin-note"><b>${esc(cut.label)}</b>이 걸린 경기입니다 —
+            <b style="color:${A.color}">${esc(A.abbr)}</b> 이기면 ${f(sOf(ifA, match.a))} · 지면 ${f(sOf(ifB, match.a))} &nbsp;/&nbsp;
+            <b style="color:${B.color}">${esc(B.abbr)}</b> 이기면 ${f(sOf(ifB, match.b))} · 지면 ${f(sOf(ifA, match.b))}
+            &nbsp;<a href="race.html?team=${q(match.a)}" style="text-decoration:underline">경우의 수 전체 →</a></div>`;
+        }
+      }
+      card.style.display = "";
+      document.getElementById("preview-body").innerHTML = `
+        <div class="stat-cards" style="padding:12px 16px ${stakes ? "4px" : "14px"}">
+          <div class="stat-card"><div class="k">올 시즌 상대 전적</div>
+            <div class="v">${hA} : ${hB}</div><div class="k">${esc(A.abbr)} : ${esc(B.abbr)}</div></div>
+          <div class="stat-card"><div class="k">${esc(A.abbr)} 최근 5경기</div>
+            <div class="v" style="font-size:17px;letter-spacing:3px">${form(match.a)}</div><div class="k">왼쪽이 과거</div></div>
+          <div class="stat-card"><div class="k">${esc(B.abbr)} 최근 5경기</div>
+            <div class="v" style="font-size:17px;letter-spacing:3px">${form(match.b)}</div><div class="k">왼쪽이 과거</div></div>
+        </div>
+        ${stakes}`;
+    }
+
+    // ── 경기 토론 (경기방) — 자동 생성되는 "[경기 토론]" 글의 댓글을 이 화면에서 그대로 ──
+    // 참여 사다리의 마지막 칸: 2초 투표를 마친 사람이 30초 의견으로 넘어오는 자리.
+    function renderTalk() {
+      const card = document.getElementById("talk-card");
+      const post = match ? matchTalkPost(match.id) : null;
+      if (!post) { card.style.display = "none"; return; }
+      card.style.display = "";
+      document.getElementById("talk-more").href = "post.html?id=" + q(post.id);
+      document.getElementById("talk-sub").textContent = post.comments.length ? `댓글 ${post.comments.length}` : "";
+      const list = post.comments.slice().sort((a, b) => a.ts - b.ts);
+      document.getElementById("talk-body").innerHTML = `
+        <div id="talk-list">
+          ${list.map(c => `
+            <div class="comment-row">
+              <div class="c-meta"><b>${nickHTML(c.nick, c.author_team)}</b><span>${fmtAgo(c.ts)}</span></div>
+              <div class="c-body">${esc(c.body)}</div>
+            </div>`).join("")
+            || `<div class="empty-note">${match.status === "done"
+                 ? "오늘 경기, 어떻게 보셨나요? 첫 소감을 남겨 보세요"
+                 : "예측 이유·관전 포인트를 첫 댓글로 남겨 보세요"}</div>`}
+        </div>
+        <form class="comment-form" id="talk-form">
+          <input class="nick" value="${esc(Auth.profile ? Auth.profile.nick : "익명 (자동 부여)")}" readonly style="max-width:140px"
+            title="${Auth.profile ? "회원 닉네임은 프로필에서만 바꿀 수 있습니다" : "비회원 댓글은 익명으로 등록됩니다"}">
+          ${Auth.session ? "" : `<input class="pw" type="password" placeholder="비밀번호(4자+)" required minlength="4" maxlength="20" autocomplete="new-password" style="max-width:130px">`}
+          <input class="body" placeholder="왜 그렇게 보셨나요? 한 줄이면 충분합니다" required maxlength="300">
+          <button class="btn-primary" type="submit">등록</button>
+        </form>`;
+      document.getElementById("talk-form").addEventListener("submit", e => {
+        e.preventDefault();
+        const body = e.target.querySelector(".body").value.trim();
+        const pw = e.target.querySelector(".pw")?.value || "";
+        if (!body) return;
+        if (!Auth.session && pw.length < 4) { alert("비밀번호를 4자 이상 입력해 주세요. (댓글 삭제에 씁니다)"); return; }
+        addComment(post.id, "", body, pw).then(r => {
+          if (r && r.error) alert("댓글을 등록하지 못했습니다.\n" + (r.error.message || ""));
+          renderTalk();
+        });
+        renderTalk();
+      });
+    }
+
     // 사이드: 다가오는 경기 목록
     function renderUpcoming() {
       const ms = sortedMatches().filter(m => m.status !== "done").slice(0, 6);
@@ -354,12 +461,14 @@
     // 중계 링크·팬 평점·투표 결과는 지난 방문 스냅샷에 없거나 오래됐을 수 있어,
     // 서버 데이터가 도착하면 다시 그린다
     storeFresh.then(() => {
-      renderStreams(); renderFanPulse(); renderRatingPanel();
+      renderStreams(); renderFanPulse(); renderRatingPanel(); renderPreview(); renderTalk();
     }).catch(() => {});
     renderFanPulse();
     renderDetails();
     ddInit().then(ok => { if (ok) renderDetails(); }); // 아이템·룬·스펠 아이콘 로드 후 다시 그림
     renderRatingPanel();
+    renderPreview();
+    renderTalk();
     renderUpcoming();
     setupSidebarStandings();
     renderFooter();
