@@ -358,51 +358,94 @@ const SNS_URL = "https://instagram.com/thenexus.lolgg";
 const CONTACT_EMAIL = "thenexus.lolgg@gmail.com";
 
 // ── 예측 공유 카드 ("나는 ○○ 승리를 예측했습니다") ─────────
-function sharePredictionCard(match, side) {
+// 그리기와 저장을 나눠 둔다 — 미리보기·검증에서 그리기만 따로 쓸 수 있게.
+function drawPredictionCard(match, side) {
   const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
-  if (!A || !B || !side) return;
+  if (!A || !B || !side) return null;
   const pick = side === "a" ? A : B;
   const pct = communityPct(match);
   const W = 720, H = 480;
   const c = document.createElement("canvas");
   c.width = W; c.height = H;
   const g = c.getContext("2d");
+  const F = (w, px) => `${w} ${px}px -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`;
+  const rr = (x, y, w, h, r) => {
+    g.beginPath();
+    if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h);
+  };
 
-  g.fillStyle = "#0f1015"; g.fillRect(0, 0, W, H);
-  g.fillStyle = "#ff4655"; g.fillRect(0, 0, W, 8);
-  g.fillStyle = "#ff4655"; g.font = "bold 30px sans-serif";
-  g.fillText("THE NEXUS", 48, 74);
-  g.fillStyle = "#9aa1b0"; g.font = "600 22px sans-serif";
-  g.fillText("승부예측", 48, 106);
+  // 바탕 — 위가 살짝 밝은 세로 그라데이션 + 양 팀 색의 은은한 빛
+  const bg = g.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#151824"); bg.addColorStop(1, "#0b0c11");
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  const glow = (x, color) => {
+    const r = g.createRadialGradient(x, 205, 10, x, 205, 170);
+    r.addColorStop(0, color + "2e"); r.addColorStop(1, color + "00");
+    g.fillStyle = r; g.fillRect(x - 170, 35, 340, 340);
+  };
+  glow(W * 0.26, A.color || "#4a8cff");
+  glow(W * 0.74, B.color || "#ff4655");
+  g.fillStyle = "#ff4655"; g.fillRect(0, 0, W, 6);
 
-  g.textAlign = "center";
-  g.fillStyle = "#e9ebf1"; g.font = "bold 44px sans-serif";
-  g.fillText(`${A.abbr}  vs  ${B.abbr}`, W / 2, 190);
-  g.fillStyle = "#667080"; g.font = "500 20px sans-serif";
-  g.fillText(fmtWhen(match.at), W / 2, 224);
+  // 머리 — 브랜드 + 날짜 알약
+  g.fillStyle = "#ff4655"; g.font = F("bold", 24);
+  g.fillText("THE NEXUS", 44, 62);
+  g.fillStyle = "#7c8496"; g.font = F("600", 16);
+  g.fillText("승부예측", 44, 88);
+  const when = fmtWhen(match.at);
+  g.font = F("600", 15);
+  const dw = g.measureText(when).width + 28;
+  g.strokeStyle = "#2a2f3d"; g.lineWidth = 1;
+  rr(W - 44 - dw, 44, dw, 32, 16); g.stroke();
+  g.fillStyle = "#9aa1b0"; g.textAlign = "center";
+  g.fillText(when, W - 44 - dw / 2, 65);
 
-  g.fillStyle = pick.color || "#ff4655"; g.font = "bold 40px sans-serif";
-  g.fillText(`나는 ${pick.abbr} 승리를 예측했습니다`, W / 2, 300);
+  // 대진 — 팀 컬러 약칭 + 가운데 VS
+  g.font = F("bold", 78);
+  g.fillStyle = A.color || "#e9ebf1"; g.fillText(A.abbr, W * 0.26, 235);
+  g.fillStyle = B.color || "#e9ebf1"; g.fillText(B.abbr, W * 0.74, 235);
+  g.fillStyle = "#3a4150"; g.font = F("bold", 26); g.fillText("VS", W / 2, 222);
 
-  // 밖으로 나가는 카드의 참여 비율은 실제 표가 있을 때만 그린다.
-  // (표 0건의 배당 폴백 = 거짓 비율, 소수 인원 표기 = "죽은 사이트" 광고)
+  // 내 예측 — 팀 이름만 그 팀 색으로
+  const parts = [["나는 ", "#e9ebf1"], [pick.abbr, pick.color || "#ff4655"], [" 승리를 예측했습니다", "#e9ebf1"]];
+  g.font = F("bold", 32);
+  const total = parts.reduce((s, [t]) => s + g.measureText(t).width, 0);
+  let x = (W - total) / 2;
+  g.textAlign = "left";
+  parts.forEach(([t, col]) => { g.fillStyle = col; g.fillText(t, x, 316); x += g.measureText(t).width; });
+
+  // 참여 비율 — 실제 표가 있을 때만, 양쪽을 각 팀 색으로 (2026-08-07 새 디자인)
   if (pct.n) {
-    const aW = (W - 96) * pct.a / 100;
-    g.fillStyle = "#4a8cff"; g.fillRect(48, 340, aW, 16);
-    g.fillStyle = "#ff4655"; g.fillRect(48 + aW, 340, (W - 96) - aW, 16);
-    g.fillStyle = "#9aa1b0"; g.font = "600 20px sans-serif";
-    g.textAlign = "left"; g.fillText(`${A.abbr} ${pct.a}%`, 48, 390);
-    g.textAlign = "right"; g.fillText(`${pct.b}% ${B.abbr}`, W - 48, 390);
+    const bx = 64, bw = W - 128, by = 356, bh = 16;
+    const aW = Math.max(bh, Math.min(bw - bh, bw * pct.a / 100)); // 0%여도 둥근 끝이 보이게
+    rr(bx, by, bw, bh, 8); g.fillStyle = "#232838"; g.fill();
+    rr(bx, by, aW - 1, bh, 8); g.fillStyle = A.color || "#4a8cff"; g.fill();
+    rr(bx + aW + 1, by, bw - aW - 1, bh, 8); g.fillStyle = B.color || "#ff4655"; g.fill();
+    g.font = F("bold", 19);
+    g.textAlign = "left"; g.fillStyle = A.color || "#9aa1b0";
+    g.fillText(`${A.abbr} ${pct.a}%`, bx, by + 46);
+    g.textAlign = "right"; g.fillStyle = B.color || "#9aa1b0";
+    g.fillText(`${pct.b}% ${B.abbr}`, bx + bw, by + 46);
+    if (pct.n >= CARD_MIN_N) {
+      g.textAlign = "center"; g.fillStyle = "#667080"; g.font = F("600", 15);
+      g.fillText(`${pct.n}명 참여`, W / 2, by + 46);
+    }
   } else {
-    g.fillStyle = "#9aa1b0"; g.font = "600 22px sans-serif";
-    g.fillText("당신의 예상은?", W / 2, 360);
+    g.textAlign = "center"; g.fillStyle = "#9aa1b0"; g.font = F("600", 20);
+    g.fillText("당신의 예상은?", W / 2, 372);
   }
 
+  // 꼬리 — 주소는 짧게(홈만), 계정은 오른쪽. 겹침 방지를 위해 경기 주소는 넣지 않는다
+  g.strokeStyle = "#232838"; g.beginPath(); g.moveTo(44, H - 58); g.lineTo(W - 44, H - 58); g.stroke();
+  g.font = F("600", 15);
+  g.textAlign = "left"; g.fillStyle = "#5b6373"; g.fillText(location.host, 44, H - 28);
+  g.textAlign = "right"; g.fillStyle = "#7c8496"; g.fillText(SNS_HANDLE, W - 44, H - 28);
   g.textAlign = "left";
-  g.fillStyle = "#667080"; g.font = "600 20px sans-serif";
-  g.fillText(`${pct.n >= CARD_MIN_N ? pct.n + "명 참여 · " : ""}${location.host}/match/${match.id}`, 48, H - 44);
-  g.textAlign = "right"; g.fillText(SNS_HANDLE, W - 48, H - 44); g.textAlign = "left";
-
+  return c;
+}
+function sharePredictionCard(match, side) {
+  const c = drawPredictionCard(match, side);
+  if (!c) return;
   c.toBlob(async blob => {
     const file = new File([blob], "nexus-predict.png", { type: "image/png" });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -821,8 +864,9 @@ function sharePollCard(poll, ctx) {
 
   g.fillStyle = "#667080"; g.font = "600 20px sans-serif";
   g.fillText(`${r.voters >= CARD_MIN_N ? r.voters + "명 참여 · " : ""}팬덤별 여론은 THE NEXUS에서`, 48, H - 72);
+  // 경기 주소는 길어서 계정명과 겹친다 — 홈 주소만 짧게 (긴 링크는 어차피 첫 댓글에)
   g.fillStyle = "#9aa1b0";
-  g.fillText(location.host + (poll.match_id ? "/match/" + poll.match_id : ""), 48, H - 40);
+  g.fillText(location.host, 48, H - 40);
   g.textAlign = "right"; g.fillStyle = "#667080"; g.fillText(SNS_HANDLE, W - 48, H - 40); g.textAlign = "left";
 
   c.toBlob(async blob => {
