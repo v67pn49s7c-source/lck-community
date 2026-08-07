@@ -2,16 +2,16 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="description" content="LCK 정규시즌 경우의 수 — 남은 경기 승패 조합을 전부 계산해 각 팀의 자력 확보선과 산술 가능선을 매일 갱신합니다.">
+  <meta name="description" content="우리 팀은 몇 승이면 플레이오프인가 — LCK 정규 라운드 3-4 남은 경기의 승패 조합을 전부 계산해 매일 갱신합니다.">
   <link rel="canonical" href="https://lck-community.vercel.app/race.html">
   <meta property="og:url" content="https://lck-community.vercel.app/race.html">
   <meta property="og:site_name" content="The Nexus">
   <meta property="og:locale" content="ko_KR">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LCK 경우의 수 — 플레이오프 레이스 | The Nexus</title>
+  <title>우리 팀은 몇 승이면 플레이오프? — LCK 경우의 수 | The Nexus</title>
   <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
-  <meta property="og:title" content="LCK 경우의 수 — 플레이오프 레이스">
-  <meta property="og:description" content="남은 경기 승패 조합 전수 계산 — 우리 팀은 몇 승이 더 필요한가. 매일 갱신.">
+  <meta property="og:title" content="우리 팀은 몇 승이면 플레이오프?">
+  <meta property="og:description" content="남은 경기 승패 조합을 전부 계산 — 몇 승 하면 확정인지 팀별로. 매일 갱신.">
   <meta property="og:image" content="https://lck-community.vercel.app/og/race">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -22,42 +22,91 @@
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="stylesheet" href="assets/styles.css?v=20260807n">
   <style>
-    /* 이 표의 핵심은 '자력 확보선' 열이다. 좁은 화면에서 전적·득실·잔여를 접고
-       팀 이름 아래 한 줄로 합쳐, 정답 열이 항상 화면 안에 있게 한다 (2026-08-07). */
+    /* ── 우리 팀 카드 — 이 페이지에서 가장 먼저 읽혀야 하는 것 ── */
+    .my-race { padding: 16px; }
+    .my-race-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+    .my-race-head b { font-size: var(--fs-lg); letter-spacing: -0.02em; }
+    .my-race-head .rec { font-size: var(--fs-sm); color: var(--text-sub); font-weight: 600; }
+
+    .goal { display: flex; gap: 12px; padding: 13px 0; border-top: 1px solid var(--line); }
+    .goal:first-of-type { border-top: none; }
+    .goal-mark {
+      flex: 0 0 62px; text-align: center; align-self: flex-start;
+      border-radius: 8px; padding: 8px 4px; font-weight: 800; font-size: var(--fs-md);
+      line-height: 1.25; word-break: keep-all;
+    }
+    /* 상태 배지는 자기 배경을 갖는다 — 옅은 배경에 같은 색 글자를 얹으면 어느 테마에서든
+       명암비가 4:1 언저리로 떨어져 안 읽힌다. 진한 면에 흰 글자로 고정한다. */
+    .goal-mark.done { background: #14713f; color: #fff; }
+    .goal-mark.safe { background: var(--accent-solid); color: #fff; }
+    .goal-mark.hope { background: #8a6100; color: #fff; }
+    .goal-mark.none { background: #5a6270; color: #fff; }
+
+    .goal-text { flex: 1; min-width: 0; }
+    .goal-what { font-weight: 800; font-size: var(--fs-base); }
+    .goal-what .k { color: var(--text-dim); font-weight: 600; }
+    .goal-line { margin-top: 3px; font-size: var(--fs-base); }
+    .goal-sub { margin-top: 2px; font-size: var(--fs-sm); color: var(--text-sub); }
+    /* 왜 이 선이 중요한지 — 화살표 문자는 글꼴마다 모양이 달라 선으로 대신한다 */
+    .goal-why {
+      margin-top: 6px; font-size: var(--fs-sm); color: var(--text-dim);
+      padding-left: 9px; border-left: 2px solid var(--line);
+    }
+
+    /* 팀 고르기 — 로그인 안 했거나 다른 팀이 궁금할 때 */
+    .team-pick { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 16px; border-top: 1px solid var(--line); }
+    .team-pick button {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 9px; border-radius: 999px; cursor: pointer;
+      border: 1px solid var(--line); background: transparent;
+      color: var(--text-sub); font-weight: 700; font-size: var(--fs-sm);
+    }
+    .team-pick button.active {
+      border-color: var(--pick-color); border-width: 2px; color: var(--text);
+      background: color-mix(in srgb, var(--pick-color) 14%, transparent);
+    }
+
+    /* 표의 핵심은 '몇 승이면 확정' 열이다. 좁은 화면에서 전적·득실·잔여를 접고
+       팀 이름 아래 한 줄로 합쳐, 그 열이 항상 화면 안에 있게 한다. */
     .race-sub { display: none; }
     @media (max-width: 620px) {
       .race-table .c-rank, .race-table .c-rec, .race-table .c-pt, .race-table .c-left { display: none; }
       .race-sub { display: block; font-size: 11px; color: var(--text-dim); margin-top: 2px; font-weight: 500; }
       .race-table td, .race-table th { padding: 8px 5px; }
+      .goal-mark { flex-basis: 56px; }
     }
+
+    /* 시즌 진행 방식 — 처음 온 사람이 '라운드'가 뭔지 알 수 있게 */
+    .format-flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 14px 16px 4px; }
+    .format-flow span {
+      padding: 5px 10px; border-radius: 6px; font-size: var(--fs-sm); font-weight: 700;
+      background: var(--bg-sub, rgba(127,127,127,.1)); color: var(--text-sub);
+    }
+    .format-flow span.now { background: var(--accent-solid); color: #fff; }
+    .format-flow i { color: var(--text-dim); font-style: normal; }
   </style>
 </head>
 <body>
   <main class="page">
     <div class="container">
       <div class="page-title-row">
-        <h1 class="page-title">경우의 수 <span class="sub">남은 경기 전수 계산 · 매일 갱신</span></h1>
+        <h1 class="page-title">경우의 수 <span class="sub">몇 승이면 확정인가 · 매일 갱신</span></h1>
       </div>
 
-      <!-- 검색 로봇도 읽을 수 있는 정적 설명 (데이터 표는 아래에 그려진다) -->
-      <section class="card">
+      <!-- ① 우리 팀 — 로그인했으면 응원팀이, 아니면 1위 팀이 먼저 나온다 -->
+      <section class="card" id="my-race-card">
         <div class="card-head">
-          <h2 class="card-title">우리 팀은 몇 승이 더 필요한가</h2>
+          <h2 class="card-title" id="my-race-title">우리 팀은 몇 승이면 되나</h2>
           <span class="card-more" id="race-updated"></span>
         </div>
-        <div class="admin-note" style="border-top:none">
-          LCK 정규시즌 남은 경기의 승패 조합을 <b>전부 계산</b>해서(수만 가지),
-          각 팀이 목표 순위를 지키는 데 필요한 승수를 보여 줍니다.<br>
-          · <b>자력 확보선</b> — 다른 경기 결과와 <b>무관하게</b> 그 순위 안이 보장되는 최소 승수.
-          승수 동률조차 걸치지 않는 경우만 인정합니다.<br>
-          · <b>산술 가능선</b> — 다른 경기 결과가 전부 따라줄 때의 최소 승수.<br>
-          · 승수가 같아지는 조합은 <b>세트 득실(규정)</b>로 갈리므로, 그 비율을 그대로 밝힙니다.
-        </div>
+        <div id="my-race"></div>
+        <div class="team-pick" id="team-pick"></div>
       </section>
 
+      <!-- ② 그룹 전체 표 -->
       <section class="card">
         <div class="card-head">
-          <h2 class="card-title" id="race-title">레이스</h2>
+          <h2 class="card-title" id="race-title">그룹 전체</h2>
           <span class="card-more">
             <button class="card-more" id="race-copy" style="font-weight:700" title="커뮤니티에 그대로 붙일 수 있는 텍스트 표">📋 표 복사</button>
           </span>
@@ -66,8 +115,32 @@
         <div id="race-body"></div>
       </section>
 
+      <!-- ③ 시즌 진행 방식 — 검색 로봇도 읽는 정적 설명 -->
+      <section class="card">
+        <div class="card-head"><h2 class="card-title">2026 LCK는 이렇게 진행됩니다</h2></div>
+        <div class="format-flow">
+          <span>정규 라운드 1-2</span><i>→</i>
+          <span>Road to MSI</span><i>→</i>
+          <span class="now">정규 라운드 3-4</span><i>→</i>
+          <span>플레이-인</span><i>→</i>
+          <span>플레이오프</span><i>→</i>
+          <span>결승</span>
+        </div>
+        <div class="admin-note" style="border-top:none">
+          2026 LCK는 <b>스프링·서머로 나뉘지 않는 한 시즌</b>입니다. 대신 정규 시즌이 네 라운드로 이어집니다.<br><br>
+          · <b>1-2라운드</b>(4~5월) — 10팀이 서로 두 번씩, 팀당 18경기.
+          여기 순위로 3-4라운드 그룹이 갈렸습니다. 1~5위 <b>레전드 그룹</b>, 6~10위 <b>라이즈 그룹</b>.<br>
+          · <b>3-4라운드</b>(7/29~8/23) — 같은 그룹끼리만 두 번씩, 팀당 8경기.
+          <b>1-2라운드 전적은 초기화되지 않고 그대로 이어집니다</b>(팀당 최종 26경기).<br>
+          · 3-4라운드가 끝나면 10팀을 한 줄로 세우지 않고, <b>그룹별 순위</b>로 다음이 갈립니다.<br><br>
+          여기 계산은 남은 경기의 승패 조합을 <b>하나도 빠짐없이</b> 돌려 본 결과입니다.
+          "확정"은 <b>다른 경기가 어떻게 되든</b> 그 자리가 보장되는 경우만 말하며,
+          승수가 같아지는 조합은 세트 득실로 갈리므로 단정하지 않고 그 비율을 그대로 밝힙니다.
+        </div>
+      </section>
+
       <section class="card" id="race-next-card" style="display:none">
-        <div class="card-head"><h2 class="card-title">다음 경기의 의미</h2></div>
+        <div class="card-head"><h2 class="card-title">다음 경기 하나로 무엇이 바뀌나</h2></div>
         <div id="race-next"></div>
       </section>
     </div>
@@ -82,27 +155,97 @@
   storeReady.then(() => {
     renderHeader("경우의 수", null);
 
-    // SNS 딥링크: race.html?team=kt 로 들어오면 그 팀 그룹을 바로 펼치고 줄을 강조한다
-    // (인스타에서 온 사람이 팀 고르기부터 다시 하지 않게 — 첫 댓글 링크용)
+    // 어느 팀을 먼저 보여 줄까 —
+    //   1) 주소에 ?team= 이 있으면 그 팀 (인스타 첫 댓글 링크용)
+    //   2) 로그인했고 응원팀을 정했으면 그 팀
+    //   3) 아니면 레전드 그룹 1위
     const deepTeam = new URLSearchParams(location.search).get("team");
-    let tab = "r34L";
-    if (deepTeam) {
-      const home = Object.keys(RACE_CUTS).find(id =>
-        (Cache.records.find(s => s.id === id)?.records || []).some(r => r.team === deepTeam));
-      if (home) tab = home;
+    let myTeam = deepTeam && TEAM_MAP[deepTeam] ? deepTeam
+      : (Auth.profile && TEAM_MAP[Auth.profile.fav_team] ? Auth.profile.fav_team : null);
+
+    const groupOf = t => Object.keys(RACE_CUTS).find(id =>
+      ((Cache.records.find(s => s.id === id) || {}).records || []).some(r => r.team === t)) || null;
+
+    let tab = (myTeam && groupOf(myTeam)) || "r34L";
+    if (!myTeam) {
+      const first = raceFromCache(tab);
+      myTeam = first && first.rows.length ? first.rows[0].team : null;
     }
     const TABS = [["r34L", "레전드 그룹"], ["r34R", "라이즈 그룹"]];
 
+    // ── ① 우리 팀 카드 ───────────────────────────────────────
+    function renderMine() {
+      const box = document.getElementById("my-race");
+      const g = myTeam && groupOf(myTeam);
+      const r = g && raceFromCache(g);
+      const row = r && r.rows.find(x => x.team === myTeam);
+      if (!row) { box.innerHTML = `<div class="empty-note">아직 계산할 경기가 없습니다</div>`; renderPick(); return; }
+
+      const t = TEAM_MAP[myTeam];
+      const rank = r.rows.findIndex(x => x.team === myTeam) + 1;
+      const gname = r.stageName.includes("레전드") ? "레전드 그룹" : r.stageName.includes("라이즈") ? "라이즈 그룹" : r.stageName;
+
+      document.getElementById("my-race-title").textContent = `${josa(t.abbr, "은는")} 몇 승이면 되나`;
+      document.getElementById("race-updated").textContent =
+        `${gname} 남은 ${r.remainCount}경기 · ${r.scenarioCount.toLocaleString()}가지 전부 계산`;
+
+      box.innerHTML = `
+        <div class="my-race">
+          <div class="my-race-head">
+            ${teamLogoHTML(t, 30)}
+            <b class="team-text" style="--team-color:${t.color}">${esc(t.name)}</b>
+            <span class="rec">${esc(gname)} ${rank}위 · ${row.w}승 ${row.l}패 · 세트 득실 ${row.pt > 0 ? "+" : ""}${row.pt} · 남은 ${row.remaining}경기</span>
+          </div>
+          ${row.cuts.map((c, i) => {
+            const s = raceSay(row, c);
+            const cut = r.cuts[i];
+            return `<div class="goal">
+              <div class="goal-mark ${s.tone}">${esc(s.head)}</div>
+              <div class="goal-text">
+                <div class="goal-what">${esc(cut.what)} <span class="k">(${esc(cut.label)})</span></div>
+                <div class="goal-line">${esc(s.line)}</div>
+                <div class="goal-sub">${esc(s.sub)}</div>
+                <div class="goal-why">${esc(cut.why)}</div>
+              </div>
+            </div>`;
+          }).join("")}
+        </div>`;
+      renderPick();
+    }
+
+    // 다른 팀이 궁금할 때 — 그룹별·순위순으로 (뒤죽박죽이면 자기 팀을 못 찾는다)
+    function renderPick() {
+      const pick = document.getElementById("team-pick");
+      const groups = TABS.map(([id, name]) => {
+        const r = raceFromCache(id);
+        return { name, ids: r ? r.rows.map(x => x.team) : [] };
+      }).filter(g => g.ids.length);
+
+      pick.innerHTML = groups.map(g =>
+        `<span style="font-size:var(--fs-sm);color:var(--text-dim);font-weight:700;align-self:center;margin:0 2px">${esc(g.name)}</span>`
+        + g.ids.map(t => {
+          const x = TEAM_MAP[t];
+          return `<button data-pick="${esc(t)}" class="${t === myTeam ? "active" : ""}" style="--pick-color:${x.color}">
+            ${teamLogoHTML(x, 16)} ${esc(x.abbr)}</button>`;
+        }).join("")).join(`<span style="flex-basis:100%;height:0"></span>`);
+      pick.querySelectorAll("[data-pick]").forEach(b => b.addEventListener("click", () => {
+        myTeam = b.dataset.pick;
+        tab = groupOf(myTeam) || tab;
+        renderMine(); render();
+        document.getElementById("my-race-card").scrollIntoView({ behavior: "smooth", block: "start" });
+      }));
+    }
+
+    // ── ② 그룹 전체 표 ───────────────────────────────────────
     function cellHTML(row, c) {
-      // 자력(크게) + 산술(작게). "확보/불가"는 말로.
-      const safe = c.safe == null
-        ? `<b style="color:var(--text-dim)">자력 불가</b>`
-        : c.safe === 0 ? `<b style="color:var(--ok,#2fbf71)">확보</b>`
-        : c.safe === row.remaining ? `<b>전승 (${c.safe}승)</b>`
-        : `<b>${c.safe}승</b>`;
-      const hope = c.hope == null ? "산술상 불가"
-        : c.hope === 0 ? "산술 확보" : `산술 ${c.hope}승`;
-      return `<td style="text-align:center">${safe}<br><span style="font-size:12px;color:var(--text-dim)">${hope}</span></td>`;
+      const s = raceSay(row, c);
+      const tone = { done: "var(--ok)", safe: "var(--text)", hope: "var(--warn)", none: "var(--text-dim)" }[s.tone];
+      return `<td style="text-align:center">
+        <b style="color:${tone}">${esc(s.head)}</b>
+        <br><span style="font-size:11px;color:var(--text-dim)">${esc(
+          s.tone === "safe" ? `잔여 ${row.remaining}경기 중` :
+          s.tone === "hope" ? "이상 + 남의 도움" :
+          s.tone === "done" ? "결과 무관" : "닿지 않음")}</span></td>`;
     }
 
     function render() {
@@ -116,8 +259,6 @@
       if (!r) { body.innerHTML = `<div class="empty-note">아직 계산할 경기가 없습니다</div>`; return; }
 
       document.getElementById("race-title").textContent = r.stageName;
-      document.getElementById("race-updated").textContent =
-        `잔여 ${r.remainCount}경기 · ${r.scenarioCount.toLocaleString()}가지 조합`;
 
       body.innerHTML = `
         <div style="overflow-x:auto">
@@ -125,12 +266,12 @@
           <thead><tr>
             <th class="c-rank">#</th><th style="text-align:left">팀</th>
             <th class="c-rec">전적</th><th class="c-pt">득실</th><th class="c-left">잔여</th>
-            ${r.cuts.map(c => `<th style="text-align:center">${esc(c.label)}<br><span style="font-weight:400;font-size:11px;color:var(--text-dim)">자력 · 산술</span></th>`).join("")}
+            ${r.cuts.map(c => `<th style="text-align:center">${esc(c.what)}<br><span style="font-weight:400;font-size:11px;color:var(--text-dim)">${esc(c.label)} · 확정까지</span></th>`).join("")}
           </tr></thead>
           <tbody>
             ${r.rows.map((row, i) => {
               const t = TEAM_MAP[row.team];
-              return `<tr${row.team === deepTeam ? ` style="background:color-mix(in srgb, ${t.color} 12%, transparent)"` : ""}>
+              return `<tr${row.team === myTeam ? ` style="background:color-mix(in srgb, ${t.color} 12%, transparent)"` : ""}>
                 <td class="c-rank">${i + 1}</td>
                 <td style="text-align:left"><span style="display:inline-flex;align-items:center;gap:7px">${teamLogoHTML(t, 20)} <b>${esc(t.abbr)}</b></span>
                   <span class="race-sub">${row.w}승 ${row.l}패 · 득실 ${row.pt > 0 ? "+" : ""}${row.pt} · 잔여 ${row.remaining}</span></td>
@@ -144,15 +285,15 @@
         </table>
         </div>
         <div class="admin-note">
-          ${r.cuts.map((c, i) => `승패 조합의 <b>${r.tiePct[i]}%</b>는 <b>${esc(c.label)}</b> 경계가 승수 동률입니다 —
-            그 경우 순위는 세트 득실(규정)로 갈리며, 여기서는 단정하지 않습니다.`).join("<br>")}<br>
+          ${r.cuts.map((c, i) => `<b>${esc(c.label)}</b> 경계는 승패 조합의 <b>${r.tiePct[i]}%</b>에서 승수가 같아집니다 —
+            그때는 세트 득실로 갈리므로 여기서는 단정하지 않습니다.`).join("<br>")}<br>
           계산은 실제 경기 기록(Leaguepedia 기준·자동 수집)에서 바로 나오며 매일 갱신됩니다.
         </div>`;
 
       renderNext(r);
     }
 
-    // 다음 예정 경기 하나 — 이기면/지면 자력선이 어떻게 변하는가
+    // ── ③ 다음 경기 하나로 무엇이 바뀌나 ─────────────────────
     function renderNext(r) {
       const card = document.getElementById("race-next-card");
       const next = r.remain.slice().filter(m => m.at)
@@ -160,22 +301,26 @@
       if (!next) { card.style.display = "none"; return; }
       card.style.display = "";
       const A = TEAM_MAP[next.a], B = TEAM_MAP[next.b];
-      const ci = 0; // 첫 번째 컷 기준 (레전드: 2위 안 · 라이즈: 3위 안)
-      const cutLabel = r.cuts[ci].label;
+      const ci = r.cuts.length - 1;             // 가장 중요한 선(플레이오프·플레이-인 진출)을 기준으로
+      const cut = r.cuts[ci];
 
-      const base = Object.fromEntries(r.rows.map(x => [x.team, x.cuts[ci].safe]));
+      const base = Object.fromEntries(r.rows.map(x => [x.team, x.cuts[ci]]));
       const ifA = raceWhatIf(tab, next.id, "a"), ifB = raceWhatIf(tab, next.id, "b");
-      const safeOf = (res, t) => res && res.rows.find(x => x.team === t)?.cuts[ci].safe;
+      const cutOf = (res, t) => res && (res.rows.find(x => x.team === t) || {}).cuts?.[ci];
+      const rowOf = (res, t) => res && res.rows.find(x => x.team === t);
 
       const lineFor = (t, win, lose) => {
-        const b = base[t.id], w = safeOf(win, t.id), l = safeOf(lose, t.id);
-        const f = v => v == null ? "자력 불가" : v === 0 ? "확보" : `자력 ${v}승`;
-        if (b == null && w == null && l == null) return "";
-        return `<b class="team-text" style="--team-color:${t.color}">${esc(t.abbr)}</b> — 이기면 ${f(w)} · 지면 ${f(l)} <span style="color:var(--text-dim)">(지금 ${f(b)})</span>`;
+        const w = cutOf(win, t.id), l = cutOf(lose, t.id);
+        const rw = rowOf(win, t.id), rl = rowOf(lose, t.id);
+        if (!w || !l) return "";
+        const say = (row, c) => raceSay(row, c).head;
+        return `<b class="team-text" style="--team-color:${t.color}">${esc(t.abbr)}</b> —
+          이기면 <b>${esc(say(rw, w))}</b> · 지면 <b>${esc(say(rl, l))}</b>`;
       };
       document.getElementById("race-next").innerHTML = `
         <div class="admin-note" style="border-top:none">
-          <b>${esc(A.abbr)} vs ${esc(B.abbr)}</b> · ${esc(fmtWhen(next.at))} — <b>${esc(cutLabel)}</b> 기준<br>
+          <b>${esc(A.abbr)} vs ${esc(B.abbr)}</b> · ${esc(fmtWhen(next.at))}<br>
+          <span style="color:var(--text-dim)">${esc(cut.what)}(${esc(cut.label)})까지 몇 승이 남는지</span><br>
           ${lineFor(A, ifA, ifB)}<br>
           ${lineFor(B, ifB, ifA)}
         </div>
@@ -194,8 +339,9 @@
       setTimeout(() => { btn.textContent = "📋 표 복사"; }, 2500);
     });
 
+    renderMine();
     render();
-    storeFresh.then(() => render()).catch(() => {});
+    storeFresh.then(() => { renderMine(); render(); }).catch(() => {});
     renderFooter();
   });
   </script>

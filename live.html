@@ -379,13 +379,16 @@
       if (sid) {
         const r0 = raceFromCache(sid);
         if (r0 && r0.remain.some(x => x.id === match.id)) {
-          const ci = 0, cut = r0.cuts[ci];
+          const ci = r0.cuts.length - 1, cut = r0.cuts[ci];   // 진출·생존선이 가장 와닿는다
           const ifA = raceWhatIf(sid, match.id, "a"), ifB = raceWhatIf(sid, match.id, "b");
-          const sOf = (res, t) => res?.rows.find(x => x.team === t)?.cuts[ci].safe;
-          const f = v => v == null ? "자력 불가" : v === 0 ? "확보" : `자력 ${v}승`;
-          stakes = `<div class="admin-note"><b>${esc(cut.label)}</b>이 걸린 경기입니다 —
-            <b class="team-text" style="--team-color:${A.color}">${esc(A.abbr)}</b> 이기면 ${f(sOf(ifA, match.a))} · 지면 ${f(sOf(ifB, match.a))} &nbsp;/&nbsp;
-            <b class="team-text" style="--team-color:${B.color}">${esc(B.abbr)}</b> 이기면 ${f(sOf(ifB, match.b))} · 지면 ${f(sOf(ifA, match.b))}
+          // 화면·카드·경우의 수 페이지가 전부 같은 말을 쓰도록 raceSay 하나로 모은다
+          const f = (res, t) => {
+            const row = res?.rows.find(x => x.team === t);
+            return row ? raceSay(row, row.cuts[ci]).head : "-";
+          };
+          stakes = `<div class="admin-note"><b>${esc(cut.what)}</b>가 걸린 경기입니다 — 이기면·지면 확정까지 남는 승수:
+            <b class="team-text" style="--team-color:${A.color}">${esc(A.abbr)}</b> 이기면 ${esc(f(ifA, match.a))} · 지면 ${esc(f(ifB, match.a))} &nbsp;/&nbsp;
+            <b class="team-text" style="--team-color:${B.color}">${esc(B.abbr)}</b> 이기면 ${esc(f(ifB, match.b))} · 지면 ${esc(f(ifA, match.b))}
             &nbsp;<a href="race.html?team=${q(match.a)}" style="text-decoration:underline">경우의 수 전체 →</a></div>`;
         }
       }

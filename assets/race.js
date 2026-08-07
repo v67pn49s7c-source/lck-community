@@ -76,9 +76,23 @@ function raceCompute(teams, base, remain, cuts) {
 
 // 그룹의 순위표 컷 — 자리(숫자) 기준으로만 말한다.
 // 각 자리의 의미(직행·플레이-인 등)는 공식 규정 기준으로 화면에서 따로 설명한다.
+// 2026 LCK 공식 규정 기준 — 정규 라운드 3-4 가 끝나면 **그룹별 순위**로 다음이 갈린다.
+//   레전드 1·2위 → 플레이오프 승자조 2라운드 직행 (1·2번 시드)
+//   레전드 3·4위 → 플레이오프 승자조 1라운드     (3·4번 시드)
+//   레전드 5위   → 플레이-인
+//   라이즈 1위   → 플레이-인 1라운드 (이기면 바로 플레이오프 5번 시드)
+//   라이즈 2·3위 → 플레이-인 2라운드 (두 번 이겨야 플레이오프)
+//   라이즈 4·5위 → 시즌 종료 (최종 9·10위)
+// label 은 표의 열 제목, what 은 그 선을 넘으면 무엇이 되는지, why 는 왜 중요한지.
 const RACE_CUTS = {
-  r34L: [{ k: 2, label: "2위 안" }, { k: 4, label: "5위 회피" }],
-  r34R: [{ k: 3, label: "3위 안" }],
+  r34L: [
+    { k: 2, label: "2위 안", what: "플레이오프 2라운드 직행", why: "1·2번 시드. 첫 경기를 건너뛰고 위에서 시작한다" },
+    { k: 4, label: "4위 안", what: "플레이오프 직행", why: "플레이-인을 거치지 않고 바로 플레이오프" },
+  ],
+  r34R: [
+    { k: 1, label: "1위", what: "플레이-인 1라운드", why: "한 번만 이겨도 플레이오프. 2·3위는 두 번 이겨야 한다" },
+    { k: 3, label: "3위 안", what: "플레이-인 진출", why: "여기 못 들면 시즌이 끝난다 (최종 9·10위)" },
+  ],
 };
 
 // Cache(store.js)에서 재료를 꺼내 그룹 하나를 계산한다
@@ -120,6 +134,47 @@ function raceWhatIf(stageId, matchId, side) {
 }
 
 // 커뮤니티 게시용 텍스트 표 — 그 글만 봐도 완결되게, 링크 없이
+/** 숫자 두 개(자력·산술)를 사람이 읽는 말로 바꾼다.
+ *
+ *  "자력 확보선 2 / 산술 가능선 1" 이라고 쓰면 아무도 못 알아본다.
+ *  팬이 알고 싶은 건 딱 하나다 — **몇 번 이기면 되는가.**
+ *  race.html 과 cards.js 가 같은 말을 쓰도록 여기 한 곳에 모아 둔다.
+ *
+ *  tone: done(이미 됨) · safe(이기면 확정) · hope(남의 도움 필요) · none(불가)
+ */
+function raceSay(row, c) {
+  const n = row.remaining;
+  const { safe, hope } = c;
+
+  if (safe === 0) {
+    return { tone: "done", head: "확정", line: `이미 ${c.label} 확정입니다`,
+             sub: "남은 경기 결과와 상관없습니다" };
+  }
+  // "1위은" 같은 조사 오류를 막는다 (josa 는 assets/app.js — 항상 먼저 읽힌다)
+  const L = typeof josa === "function" ? josa(c.label, "은는") : c.label + "은";
+  if (safe != null) {
+    const head = safe === n ? `전승 (${safe}승)` : `${safe}승`;
+    const line = safe === n
+      ? `남은 ${n}경기를 다 이기면 확정입니다`
+      : `남은 ${n}경기 중 ${safe}승만 하면 확정입니다`;
+    const sub = hope == null || hope >= safe
+      ? "다른 경기 결과와 상관없이 확정됩니다"
+      : hope === 0
+        ? "다 져도 가능성은 남습니다 (다른 경기 결과에 따라)"
+        : `${hope}승이어도 가능성은 남습니다 (다른 경기 결과에 따라)`;
+    return { tone: "safe", head, line, sub };
+  }
+  if (hope != null) {
+    const head = hope === 0 ? "도움 필요" : `${hope}승+`;
+    const line = hope === 0
+      ? `우리 힘만으로는 안 되고, 다른 경기 결과가 따라줘야 합니다`
+      : `우리가 ${hope}승 이상 하고, 다른 경기 결과도 따라줘야 합니다`;
+    return { tone: "hope", head, line, sub: "우리 경기만 이겨서는 확정되지 않습니다" };
+  }
+  return { tone: "none", head: "불가", line: `${L} 이제 불가능합니다`,
+           sub: "남은 경기를 다 이겨도 닿지 않습니다" };
+}
+
 function raceCopyText(stageId) {
   const r = raceFromCache(stageId);
   if (!r) return "";
@@ -135,14 +190,13 @@ function raceCopyText(stageId) {
     out += `${i + 1}위  ${nm(row.team)}  ${row.w}승 ${row.l}패  ${row.pt > 0 ? "+" : ""}${row.pt}  잔여 ${row.remaining}\n`;
   });
   r.cuts.forEach((c, ci) => {
-    out += `\n■ ${c.label} — 자력 확보선 (다른 경기 결과와 무관하게)\n`;
+    out += `\n■ ${c.label} = ${c.what} — 몇 승이면 확정인가\n`;
     r.rows.forEach(row => {
-      const x = row.cuts[ci];
-      const t = x.safe == null
-        ? (x.hope == null ? "산술상 불가" : `자력 불가 · 산술 ${x.hope}승`)
-        : x.safe === 0 ? "확보"
-        : x.safe === row.remaining ? `전승 필요 (${x.safe}승)`
-        : `${x.safe}승 / 잔여 ${row.remaining}`;
+      const x = row.cuts[ci], s = raceSay(row, x);
+      const t = s.tone === "done" ? "확정"
+        : s.tone === "safe" ? `${x.safe}승이면 확정 (잔여 ${row.remaining})`
+        : s.tone === "hope" ? `우리 힘만으론 불가 · ${x.hope}승+ 이고 남의 도움 필요`
+        : "불가능";
       out += `  ${nm(row.team)}  ${t}\n`;
     });
     out += `  * 조합의 ${r.tiePct[ci]}%는 이 경계가 승수 동률 — 그 경우 세트득실로 갈립니다.\n`;

@@ -52,7 +52,7 @@
         <form class="admin-form" id="tournament-form">
           <div class="row">
             <label>대회 이름
-              <input id="t-name" placeholder="예: 2026 LCK 스플릿 3" required>
+              <input id="t-name" placeholder="예: 2026 LCK 라운드 3-4" required>
             </label>
             <label>형식
               <select id="t-type">
@@ -223,9 +223,9 @@
           </div>
         </form>
         <div class="chip-row" id="lp-presets" style="margin:-4px 0 10px">
-          <button type="button" data-p="LCK/2026 Season/Rounds 1-2">스플릿 1-2</button>
+          <button type="button" data-p="LCK/2026 Season/Rounds 1-2">라운드 1-2</button>
           <button type="button" data-p="LCK/2026 Season/Road to MSI">Road to MSI</button>
-          <button type="button" data-p="LCK/2026 Season/Rounds 3-4">스플릿 3-4</button>
+          <button type="button" data-p="LCK/2026 Season/Rounds 3-4">라운드 3-4</button>
           <button type="button" data-p="LCK/2026 Season/Cup">LCK 컵</button>
           <button type="button" data-p="LCK/2026 Season/Rounds 1-2|LCK/2026 Season/Road to MSI|LCK/2026 Season/Rounds 3-4">시즌 전체</button>
         </div>
@@ -238,9 +238,9 @@
           이어 준 뒤 <b>가져오기</b>를 누르세요. 같은 경기를 다시 가져와도 덮어쓰기라 중복되지 않습니다.<br>
           가져오면 <b>세트별 KDA·CS·골드</b>가 저장되어 선수 페이지의 <b>육각형 지표</b>가 채워지고,
           <b>경기 MVP(POM)</b>도 함께 들어옵니다. 이미 만들어진 경기의 대회·그룹·시각은 건드리지 않습니다.<br>
-          한 스플릿은 기록이 2,000행이 넘어 <b>한 번에 다 못 받을 수 있습니다.</b> 결과에
+          한 라운드는 기록이 2,000행이 넘어 <b>한 번에 다 못 받을 수 있습니다.</b> 결과에
           '이어받는 중'이라고 나오면 <b>같은 버튼을 한 번 더</b> 눌러 주세요 — 받은 데까지 저장돼 있어
-          이어서 받습니다. 스플릿 1-2 같은 지난 대회는 <b>새 대회로 따로 만들어</b> 넣습니다.<br>
+          이어서 받습니다. 라운드 1-2 같은 지난 대회는 <b>새 대회로 따로 만들어</b> 넣습니다.<br>
           데이터 출처: Leaguepedia (CC-BY-SA 3.0) — 푸터에 출처를 표기하고 있습니다.
         </div>
 
@@ -1037,7 +1037,7 @@
     let lpLast = null;
     function renderImportAdmin() {
       const sel = document.getElementById("lp-tid");
-      // 기본값은 '자동' — 스플릿 1-2·Road to MSI 처럼 없는 대회는 서버가 만들어 넣는다.
+      // 기본값은 '자동' — 라운드 1-2·Road to MSI 처럼 없는 대회는 서버가 만들어 넣는다.
       // (예전에는 여기서 항상 대회 하나를 보내서, 서버가 '이미 정해졌다'고 보고 새로 만들지 않았다)
       if (sel) sel.innerHTML = `<option value="">자동 — 대회에 맞춰 만들기</option>`
         + getTournaments().map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join("");

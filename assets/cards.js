@@ -84,7 +84,8 @@ function drawRaceCard(stageId) {
   const r = raceFromCache(stageId);
   if (!r) return null;
   const groupName = r.stageName.includes("레전드") ? "레전드 그룹" : "라이즈 그룹";
-  const ci = 0, cut = r.cuts[ci];
+  // 가장 마지막 컷 = 진출·생존선. "2위 안"보다 "플레이오프 직행"이 더 와닿는다.
+  const ci = r.cuts.length - 1, cut = r.cuts[ci];
   const { c, g } = cardBegin(`경우의 수 · ${groupName}`);
 
   g.font = CF("bold", 56); g.fillStyle = "#e9ebf1";
@@ -98,7 +99,7 @@ function drawRaceCard(stageId) {
   g.fillText("전적", CARD_PAD + 220, y);
   g.fillText("득실", CARD_PAD + 470, y);
   g.fillText("잔여", CARD_PAD + 640, y);
-  g.textAlign = "right"; g.fillText(`${cut.label} 자력`, CARD_W - CARD_PAD, y); g.textAlign = "left";
+  g.textAlign = "right"; g.fillText(`${cut.what} 확정까지`, CARD_W - CARD_PAD, y); g.textAlign = "left";
   y += 20;
   r.rows.forEach(row => {
     const t = TEAM_MAP[row.team];
@@ -114,20 +115,20 @@ function drawRaceCard(stageId) {
     g.textAlign = "right";
     g.font = CF("bold", 36);
     g.fillStyle = s == null ? "#667080" : s === row.remaining ? "#f5b942" : "#2fbf71";
-    g.fillText(s == null ? "자력 불가" : s === 0 ? "확보" : s === row.remaining ? `전승 (${s}승)` : `${s}승`, CARD_W - CARD_PAD, y);
+    g.fillText(raceSay(row, row.cuts[ci]).head, CARD_W - CARD_PAD, y);
     g.textAlign = "left";
   });
 
   y += 92;
   g.font = CF("600", 28); g.fillStyle = "#9aa1b0";
-  g.fillText(`· 자력 = 다른 경기 결과와 무관하게 ${cut.label}이 보장되는 승수`, CARD_PAD, y);
+  g.fillText(`· 이만큼 이기면 다른 경기 결과와 상관없이 ${cut.what}`, CARD_PAD, y);
   g.fillText(`· 조합의 ${r.tiePct[ci]}%는 경계가 승수 동률 — 세트 득실로 갈립니다`, CARD_PAD, y + 42);
 
   cardEnd(g, "매일 갱신");
   const lead = r.rows[0], leadT = TEAM_MAP[lead.team];
   return { c, caption:
 `${groupName} 남은 ${r.remainCount}경기의 승패 조합 ${r.scenarioCount.toLocaleString()}가지를 전부 계산했습니다.
-${cut.label} 자력 확보선 — ${r.rows.map(row => `${TEAM_MAP[row.team].abbr} ${row.cuts[ci].safe == null ? "자력불가" : row.cuts[ci].safe === 0 ? "확보" : row.cuts[ci].safe + "승"}`).join(" · ")}
+${cut.what}(${cut.label})까지 몇 승이 필요한가 — ${r.rows.map(row => `${TEAM_MAP[row.team].abbr} ${raceSay(row, row.cuts[ci]).head}`).join(" · ")}
 승수 동률(조합의 ${r.tiePct[ci]}%)은 세트 득실로 갈립니다.
 #LCK`,
     firstComment: "팀별 상세·매일 갱신: https://lck-community.vercel.app/race.html" };
@@ -471,18 +472,21 @@ function drawMatchdayCard(matchId) {
     const r0 = raceFromCache(sid);
     const inRemain = r0 && r0.remain.some(x => x.id === m.id);
     if (inRemain) {
-      const ci = 0, cut = r0.cuts[ci];
+      const ci = r0.cuts.length - 1, cut = r0.cuts[ci];
       const ifA = raceWhatIf(sid, m.id, "a"), ifB = raceWhatIf(sid, m.id, "b");
-      const safeOf = (res, t) => res?.rows.find(x => x.team === t)?.cuts[ci].safe;
-      const f = v => v == null ? "자력 불가" : v === 0 ? "확보" : `${v}승`;
+      // 이기면/지면 "몇 승이 남는가" — 화면(race.html)과 같은 말을 쓴다
+      const f = (res, t) => {
+        const row = res?.rows.find(x => x.team === t);
+        return row ? raceSay(row, row.cuts[ci]).head : "-";
+      };
       y += 84;
       g.font = CF("bold", 34); g.fillStyle = "#e9ebf1";
-      g.fillText(`${cut.label} 자력 확보선이 갈립니다`, CARD_PAD, y);
+      g.fillText(`${cut.what}까지 몇 승이 남는지가 갈립니다`, CARD_PAD, y);
       y += 56;
       g.font = CF("600", 32); g.fillStyle = "#9aa1b0";
-      g.fillText(`${A.abbr} — 이기면 ${f(safeOf(ifA, m.a))}, 지면 ${f(safeOf(ifB, m.a))}`, CARD_PAD, y);
+      g.fillText(`${A.abbr} — 이기면 ${f(ifA, m.a)}, 지면 ${f(ifB, m.a)}`, CARD_PAD, y);
       y += 48;
-      g.fillText(`${B.abbr} — 이기면 ${f(safeOf(ifB, m.b))}, 지면 ${f(safeOf(ifA, m.b))}`, CARD_PAD, y);
+      g.fillText(`${B.abbr} — 이기면 ${f(ifB, m.b)}, 지면 ${f(ifA, m.b)}`, CARD_PAD, y);
     }
   }
 

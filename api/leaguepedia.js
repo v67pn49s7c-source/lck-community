@@ -35,7 +35,7 @@ async function loadChampNames() {
 // ── 원본 받아오기 (캐시 우선) ──
 const cacheKeyOf = page => "lp_cache_" + page.replace(/[^A-Za-z0-9]+/g, "_").slice(0, 48);
 
-// Leaguepedia 는 한 번에 500행까지만 준다. 한 스플릿은 선수 기록이 2,000행이 넘어서
+// Leaguepedia 는 한 번에 500행까지만 준다. 한 라운드는 선수 기록이 2,000행이 넘어서
 // (경기 90 × 세트 3 × 선수 10) 나눠 받아야 한다. 받은 만큼 저장해 두고, 시간이 모자라면
 // 다음에 **이어서** 받는다. 서버 함수는 60초 안에 끝나야 하므로 시간 예산을 둔다.
 const PAGE_SIZE = 500;
@@ -115,7 +115,7 @@ module.exports = async (req, res) => {
   try { await requireAdmin(req); }
   catch (e) { return fail(res, e.status || 500, e.message); }
 
-  // 대회 페이지는 | 로 여러 개 지정할 수 있다 (스플릿 1-2 · Road to MSI · 3-4 등)
+  // 대회 페이지는 | 로 여러 개 지정할 수 있다 (라운드 1-2 · Road to MSI · 3-4 등)
   const pages = String(req.query.page || "").split("|").map(x => x.trim()).filter(Boolean);
   const tid = (req.query.tid || "").trim();
   const apply = req.query.apply === "1";
@@ -268,7 +268,7 @@ module.exports = async (req, res) => {
     }
 
     // 그래도 못 찾은 선수는 우리 DB 에 만들어 준다 (저장할 때만).
-    // 이게 없으면 지난 스플릿의 이적·은퇴 선수 기록이 통째로 버려진다.
+    // 이게 없으면 지난 라운드의 이적·은퇴 선수 기록이 통째로 버려진다.
     let madePlayers = 0;
     if (apply && addPlayers && unknownPlayers.size) {
       const made = buildNewPlayers(unknownPlayers, playerInfo, roster.map(p => p.id));
@@ -312,7 +312,7 @@ module.exports = async (req, res) => {
     if (!apply) return ok(res, { ...summary, 미리보기: matches.slice(0, 2) });
     if (unknownTeams.size) return fail(res, 400, `팀 이름을 우리 팀과 연결해 주세요: ${[...unknownTeams].join(", ")}`);
     let pomSaved = 0, pomInfo = null;
-    // 대회 페이지마다 우리 대회를 정한다 (없으면 만들어 준다 — 스플릿 1-2 가 스플릿 3 에 섞이지 않게)
+    // 대회 페이지마다 우리 대회를 정한다 (없으면 만들어 준다 — 라운드 1-2 가 라운드 3-4 에 섞이지 않게)
     const tidOf = {};
     for (const pg of pages) tidOf[pg] = await resolveTid(pg, existing, tid);
 

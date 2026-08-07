@@ -197,7 +197,7 @@ async function loadNameMaps() {
 const splitList = v => String(v || "").split(/;;|(?<!\d),(?!\d)/).map(x => x.trim()).filter(Boolean);
 
 // ── 선수 자동 등록 ────────────────────────────────────────
-// 우리 DB 에 없는 선수(지난 스플릿의 이적·은퇴 선수 등)를 만들어 준다.
+// 우리 DB 에 없는 선수(지난 라운드의 이적·은퇴 선수 등)를 만들어 준다.
 // 없으면 그 선수의 KDA 가 통째로 버려져서 팀 기록에 구멍이 생긴다.
 const ROLE_KO = {
   top: "탑", jungle: "정글", jungler: "정글", mid: "미드", middle: "미드",
@@ -230,7 +230,7 @@ function buildNewPlayers(unknown, info, takenIds) {
 }
 
 // ── 대회 정하기 ───────────────────────────────────────────
-// 스플릿 1-2 경기를 '스플릿 3' 대회에 넣으면 경기 목록의 대회 필터가 엉킨다.
+// 라운드 1-2 경기를 “라운드 3-4” 대회에 넣으면 경기 목록의 대회 필터가 엉킨다.
 // 같은 시기의 경기가 이미 쓰는 대회가 있으면 그것을, 없으면 하나 만들어 준다.
 function koTournamentName(page) {
   const tail = String(page || "").split("/").pop();
@@ -250,7 +250,7 @@ async function resolveTid(page, existing, explicitTid) {
 
   // 어떤 대회가 어느 시기의 경기를 담고 있는지 세어 본다.
   // "같은 표식의 경기가 하나라도 있으면 그 대회"로 하면, 한 번 잘못 들어간 경기
-  // (예: Road to MSI 5경기가 스플릿 3 대회에 들어간 상태) 때문에 계속 틀린 대회를 고른다.
+  // (예: Road to MSI 5경기가 라운드 3-4 대회에 들어간 상태) 때문에 계속 틀린 대회를 고른다.
   // 그래서 **그 대회의 경기 대부분이 이 시기인지**를 본다.
   const byTid = {};
   (existing || []).forEach(m => {

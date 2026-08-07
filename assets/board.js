@@ -469,7 +469,7 @@ async function initTeamPage() {
         <h1>${team.name === team.abbr
           ? `<span style="color:${team.color}">${team.name}</span>`
           : `${team.name} <span style="color:${team.color}">${team.abbr}</span>`} 게시판</h1>
-        <p class="desc">2026 스플릿 3 · ${teamRecordText(team.id)}</p>
+        <p class="desc">2026 정규 라운드 3-4 · ${teamRecordText(team.id)}</p>
       </div>
     </div>`;
 

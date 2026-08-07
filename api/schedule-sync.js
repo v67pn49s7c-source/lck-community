@@ -91,7 +91,7 @@ async function runSync({ pages, force }) {
   const sources = new Set();
   for (const page of list) {
     const pickStage = stagePicker(stageRecords, page);   // 대회 페이지마다 후보가 다르다
-    // 대회도 페이지마다 (스플릿 1-2 가 스플릿 3 에 섞이지 않게. 없으면 만들어 준다)
+    // 대회도 페이지마다 (라운드 1-2 가 라운드 3-4 에 섞이지 않게. 없으면 만들어 준다)
     const defaultTid = await resolveTid(page, existing, null);
     const got = await fetchSchedule(page);
     const rows = got.rows;
@@ -121,7 +121,7 @@ async function runSync({ pages, force }) {
         id: prev ? prev.id : matchIdOf(lpId),
         lp_id: lpId,
         a, b, at,
-        // 대회는 **대회 페이지가 정한다**. 잘못 들어간 경기(예: Road to MSI 가 스플릿 3에)도
+        // 대회는 **대회 페이지가 정한다**. 잘못 들어간 경기(예: Road to MSI 가 라운드 3-4 에)도
         // 다음 갱신에서 저절로 제자리를 찾는다.
         tid: defaultTid || (prev ? prev.tid : null),
         // 팀으로 그룹을 찾고, 못 찾으면(그룹 간 경기 등) Leaguepedia 주차 이름

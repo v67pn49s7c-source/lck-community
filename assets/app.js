@@ -143,6 +143,29 @@ function setPageIdentity(keys, opts) {
   }
 }
 
+/** 한국어 조사 붙이기 — "T1는 몇 승이면" 같은 어색한 문장을 막는다.
+ *
+ *  팀 약칭이 T1·KT·GEN 처럼 영문·숫자라, 받침을 글자 모양으로는 알 수 없다.
+ *  읽는 소리 기준으로 판단한다 (T1=티원 → 받침 ㄴ → "은", KT=케이티 → "는").
+ *
+ *  josa("T1", "은는") → "T1은"   ·   josa("KT", "이가") → "KT가"
+ */
+const JOSA_TAIL = {                       // 읽었을 때 받침이 있는 영문자·숫자
+  L: 1, M: 1, N: 1, R: 1,                 // 엘·엠·엔·알
+  0: 1, 1: 1, 3: 1, 6: 1, 7: 1, 8: 1,     // 영·일·삼·육·칠·팔
+};
+function hasTail(word) {
+  const c = String(word || "").trim().slice(-1);
+  if (!c) return false;
+  const code = c.charCodeAt(0);
+  if (code >= 0xac00 && code <= 0xd7a3) return (code - 0xac00) % 28 !== 0;   // 한글: 받침 유무
+  return !!JOSA_TAIL[c.toUpperCase()];
+}
+function josa(word, pair) {
+  const [withTail, without] = [pair.slice(0, pair.length / 2), pair.slice(pair.length / 2)];
+  return word + (hasTail(word) ? withTail : without);
+}
+
 /** 없는 글·없는 선수처럼 "내용이 없는 주소"를 검색에서 빼 달라고 알린다.
  *  이걸 안 하면 ?id=아무거나 가 전부 색인돼서, 검색 결과에 빈 페이지가 쌓인다. */
 function noIndex() {

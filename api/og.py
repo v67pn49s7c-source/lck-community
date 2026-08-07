@@ -160,11 +160,11 @@ def og_race():
 
     img, d = canvas("#4a8cff", "#ff4655")
     brand(d, "LCK 경우의 수")
-    d.text((64, H * 0.36), "우리 팀은 몇 승이 더 필요한가", font=font(62), fill=(242, 244, 248))
+    d.text((64, H * 0.36), "우리 팀은 몇 승이면 플레이오프?", font=font(62), fill=(242, 244, 248))
     if remain:
         d.text((64, H * 0.56), f"남은 {remain}경기 · {2 ** remain:,}가지 조합 전수 계산",
                font=font(40), fill=hx("#f5b942"))
-    d.text((64, H - 156), "자력 확보선 · 산술 가능선 · 매일 갱신", font=font(34), fill=(154, 161, 176))
+    d.text((64, H - 156), "팀별로 몇 승이면 확정인지 · 매일 갱신", font=font(34), fill=(154, 161, 176))
     footer(d)
     return img
 
