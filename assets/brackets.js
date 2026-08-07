@@ -44,6 +44,78 @@ const BRACKETS = {
     ],
     legend: [["adv", "다음 라운드 진출"], ["fin", "2026 MSI 진출"]],
   },
+
+  // ── 2026 LCK 플레이-인 (4팀 · 3경기 · 8/26~28) ──────────────
+  // 2025년의 4팀 더블 엘리미네이션이 아니라 3경기로 압축된 시드 토너먼트다.
+  // ⚠ 1라운드 승자는 **바로 플레이오프**로 가고, 2라운드 승자는 한 경기를 더 해야 한다.
+  //    같은 열에 있다고 같은 라운드가 아니다.
+  "lck2026-playin": {
+    cols: ["1·2라운드", "최종전"],
+    rows: 2,
+    nodes: [
+      { id: "PI-R1", col: 0, row: 1, title: "Round 1 (8/26)", match: /_(PI)?R(ound)?1_1$/i,
+        a: { from: "레전드 5위" }, b: { from: "라이즈 1위" },
+        win: { to: "플레이오프 5시드", kind: "fin" }, lose: { to: "최종전", kind: "adv" } },
+
+      { id: "PI-R2", col: 0, row: 2, title: "Round 2 (8/27)", match: /_(PI)?R(ound)?2_1$/i,
+        a: { from: "라이즈 2위" }, b: { from: "라이즈 3위" },
+        win: { to: "최종전", kind: "adv" }, lose: { to: "시즌 8위", kind: "out" } },
+
+      { id: "PI-F", col: 1, row: 0, title: "Final Round (8/28)", match: /_(PI)?F(inal)?_?1?$/i,
+        a: { from: "R1 패자", arrow: "↘" }, b: { from: "R2 승자", arrow: "↗" },
+        win: { to: "플레이오프 6시드", kind: "fin" }, lose: { to: "시즌 7위", kind: "out" } },
+    ],
+    legend: [["adv", "다음 경기 진출"], ["fin", "플레이오프 진출"]],
+  },
+
+  // ── 2026 LCK 플레이오프 (6팀 · 10경기 · 8/29~9/13) ──────────
+  // 풀 더블 엘리미네이션. 두 번 지면 탈락, 결승에서 브래킷 리셋은 없다.
+  // ⚠ 자리 라벨에 '지목'이 나오는 곳이 둘 있다 — 3시드와 1시드가 상대를 고른다.
+  //    우리가 그걸 계산하지는 않는다. 대진이 정해지면 실제 대진이 경기 기록으로 들어오고,
+  //    라벨은 "그 자리가 어떻게 정해지는 자리인지"만 말해 준다.
+  "lck2026-playoffs": {
+    cols: ["1라운드", "2라운드", "3라운드", "4라운드", "결승"],
+    rows: 4,
+    nodes: [
+      // 승자조
+      { id: "UB-R1-M1", col: 0, row: 1, title: "승자조 R1 (8/29)", match: /_UBR1M1$/i,
+        a: { from: "레전드 3위" }, b: { from: "3시드가 지목", arrow: "PI 통과팀" },
+        win: { to: "승자조 R2", kind: "adv" }, lose: { to: "패자조 R1", kind: "out" } },
+      { id: "UB-R1-M2", col: 0, row: 2, title: "승자조 R1 (8/30)", match: /_UBR1M2$/i,
+        a: { from: "레전드 4위" }, b: { from: "지목받지 않은", arrow: "PI 통과팀" },
+        win: { to: "승자조 R2", kind: "adv" }, lose: { to: "패자조 R1", kind: "out" } },
+
+      { id: "UB-R2-M1", col: 1, row: 1, title: "승자조 R2 (9/1)", match: /_UBR2M1$/i,
+        a: { from: "레전드 1위" }, b: { from: "1시드가 지목", arrow: "UB R1 승자" },
+        win: { to: "승자조 R3", kind: "adv" }, lose: { to: "패자조", kind: "out" } },
+      { id: "UB-R2-M2", col: 1, row: 2, title: "승자조 R2 (9/2)", match: /_UBR2M2$/i,
+        a: { from: "레전드 2위" }, b: { from: "지목받지 않은", arrow: "UB R1 승자" },
+        win: { to: "승자조 R3", kind: "adv" }, lose: { to: "패자조", kind: "out" } },
+
+      { id: "UB-R3", col: 2, row: 1, title: "승자조 R3 (9/5)", match: /_UBR3$/i,
+        a: { from: "UB R2-M1 승자", arrow: "↘" }, b: { from: "UB R2-M2 승자", arrow: "↗" },
+        win: { to: "결승 직행", kind: "fin" }, lose: { to: "결승 진출전", kind: "adv" } },
+
+      // 패자조
+      { id: "LB-R1", col: 1, row: 3, title: "패자조 R1 (9/3)", match: /_LBR1$/i,
+        a: { from: "UB R1-M1 패자", arrow: "↘" }, b: { from: "UB R1-M2 패자", arrow: "↗" },
+        win: { to: "패자조 R2", kind: "adv" }, lose: { to: "시즌 6위", kind: "out" } },
+      { id: "LB-R2", col: 2, row: 3, title: "패자조 R2 (9/4)", match: /_LBR2$/i,
+        a: { from: "LB R1 승자", arrow: "↘" }, b: { from: "UB R2 패자 중 낮은 시드" },
+        win: { to: "패자조 R3", kind: "adv" }, lose: { to: "시즌 5위", kind: "out" } },
+      { id: "LB-R3", col: 3, row: 3, title: "패자조 R3 (9/6)", match: /_LBR3$/i,
+        a: { from: "UB R2 패자 중 높은 시드" }, b: { from: "LB R2 승자", arrow: "↗" },
+        win: { to: "결승 진출전", kind: "adv" }, lose: { to: "시즌 4위", kind: "out" } },
+      { id: "LB-F", col: 3, row: 1, title: "결승 진출전 (9/12)", match: /_LBF$/i,
+        a: { from: "UB R3 패자", arrow: "↘" }, b: { from: "LB R3 승자", arrow: "↗" },
+        win: { to: "결승", kind: "adv" }, lose: { to: "시즌 3위", kind: "out" } },
+
+      { id: "GF", col: 4, row: 0, title: "결승 (9/13)", match: /_GF$/i,
+        a: { from: "UB R3 승자", arrow: "↘" }, b: { from: "결승 진출전 승자", arrow: "↗" },
+        win: { to: "2026 LCK 우승", kind: "fin" }, lose: { to: "준우승", kind: "out" } },
+    ],
+    legend: [["adv", "다음 라운드 진출"], ["fin", "결승 직행 · 우승"]],
+  },
 };
 
 /** 대회 하나의 대진표를 그릴 재료를 만든다.
@@ -83,7 +155,7 @@ function bracketHTML(spec) {
 function bracketLegendHTML(spec) {
   const keys = (spec.legend || []).map(([k, t]) =>
     `<span class="bl-key"><i class="${k}"></i>${esc(t)}</span>`).join("");
-  return keys + `<span class="bl-key" style="color:var(--text-dim)">경기 칸을 누르면 그 경기 페이지로 갑니다</span>`;
+  return keys + ` <span class="bl-key" style="color:var(--text-dim)">경기 칸을 누르면 그 경기 페이지로 갑니다</span>`;
 }
 
 function nodeHTML(n, spec) {

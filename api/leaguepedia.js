@@ -240,14 +240,33 @@ async function fetchMVP(page) {
 
 module.exports = async (req, res) => {
   const reqStart = Date.now();          // 준비 작업까지 포함한 진짜 시작 시각
-  try { await requireAdmin(req); }
-  catch (e) { return fail(res, e.status || 500, e.message); }
+
+  // 실행할 수 있는 세 경우
+  //   ① Vercel 크론 (Authorization: Bearer <CRON_SECRET>) — 매일 자동
+  //   ② 예약 작업 토큰 (x-task-token / ?token=)
+  //   ③ 관리자가 관리자 화면에서 누른 경우
+  // 크론을 붙이기 전에는 ③ 뿐이라 사람이 매번 눌러야 했다. (2026-08-07)
+  const auth = String(req.headers.authorization || "");
+  const secret = process.env.CRON_SECRET || process.env.ADMIN_TASK_TOKEN || "";
+  const byCron = !!secret && auth === `Bearer ${secret}`;
+  if (!byCron) {
+    try { await requireAdmin(req); }
+    catch (e) { return fail(res, e.status || 500, e.message); }
+  }
 
   // 대회 페이지는 | 로 여러 개 지정할 수 있다 (라운드 1-2 · Road to MSI · 3-4 등)
-  const pages = String(req.query.page || "").split("|").map(x => x.trim()).filter(Boolean);
+  let pages = String(req.query.page || "").split("|").map(x => x.trim()).filter(Boolean);
+  // 크론은 주소에 아무것도 안 붙이므로, 관리자가 마지막에 받아 둔 대회 목록을 쓴다
+  // (그 목록은 수집이 끝날 때 schedule_sync.pages 에 저장된다)
+  if (!pages.length && byCron) {
+    try {
+      const st = JSON.parse((await loadSetting("schedule_sync")) || "{}");
+      pages = (st.pages || []).filter(Boolean);
+    } catch { pages = []; }
+  }
   const tid = (req.query.tid || "").trim();
-  const apply = req.query.apply === "1";
-  const addPlayers = req.query.newplayers === "1";
+  const apply = req.query.apply === "1" || byCron;      // 크론은 늘 저장까지 한다
+  const addPlayers = req.query.newplayers === "1" || byCron;
   if (!pages.length) return fail(res, 400, "대회 페이지를 입력해 주세요 (예: LCK/2026 Season/Rounds 3-4)");
 
   try {
