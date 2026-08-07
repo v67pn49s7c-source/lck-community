@@ -60,7 +60,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260807r") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260807s") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -1458,3 +1458,4 @@ table.award-table td a:hover b { color: var(--accent); }
 }
 .fav-pick button.active { border-color: var(--pick-color); border-width: 2px; color: var(--text);
   background: color-mix(in srgb, var(--pick-color) 14%, transparent); }
+.fav-pick button[disabled] { opacity: .45; cursor: not-allowed; }

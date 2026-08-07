@@ -23,7 +23,7 @@ const ADOPT_HOURS = 30;          // 손으로 만든 경기를 같은 경기로 
 const SCHED_CACHE_MIN = 10;
 const cacheKeyOf = page => "lp_sched_" + page.replace(/[^A-Za-z0-9]+/g, "_").slice(0, 48);
 
-async function fetchSchedule(page) {
+async function fetchSchedule(page, deadline) {
   const ck = cacheKeyOf(page);
   let cached = null;
   try { cached = JSON.parse((await loadSetting(ck)) || "null"); } catch { cached = null; }
@@ -36,7 +36,7 @@ async function fetchSchedule(page) {
       fields: "MS.DateTime_UTC,MS.Team1,MS.Team2,MS.BestOf,MS.Tab,MS.Winner,MS.Team1Score,MS.Team2Score,MS.MatchId",
       where: `MS.OverviewPage='${page.replace(/'/g, "''")}'`,
       order_by: "MS.DateTime_UTC ASC",
-    });
+    }, 0, deadline);
     try { await saveSetting(ck, JSON.stringify({ t: Date.now(), rows })); } catch {}
     return { rows, from: "새로 받음" };
   } catch (e) {
@@ -71,6 +71,17 @@ async function runSync({ pages, force }) {
     return { skipped: true, 이유: "갱신할 대회 페이지가 지정되지 않았습니다 (관리자 → 데이터 수집에서 한 번 저장하면 등록됩니다)" };
   }
 
+  // ⚠ 잠금을 **맨 먼저** 찍는다.
+  //   예전에는 다 끝난 뒤에야 시각을 남겨서, 도중에 함수가 죽으면 잠금이 안 걸렸다.
+  //   그러면 다음 방문자가 들어오는 순간 또 전체 갱신이 시작돼 Leaguepedia 차단을
+  //   상시로 물고 있게 됐고, 관리자가 눌러도 처음부터 막힌 상태를 만났다. (2026-08-07)
+  try { await saveSetting("schedule_sync", JSON.stringify({ ...state, at: Date.now() })); } catch {}
+
+  // 서버 함수는 60초 안에 끝나야 한다. 받는 데 35초까지만 쓴다.
+  const started = Date.now();
+  const BUDGET_MS = 35000;
+  const later = [];
+
   // 우리 DB 의 경기 (짝짓기용)
   const existing = await sb("matches?select=id,a,b,at,status,score_a,score_b,lp_id,tid,stage,counted");
   const byLp = {};
@@ -90,10 +101,13 @@ async function runSync({ pages, force }) {
 
   const sources = new Set();
   for (const page of list) {
+    // 시간이 모자라면 그 페이지는 다음 차례로 미룬다 (죽는 것보다 낫다)
+    const remain = started + BUDGET_MS - Date.now();
+    if (remain < 6000) { later.push(page.split("/").pop()); continue; }
     const pickStage = stagePicker(stageRecords, page);   // 대회 페이지마다 후보가 다르다
     // 대회도 페이지마다 (라운드 1-2 가 라운드 3-4 에 섞이지 않게. 없으면 만들어 준다)
     const defaultTid = await resolveTid(page, existing, null);
-    const got = await fetchSchedule(page);
+    const got = await fetchSchedule(page, Date.now() + Math.min(remain, 20000));
     const rows = got.rows;
     sources.add(got.from);
     seen += rows.length;
@@ -166,6 +180,7 @@ async function runSync({ pages, force }) {
   const fresh = rows.filter(u => !existing.some(m => m.id === u.id));
   return {
     갱신한경기: saved, 훑어본일정: seen, 대회: list,
+    ...(later.length ? { 다음에이어받음: later } : {}),
     모르는팀: [...unknownTeams],
     새로만든경기: fresh.length,
     일정출처: [...sources].join(", "),

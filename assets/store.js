@@ -205,9 +205,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807r"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807r"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807r"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807s"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807s"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807s"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -547,7 +547,11 @@ async function applyMatchToRecords(matchId) {
   const m = Cache.matches.find(x => x.id === matchId);
   if (!m) return { ok: false, reason: "경기를 찾을 수 없음" };
   if (!TEAM_MAP[m.a] || !TEAM_MAP[m.b]) return { ok: false, reason: "미정 팀은 반영 불가" };
-  const stage = Cache.records.find(s => s.name === m.stage);
+  // 대소문자·앞뒤 공백은 무시하고 찾는다. 다른 두 경로(순위 계산·경우의 수)는 이미 그렇게 하는데
+  // 여기만 정확히 비교해서, 'Road to MSI'(소문자 t) 경기가 'Road To MSI' 스테이지를 못 찾아
+  // 순위 반영 버튼이 늘 실패했다. (2026-08-07)
+  const sk = x => String(x || "").trim().toLowerCase();
+  const stage = Cache.records.find(s => sk(s.name) === sk(m.stage));
   if (!stage) return { ok: false, reason: `순위 전적 관리에 "${m.stage}" 스테이지가 없음 (스테이지 추가 후 반영)` };
 
   const claim = await sb.rpc("claim_match_for_records", { p_match_id: matchId });
@@ -1226,16 +1230,43 @@ function setFavTeamLocal(teamId) {
   localStorage.setItem("nexus_fav_team", teamId || "");
 }
 // 회원은 프로필에도 저장해야 실제로 바뀐다 (getFavTeam이 프로필을 우선하므로)
-function setFavTeam(teamId) {
+// 응원팀은 30일에 한 번만 바꿀 수 있다 (schema19). 팀 게시판이 그 팀 팬 전용이라,
+// 아무 때나 바꿀 수 있으면 팀을 옮겨 다니며 아무 데나 글을 쓸 수 있기 때문이다.
+// **판정은 서버가 한다.** 아래 값은 화면에 남은 날을 안내하기 위한 것일 뿐이다.
+const FAV_COOLDOWN_DAYS = 30;
+
+/** 지금 팀을 바꿀 수 있나 → { ok, days, at } (days = 남은 날) */
+function favTeamLock() {
+  if (!Auth.profile) return { ok: true, days: 0 };            // 비회원은 이 브라우저에만 남는다
+  if (Auth.profile.is_admin) return { ok: true, days: 0 };
+  if (!Auth.profile.fav_team) return { ok: true, days: 0 };   // 처음 정하는 건 자유
+  const last = Auth.profile.fav_team_changed_at;
+  if (!last) return { ok: true, days: 0 };
+  const until = new Date(last).getTime() + FAV_COOLDOWN_DAYS * 86400e3;
+  if (Date.now() >= until) return { ok: true, days: 0 };
+  return { ok: false, days: Math.ceil((until - Date.now()) / 86400e3), at: new Date(until) };
+}
+
+/** 응원팀 저장. 서버가 거절하면 이유를 그대로 돌려준다 → { error } */
+async function setFavTeam(teamId) {
+  const before = getFavTeam();
+  if ((before || "") === (teamId || "")) return {};           // 같은 값이면 아무 일도 없다
   setFavTeamLocal(teamId);
-  if (Auth.profile) {
-    Auth.profile.fav_team = teamId || null;
-    sb.rpc("set_fav_team", { p_team: teamId || "" }).then(r => {
-      if (isMissingFunction(r.error))
-        return sb.from("profiles").update({ fav_team: teamId || null }).eq("id", Auth.profile.id);
-      sbWriteFail(r.error, "setFavTeam");
-    });
+  if (!Auth.profile) return {};                               // 비회원은 로컬만
+  Auth.profile.fav_team = teamId || null;
+  const r = await sb.rpc("set_fav_team", { p_team: teamId || "" });
+  if (isMissingFunction(r.error)) {
+    await sb.from("profiles").update({ fav_team: teamId || null }).eq("id", Auth.profile.id);
+    return {};
   }
+  if (r.error) {
+    // 서버가 막았다 → 화면을 되돌린다 (안 그러면 바뀐 것처럼 보인다)
+    setFavTeamLocal(before);
+    Auth.profile.fav_team = before || null;
+    return { error: r.error.message || "응원팀을 바꾸지 못했습니다" };
+  }
+  Auth.profile.fav_team_changed_at = new Date().toISOString();
+  return {};
 }
 
 // ── 팬 여권: 내 시즌 기록 집계 ─────────────────────────────

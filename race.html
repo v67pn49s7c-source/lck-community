@@ -17,10 +17,10 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807r">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260807r">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807s">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260807s">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807r">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807s">
   <style>
     /* ── 우리 팀 카드 — 이 페이지에서 가장 먼저 읽혀야 하는 것 ── */
     .my-race { padding: 16px; }
@@ -146,11 +146,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807r"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807r"></script>
-  <script src="assets/store.js?v=20260807r"></script>
-  <script src="assets/app.js?v=20260807r"></script>
-  <script src="assets/race.js?v=20260807r"></script>
+  <script src="assets/data.js?v=20260807s"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807s"></script>
+  <script src="assets/store.js?v=20260807s"></script>
+  <script src="assets/app.js?v=20260807s"></script>
+  <script src="assets/race.js?v=20260807s"></script>
   <script>
   storeReady.then(() => {
     renderHeader("경우의 수", null);
@@ -171,7 +171,7 @@
       const first = raceFromCache(tab);
       myTeam = first && first.rows.length ? first.rows[0].team : null;
     }
-    const TABS = [["r34L", "레전드 그룹"], ["r34R", "라이즈 그룹"]];
+    const TABS = Object.keys(RACE_CUTS).map(id => [id, RACE_GROUP[id] || id]);
 
     // ── ① 우리 팀 카드 ───────────────────────────────────────
     function renderMine() {
@@ -183,7 +183,7 @@
 
       const t = TEAM_MAP[myTeam];
       const rank = r.rows.findIndex(x => x.team === myTeam) + 1;
-      const gname = r.stageName.includes("레전드") ? "레전드 그룹" : r.stageName.includes("라이즈") ? "라이즈 그룹" : r.stageName;
+      const gname = RACE_GROUP[r.stageId] || r.stageName;
 
       document.getElementById("my-race-title").textContent = `${josa(t.abbr, "은는")} 몇 승이면 되나`;
       document.getElementById("race-updated").textContent =

@@ -184,9 +184,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807r")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807r")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807r")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807s")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807s")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807s")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_MENUS.map(([m, href]) => `<a href="${href}" class="${m === activeMenu ? "active" : ""}">${m}</a>`).join("")}
@@ -236,7 +236,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807r");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807s");
 
   renderTabBar(activeMenu);
 }
@@ -314,14 +314,17 @@ function renderFanHero() {
         </div>
         <button type="button" class="onboard-skip" id="onboard-skip">중립으로 볼게요</button>
       </div>`;
-    el.querySelectorAll(".onboard-team").forEach(b => b.addEventListener("click", () => {
+    // 서버가 쿨다운으로 막을 수 있으므로 결과를 받아 그대로 알려 준다
+    el.querySelectorAll(".onboard-team").forEach(b => b.addEventListener("click", async () => {
+      const r = await setFavTeam(b.dataset.team);   // 회원은 프로필에도 저장된다
+      if (r && r.error) { alert(r.error); return; }
       fanHeroChoosing = false;
-      setFavTeam(b.dataset.team);       // 회원은 프로필에도 저장된다
       renderFanHero();
     }));
-    el.querySelector("#onboard-skip").addEventListener("click", () => {
+    el.querySelector("#onboard-skip").addEventListener("click", async () => {
+      const r = await setFavTeam("");
+      if (r && r.error) { alert(r.error); return; }
       fanHeroChoosing = false;
-      setFavTeam("");
       renderFanHero();
     });
     return;

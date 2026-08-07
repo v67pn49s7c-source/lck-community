@@ -85,6 +85,11 @@ function raceCompute(teams, base, remain, cuts) {
 //   라이즈 2·3위 → 플레이-인 2라운드 (두 번 이겨야 플레이오프)
 //   라이즈 4·5위 → 시즌 종료 (최종 9·10위)
 // label 은 표의 열 제목, what 은 그 선을 넘으면 무엇이 되는지, why 는 왜 중요한지.
+// 그룹 이름은 **id 로** 정한다. 이름 문자열에서 '레전드'를 찾아 없으면 라이즈로 치던
+// 코드가 있었는데, 스테이지 이름을 한 번만 바꿔도 카드에 엉뚱한 그룹이 찍힌다.
+// 공유 카드는 한 번 나가면 회수가 안 된다. (2026-08-07)
+const RACE_GROUP = { r34L: "레전드 그룹", r34R: "라이즈 그룹" };
+
 const RACE_CUTS = {
   r34L: [
     { k: 2, label: "2위 안", what: "플레이오프 2라운드 직행", why: "1·2번 시드. 첫 경기를 건너뛰고 위에서 시작한다" },
@@ -184,7 +189,7 @@ function raceCopyText(stageId) {
   const nm = t => (TEAM_MAP[t] ? TEAM_MAP[t].abbr : t);
   const pad = (s, w) => String(s) + " ".repeat(Math.max(0, w - String(s).replace(/[가-힣]/g, "xx").length));
 
-  let out = `[정리] ${md} 기준 LCK ${r.stageName.includes("레전드") ? "레전드" : r.stageName.includes("라이즈") ? "라이즈" : ""} 그룹 경우의 수\n`;
+  let out = `[정리] ${md} 기준 LCK ${RACE_GROUP[r.stageId] || r.stageName} 경우의 수\n`;
   out += `(잔여 ${r.remainCount}경기 · 승패 조합 ${r.scenarioCount.toLocaleString()}가지 전수 계산)\n\n`;
   out += `순위 | 팀 | 전적 | 세트득실 | 잔여\n`;
   r.rows.forEach((row, i) => {

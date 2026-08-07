@@ -14,7 +14,7 @@
 // 데이터 출처: Leaguepedia (CC-BY-SA 3.0) — 푸터에 출처를 표기하고 있다.
 
 const { ok, fail, sb, requireAdmin } = require("./_lib");
-const { val, wait, cargo, loadSetting, saveSetting, matchIdOf, stagePicker, autoLinkPlayers, checkAliases, resolveTid, buildNewPlayers, normNick, loadNameMaps, splitList } = require("./_lp");
+const { val, wait, cargo, loadSetting, saveSetting, matchIdOf, stagePicker, autoLinkPlayers, checkAliases, resolveTid, buildNewPlayers, normNick, loadNameMaps, splitList, canonStage } = require("./_lp");
 
 const CACHE_MINUTES = 10;
 const isWin = v => /^(1|yes|true)$/i.test(String(v || "").trim());
@@ -57,7 +57,7 @@ async function fetchRaw(page, deadline) {
   const where = `OverviewPage='${page.replace(/'/g, "''")}'`;
   // 이어받기: 이미 받아 둔 게 있으면 그 뒤부터
   let rows = (acc && !acc.done && Array.isArray(acc.rows)) ? acc.rows.slice() : [];
-  let done = false, fetched = 0;
+  let done = false, fetched = 0, sgWarn = null, cacheWarn = null;
 
   // 페이지 나눠 받기가 어긋나지 않게 **고정된 순서**로 요청한다
   while (Date.now() < deadline) {
@@ -71,19 +71,25 @@ async function fetchRaw(page, deadline) {
       order_by: "SP.GameId ASC, SP.Link ASC",
       offset: String(rows.length),
       limit: String(PAGE_SIZE),
-    });
+    }, 0, deadline);
     fetched += batch.length;
     rows = rows.concat(batch);
-    if (batch.length < PAGE_SIZE) { done = true; break; }
-    try { await saveSetting(ck, JSON.stringify({ v: RAW_VERSION, t: Date.now(), rows, games: null, done: false })); } catch {}
+    if (batch.length < PAGE_SIZE) done = true;
+    // ⚠ 체크포인트는 **항상** 남긴다. 예전에는 마지막 배치(500행 미만)일 때 곧바로 break 해서
+    //   여기를 안 탔고, 그 뒤 무거운 단계에서 함수가 죽으면 진행이 하나도 안 남았다.
+    //   그래서 몇 번을 눌러도 늘 처음부터 다시 받았다.
+    try { await saveSetting(ck, JSON.stringify({ v: RAW_VERSION, t: Date.now(), rows, games: null, done: false })); }
+    catch (e) { cacheWarn = (e && e.message || String(e)).slice(0, 80); }
+    if (done) break;
+    await wait(1200);        // 제한에 안 걸리는 게 재시도보다 싸다
   }
 
   // 세트(게임) 단위 기록 — 밴/픽 순서·타워·억제기·드래곤·바론·전령·팀 골드·경기 시간.
   // 예전에는 PlayerWin 칸이 없는 옛 대회에서 승패를 채울 때만 받았는데,
   // 이제는 스코어보드를 그리는 재료라서 **항상** 받는다.
   // 세트 하나당 1행뿐이라(한 라운드 100행 남짓) 요청 한 번이면 충분하다.
-  let games = null;
-  if (done && rows.length) {
+  let games = (acc && acc.v === RAW_VERSION && acc.games) || null;   // 이미 받아 둔 게 있으면 다시 안 받는다
+  if (done && rows.length && !games && Date.now() < deadline) {
     try {
       games = await cargo({
         tables: "ScoreboardGames=SG",
@@ -93,12 +99,20 @@ async function fetchRaw(page, deadline) {
           + "SG.Team1Dragons,SG.Team2Dragons,SG.Team1Barons,SG.Team2Barons,"
           + "SG.Team1RiftHeralds,SG.Team2RiftHeralds,SG.Team1Bans,SG.Team2Bans,SG.Team1Picks,SG.Team2Picks",
         where: "SG." + where, order_by: "SG.GameId ASC", limit: "500",
-      });
-    } catch { games = null; }   // 이 표가 없어도 선수 기록 수집은 계속돼야 한다
+      }, 0, deadline);
+    } catch (e) {
+      // 이 표가 없어도 선수 기록 수집은 계속돼야 한다. 다만 **조용히 넘기지 않는다** —
+      // 예전에는 실패를 삼키고 done:true 로 굳혀서, 10분 동안 다시 시도조차 못 했다.
+      games = null;
+      sgWarn = (e && e.message || String(e)).slice(0, 90);
+    }
   }
 
-  try { await saveSetting(ck, JSON.stringify({ v: RAW_VERSION, t: Date.now(), rows, games, done })); } catch {}
-  return { rows, games, cached: false, done, fetched };
+  // 스코어보드를 아직 못 받았으면 '다 받았다'고 확정하지 않는다 (다음에 이어서 받는다)
+  const allDone = done && !!games;
+  try { await saveSetting(ck, JSON.stringify({ v: RAW_VERSION, t: Date.now(), rows, games, done: allDone })); }
+  catch (e) { cacheWarn = (e && e.message || String(e)).slice(0, 80); }
+  return { rows, games, cached: false, done, fetched, sgWarn, cacheWarn };
 }
 
 // 세트 하나의 '경기 전체 기록'을 우리 모양으로 정리한다 (스코어보드 재료).
@@ -205,6 +219,7 @@ module.exports = async (req, res) => {
     const started = Date.now();
     const BUDGET_MS = 40000;
     let rows = [], games = null, cached = false;
+    const sgWarnAll = [], cacheWarnAll = [];
     const pageOf = {};                    // 경기 → 어느 대회 페이지에서 왔는지
     const doneOf = {};                    // 대회 페이지별로 끝까지 받았는지
     const progress = [];
@@ -212,13 +227,23 @@ module.exports = async (req, res) => {
       const pg = pages[i];
       // 남은 시간을 남은 대회 수로 나눠 준다 (한 대회가 시간을 다 쓰지 않게)
       const left = pages.length - i;
-      const share = Math.max(3000, (started + BUDGET_MS - Date.now()) / left);
+      const remain = started + BUDGET_MS - Date.now();
+      // 남은 시간이 없으면 요청을 내지 않는다. 예전에는 하한 3초를 강제로 줘서
+      // 예산을 다 쓴 뒤에도 대회마다 요청이 하나씩 더 나갔고, 거기서 제한에 걸리면 함수가 죽었다.
+      if (remain < 6000) {
+        doneOf[pg] = false;
+        progress.push(`${pg.split("/").pop()} 다음에 이어받음`);
+        continue;
+      }
+      const share = Math.max(6000, remain / left);
       const got = await fetchRaw(pg, Date.now() + share);
       (got.rows || []).forEach(r => { pageOf[val(r, "MatchId")] = pg; });
       rows = rows.concat(got.rows || []);
       if (got.games) games = (games || []).concat(got.games);
       cached = cached || got.cached;
       doneOf[pg] = got.done;
+      if (got.sgWarn) sgWarnAll.push(got.sgWarn);
+      if (got.cacheWarn) cacheWarnAll.push(got.cacheWarn);
       progress.push(`${pg.split("/").pop()} ${got.rows.length}행${got.done ? "" : " (이어받는 중)"}`);
       if (pages.length > 1) await wait(1200);
     }
@@ -359,6 +384,7 @@ module.exports = async (req, res) => {
       }
     }
 
+    const tidFixRows = [];        // 대회가 틀린 기존 경기 (대회만 고친다)
     const matches = Object.values(byMatch);
     matches.forEach(m => m.sets.sort((x, y) => x.n - y.n));
     // 자동 연결 결과를 세트 안의 선수에도 반영한다 (위에서 pid=null 로 채워졌으므로)
@@ -369,6 +395,11 @@ module.exports = async (req, res) => {
     // 이름 연결표가 망가져 있으면 알려 준다 (두 이름 → 한 선수 = 기록이 조용히 사라진다)
     const health = checkAliases(playerMap, roster);
 
+    // 조용히 넘어가면 안 되는 것들 (관리자 화면이 그대로 보여 준다)
+    const warnings = [];
+    if (sgWarnAll.length) warnings.push("스코어보드(밴픽·오브젝트) 를 아직 못 받았습니다: " + sgWarnAll[0]);
+    if (cacheWarnAll.length) warnings.push("진행 저장에 실패했습니다 — 다시 눌러도 처음부터 받을 수 있습니다: " + cacheWarnAll[0]);
+
     const summary = {
       page, 경기수: matches.length,
       세트수: matches.reduce((n, m) => n + m.sets.length, 0),
@@ -376,7 +407,7 @@ module.exports = async (req, res) => {
       자동연결: Object.keys(auto.linked).length, 이름겹침: auto.ambiguous.slice(0, 10),
       연결겹침: health.merged.slice(0, 10), 연결의심: health.suspect.slice(0, 10),
       진행: progress, 끝까지받음: allDone, 선수등록: 0,
-      저장된자료사용: !!cached, 저장함: false,
+      저장된자료사용: !!cached, 저장함: false, 경고: warnings,
     };
 
     if (!apply) return ok(res, { ...summary, 미리보기: matches.slice(0, 2) });
@@ -384,7 +415,13 @@ module.exports = async (req, res) => {
     let pomSaved = 0, pomInfo = null;
     // 대회 페이지마다 우리 대회를 정한다 (없으면 만들어 준다 — 라운드 1-2 가 라운드 3-4 에 섞이지 않게)
     const tidOf = {};
-    for (const pg of pages) tidOf[pg] = await resolveTid(pg, existing, tid);
+    // ⚠ 수동으로 고른 대회(tid)는 **대회 페이지를 하나만 받을 때만** 쓴다.
+    //   예전에는 페이지를 여러 개 받을 때도 그 하나를 전부에 찍어서,
+    //   "시즌 전체"를 한 번 누르면 Road to MSI 경기까지 정규 라운드 3-4 대회로 들어갔다.
+    //   (그게 Road to MSI 5경기가 엉뚱한 대회에 있던 최초 원인 — 2026-08-07)
+    const singlePage = pages.length === 1;
+    for (const pg of pages) tidOf[pg] = await resolveTid(pg, existing, singlePage ? tid : "");
+    if (!singlePage && tid) warnings.push("대회를 여러 개 받을 때는 '우리 대회' 선택을 무시하고 페이지별로 정합니다");
 
     // ── 저장 (한 번에 묶어서) ──
     const matchRows = [], detailRows = [];
@@ -399,6 +436,11 @@ module.exports = async (req, res) => {
       // 아직 없는 경기는, 그 대회를 **끝까지 받았을 때만** 만든다.
       // (덜 받은 상태로 만들면 세트를 덜 세어 스코어가 1:0 처럼 틀리게 들어간다)
       if (prev || !doneOf[pg]) {
+        // 기존 경기라도 **대회가 틀렸으면** 그것만 바로잡는다.
+        //   예전에는 이미 있는 경기의 tid 를 아예 안 건드려서, 한 번 잘못 들어간 대회가
+        //   재수집을 몇 번 해도 그대로 굳었다. (Road to MSI 5경기가 정규 라운드 3-4 에
+        //   들어가 있어 경기 목록에서 찾을 수 없었다 — 2026-08-07)
+        if (prev && fallbackTid && prev.tid !== fallbackTid) tidFixRows.push({ id, tid: fallbackTid });
         // ★ 승패·편 가르기의 기준은 **실제 저장된 경기의 a** 다.
         //   Leaguepedia 의 1세트 블루팀(m.a)과 다를 수 있고, 다르면 전부 뒤집힌다.
         const baseA = prev ? prev.a : m.a;
@@ -410,8 +452,15 @@ module.exports = async (req, res) => {
             dmg: p.dmg, vs: p.vs, penta: p.penta,
             side: p.team && baseA ? (p.team === baseA ? "a" : "b") : null,
           }));
+          // ⚠ 스코어보드 값이 없으면 game 칸을 **아예 보내지 않는다.**
+          //   빈 객체를 보내면 이미 잘 들어가 있던 밴픽·오브젝트가 통째로 지워진다
+          //   (덜 받은 상태로 저장할 때마다 그런 일이 났다 — 2026-08-07)
           const game = gameForSave(s.stats, s.blueName, teamMap, baseA);
-          if (players.length) detailRows.push({ match_id: id, set_index: s.n - 1, win, players, game: game || {} });
+          if (players.length) {
+            const row = { match_id: id, set_index: s.n - 1, win, players };
+            if (game) row.game = game;
+            detailRows.push(row);
+          }
         });
         return;
       }
@@ -421,7 +470,9 @@ module.exports = async (req, res) => {
       matchRows.push({
         id, lp_id: m.lpMatchId,
         tid: fallbackTid || (prev ? prev.tid : null),
-        stage: prev ? prev.stage : (pick(m.a, m.b) || pg.split("/").pop()),
+        // 스테이지 이름은 순위표의 **정본 이름**으로 맞춘다. 폴백(페이지 꼬리표)이
+        // 'Road to MSI'(소문자 t)를 만들어 'Road To MSI' 와 두 개로 갈렸던 자리다.
+        stage: prev ? prev.stage : canonStage(stageRecords, pick(m.a, m.b) || pg.split("/").pop()),
         at: prev ? prev.at : ((m.at || "").replace(" ", "T") + (m.at ? "Z" : "")),
         a: m.a, b: m.b, label: "", odds_a: 2, odds_b: 2,
         // 이미 순위에 반영한 경기는 스코어·상태를 건드리지 않는다
@@ -439,7 +490,11 @@ module.exports = async (req, res) => {
           side: p.team && m.a ? (p.team === m.a ? "a" : "b") : null,
         }));
         const game = gameForSave(s.stats, s.blueName, teamMap, m.a);
-        if (players.length) detailRows.push({ match_id: id, set_index: s.n - 1, win, players, game: game || {} });
+        if (players.length) {
+          const row = { match_id: id, set_index: s.n - 1, win, players };
+          if (game) row.game = game;      // 없으면 칸을 빼서 기존 값을 지키다
+          detailRows.push(row);
+        }
       });
     });
 
@@ -448,17 +503,21 @@ module.exports = async (req, res) => {
     matchRows.forEach(r => dedup.set(r.id, r));
     const matchRowsU = [...dedup.values()];
 
+    // return=minimal — 이게 없으면 저장한 만큼(수백 KB)을 응답으로 그대로 되받아 읽는다.
+    const PREF = { prefer: "resolution=merge-duplicates,return=minimal" };
     if (matchRowsU.length) {
-      await sb("matches?on_conflict=id", {
-        method: "POST", headers: { prefer: "resolution=merge-duplicates" },
-        body: JSON.stringify(matchRowsU),
+      await sb("matches?on_conflict=id", { method: "POST", headers: PREF, body: JSON.stringify(matchRowsU) });
+    }
+    // 세트 상세는 한 행이 크다(선수 10명 + 밴픽·오브젝트). 통째로 보내면 요청 하나가 1MB 를 넘는다.
+    for (let i = 0; i < detailRows.length; i += 60) {
+      await sb("match_details?on_conflict=match_id,set_index", {
+        method: "POST", headers: PREF, body: JSON.stringify(detailRows.slice(i, i + 60)),
       });
     }
-    if (detailRows.length) {
-      await sb("match_details?on_conflict=match_id,set_index", {
-        method: "POST", headers: { prefer: "resolution=merge-duplicates" },
-        body: JSON.stringify(detailRows),
-      });
+    // 기존 경기가 엉뚱한 대회에 들어가 있으면 **대회만** 바로잡는다.
+    // (스코어·스테이지·시각은 건드리지 않는다 — 그건 일정 갱신의 몫이다)
+    if (tidFixRows.length) {
+      await sb("matches?on_conflict=id", { method: "POST", headers: PREF, body: JSON.stringify(tidFixRows) });
     }
 
     // ── 경기 MVP(POM) ─────────────────────────────────────
@@ -510,16 +569,24 @@ module.exports = async (req, res) => {
     } catch (e) { pomInfo = { 실패: (e.message || String(e)).slice(0, 80) }; }
 
     // 일정 자동 갱신이 어느 대회를 볼지 여기서 기억해 둔다 (api/schedule-sync.js 가 읽는다)
+    //
+    // ⚠ 예전에는 여기서 `tid: fallbackTid` 를 넣었는데, fallbackTid 는 위쪽 경기 반복문
+    //   **안에서만** 사는 값이라 여기서는 없는 이름이었다. 매번 오류가 났고 아래 빈 catch 가
+    //   그걸 통째로 삼켜서, **대회 페이지 목록이 한 번도 저장된 적이 없다.**
+    //   그래서 자동 일정 갱신이 볼 페이지를 못 찾았고, Road to MSI 경기가 제 대회로
+    //   옮겨질 기회조차 없었다. (2026-08-07)
+    //   대회는 페이지마다 다르므로 애초에 여기에 하나로 적을 값이 아니다 — 칸을 뺀다.
     try {
       const prev = JSON.parse((await loadSetting("schedule_sync")) || "{}");
       const pageList = [...new Set([...(prev.pages || []), ...pages])].slice(-6);
-      await saveSetting("schedule_sync", JSON.stringify({
-        ...prev, pages: pageList, tid: fallbackTid,
-      }));
-    } catch { /* 기억에 실패해도 수집 자체는 성공이다 */ }
+      await saveSetting("schedule_sync", JSON.stringify({ ...prev, pages: pageList }));
+    } catch (e) {
+      warnings.push("자동 갱신 대상 페이지를 기억하지 못했습니다: " + (e && e.message || e));
+    }
 
     return ok(res, { ...summary, 저장함: true, 저장된경기: matchRowsU.length, 저장된세트: detailRows.length,
                      POM저장: pomSaved, POM상세: pomInfo, 선수등록: madePlayers,
+                     대회고침: tidFixRows.length, 경고: warnings,
                      대회: [...new Set(Object.values(tidOf).filter(Boolean))].join(", ") });
   } catch (e) {
     return fail(res, 500, e.message || String(e));

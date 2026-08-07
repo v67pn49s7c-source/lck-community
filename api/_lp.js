@@ -12,24 +12,58 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 const val = (row, key) => row[key] ?? row[key.replace(/_/g, " ")] ?? "";
 
 // 익명 호출 제한이 아주 빡빡하다. 5 → 12 → 25초로 늘려 가며 다시 시도한다.
+//
+// ⚠⚠ 이 재시도는 **반드시 마감 시각(deadline)을 알아야 한다.**
+//   서버 함수는 60초 안에 끝나야 하는데, 예전에는 cargo 가 마감을 몰라서
+//   제한에 걸리면 5+12+25 = 42초를 그냥 자 버렸다. 요청 왕복까지 더하면
+//   **한 번의 호출이 혼자 60초를 넘겨** Vercel 이 함수를 죽였고,
+//   그러면 응답 자체가 없어 관리자 화면은 "응답을 읽지 못했습니다"만 봤다.
+//   (2026-08-07 "경기 갱신해도 응답이 없다"의 정체)
+//
+// 이제는 자고 나면 마감을 넘길 것 같은 경우 **자지 않고 바로** 물러난다.
+// 받아 둔 데까지는 저장되므로, 잠시 뒤 다시 누르면 이어서 받는다.
 const BACKOFF = [5000, 12000, 25000];
-async function cargo(params, tries) {
+const FETCH_TIMEOUT_MS = 12000;      // 응답이 안 오는 요청 하나가 전체를 잡아먹지 않게
+
+async function cargo(params, tries, deadline) {
   const q = new URLSearchParams({ action: "cargoquery", format: "json", limit: "500", ...params });
-  const r = await fetch(`${API}?${q}`, { headers: { "user-agent": UA } });
-  const j = await r.json();
+  let j;
+  try {
+    const r = await fetch(`${API}?${q}`, {
+      headers: { "user-agent": UA },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    j = await r.json();
+  } catch (err) {
+    const e = new Error("Leaguepedia 응답이 너무 늦습니다. 잠시 뒤 다시 눌러 주세요.");
+    e.rate = true;                    // 이어받기 대상 — 진행은 저장된다
+    throw e;
+  }
   if (j.error) {
     const n = tries || 0;
-    if (j.error.code === "ratelimited" && n < BACKOFF.length) {
+    const canWait = n < BACKOFF.length
+      && (!deadline || Date.now() + BACKOFF[n] + 3000 < deadline);   // 자고 나서도 시간이 남아야 잔다
+    if (j.error.code === "ratelimited" && canWait) {
       await wait(BACKOFF[n]);
-      return cargo(params, n + 1);
+      return cargo(params, n + 1, deadline);
     }
     const e = new Error(j.error.code === "ratelimited"
-      ? "Leaguepedia 가 계속 호출을 막고 있습니다. 몇 분 뒤에 다시 눌러 주세요."
+      ? "Leaguepedia 가 호출을 막고 있습니다. 1~2분 뒤에 다시 눌러 주세요 (받은 데까지는 저장됩니다)."
       : `Leaguepedia: ${j.error.info || j.error.code}`);
     e.rate = j.error.code === "ratelimited";
     throw e;
   }
   return (j.cargoquery || []).map(x => x.title);
+}
+
+/** 스테이지 이름을 순위표의 **정본 이름**으로 맞춘다.
+ *  대소문자·앞뒤 공백만 다른 값이 새 스테이지처럼 갈리는 것을 막는다.
+ *  ("Road to MSI" 와 "Road To MSI" 가 두 개로 갈려 순위 반영이 끊겼다 — 2026-08-07) */
+function canonStage(stageRecords, raw) {
+  const k = x => String(x || "").trim().toLowerCase();
+  if (!k(raw)) return raw;
+  const hit = (stageRecords || []).find(s => k(s.name) === k(raw));
+  return hit ? hit.name : String(raw).trim();
 }
 
 async function loadSetting(key) {
@@ -278,6 +312,7 @@ async function resolveTid(page, existing, explicitTid) {
 }
 
 module.exports = {
+  canonStage,
   API, UA, wait, val, cargo, loadSetting, saveSetting,
   matchIdOf, pageTag, stageTag, stagePicker, autoLinkPlayers, checkAliases, normNick,
   koTournamentName, resolveTid, buildNewPlayers, posOf, splitLink,

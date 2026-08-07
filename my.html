@@ -13,10 +13,10 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807r">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260807r">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807s">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260807s">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807r">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807s">
 </head>
 <body>
   <main class="page">
@@ -87,10 +87,10 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807r"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807r"></script>
-  <script src="assets/store.js?v=20260807r"></script>
-  <script src="assets/app.js?v=20260807r"></script>
+  <script src="assets/data.js?v=20260807s"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807s"></script>
+  <script src="assets/store.js?v=20260807s"></script>
+  <script src="assets/app.js?v=20260807s"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("MY", null);
@@ -101,6 +101,7 @@
       const nick = Auth.profile ? Auth.profile.nick : "익명 팬";
 
       // ── 여권 본문 ──
+      const lock = favTeamLock();
       const founding = myFoundingNos();
       const joined = Auth.session && Auth.session.user && Auth.session.user.created_at;
       document.getElementById("passport-body").innerHTML = `
@@ -133,11 +134,17 @@
           <b>응원팀</b> ${t ? "" : "— 고르면 여권이 팀 색으로 바뀌고 홈도 우리 팀 중심이 됩니다"}
           <div class="fav-pick">${TEAMS.map(x =>
             `<button data-fav="${esc(x.id)}" class="${t && t.id === x.id ? "active" : ""}" style="--pick-color:${x.color}"
-              title="${esc(x.name)}">${teamLogoHTML(x, 18)} ${esc(x.abbr)}</button>`).join("")}</div>
-          ${Auth.session ? "" : `<span style="color:var(--text-dim)">비회원 선택은 이 브라우저에만 남습니다</span>`}
+              ${lock.ok ? "" : "disabled"} title="${esc(x.name)}">${teamLogoHTML(x, 18)} ${esc(x.abbr)}</button>`).join("")}</div>
+          ${lock.ok
+            ? (Auth.session
+                ? `<span style="color:var(--text-dim)">한 번 바꾸면 ${FAV_COOLDOWN_DAYS}일간 다시 바꿀 수 없습니다 — 팀 게시판이 그 팀 팬 전용이기 때문입니다</span>`
+                : `<span style="color:var(--text-dim)">비회원 선택은 이 브라우저에만 남습니다</span>`)
+            : `<b style="color:var(--accent)">응원팀은 ${FAV_COOLDOWN_DAYS}일에 한 번만 바꿀 수 있습니다</b>
+               <span style="color:var(--text-dim)"> · 다음 변경 가능일 ${esc(fmtMD(lock.at))} (${lock.days}일 남음)</span>`}
         </div>`;
       document.querySelectorAll("[data-fav]").forEach(b => b.addEventListener("click", async () => {
-        await setFavTeam(b.dataset.fav === (rec.fav || "") ? "" : b.dataset.fav);
+        const r = await setFavTeam(b.dataset.fav === (rec.fav || "") ? "" : b.dataset.fav);
+        if (r && r.error) { alert(r.error); return; }
         render();
       }));
 

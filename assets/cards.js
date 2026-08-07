@@ -83,7 +83,7 @@ function drawFoundingCard() {
 function drawRaceCard(stageId) {
   const r = raceFromCache(stageId);
   if (!r) return null;
-  const groupName = r.stageName.includes("레전드") ? "레전드 그룹" : "라이즈 그룹";
+  const groupName = RACE_GROUP[r.stageId] || r.stageName;
   // 가장 마지막 컷 = 진출·생존선. "2위 안"보다 "플레이오프 직행"이 더 와닿는다.
   const ci = r.cuts.length - 1, cut = r.cuts[ci];
   const { c, g } = cardBegin(`경우의 수 · ${groupName}`);

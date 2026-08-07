@@ -109,6 +109,27 @@ function renderBoardList(el, state) {
   });
 }
 
+
+// 이 글에 댓글을 달 수 있나 — **서버(create_comment)와 같은 규칙**이다.
+// 진짜 차단은 서버가 한다. 여기서 막는 건 "쓰고 나서 거절당하는" 일을 없애기 위한 안내다.
+//   · 팀 게시판 글은 그 팀 팬 회원만 (관리자 예외)
+//   · 팀이 없는 글(전체 게시판·공지·[경기 토론])은 누구나
+function canCommentHere(post) {
+  const team = post && post.team;
+  if (!team) return true;
+  if (Auth.profile && Auth.profile.is_admin) return true;
+  return !!(Auth.profile && Auth.profile.fav_team === team);
+}
+function whyNoComment(post) {
+  const t = TEAM_MAP[post.team];
+  const name = t ? t.name : "이 팀";
+  if (!Auth.session) return `${name} 팬 게시판이라 ${t ? t.abbr : ""} 팬 회원만 댓글을 쓸 수 있습니다.`;
+  const my = Auth.profile && Auth.profile.fav_team;
+  return my
+    ? `${name} 팬 게시판입니다. 내 응원팀은 ${(TEAM_MAP[my] || {}).name || "미설정"} 이라 댓글을 쓸 수 없습니다.`
+    : `${name} 팬 게시판입니다. 응원팀을 ${t ? t.abbr : ""} 로 설정하면 댓글을 쓸 수 있습니다.`;
+}
+
 // ── 글 보기 페이지 ──
 async function initPostPage() {
   await storeReady;
@@ -206,13 +227,16 @@ async function initPostPage() {
       <div id="comment-list">
         ${ordered.map(commentHTML).join("") || `<div class="empty-note">첫 댓글을 남겨 보세요</div>`}
       </div>
-      <form class="comment-form" id="comment-form">
+      ${canCommentHere(cur)
+        ? `<form class="comment-form" id="comment-form">
         <input class="nick" value="${esc(Auth.profile ? Auth.profile.nick : "익명 (자동 부여)")}" readonly
           title="${Auth.profile ? "회원 닉네임은 프로필에서만 바꿀 수 있습니다" : "비회원 댓글은 익명으로 등록됩니다"}" style="max-width:150px">
         ${Auth.session ? "" : `<input class="pw" type="password" placeholder="비밀번호(4자 이상)" required minlength="4" maxlength="20" autocomplete="new-password" style="max-width:150px">`}
         <input class="body" placeholder="댓글을 입력하세요 (비방·혐오 표현은 제재됩니다)" required maxlength="300">
         <button class="btn-primary" type="submit">등록</button>
-      </form>`;
+      </form>`
+        : `<div class="empty-note">${esc(whyNoComment(cur))}${Auth.session ? ""
+             : `<br><a href="login.html" style="text-decoration:underline;font-weight:700">회원가입 하러 가기 →</a>`}</div>`}`;
 
     if (poll) {
       const m = poll.match_id ? getMatches().find(x => x.id === poll.match_id) : null;
@@ -231,7 +255,8 @@ async function initPostPage() {
       if (!upvotePost(id)) { alert("이미 추천한 글입니다."); return; }
       render();
     });
-    el.querySelector("#comment-form").addEventListener("submit", e => {
+    // ⚠ 팀 게시판에서는 폼이 아예 없다 → ?. 없이 붙이면 글 상세가 통째로 멈춘다
+    el.querySelector("#comment-form")?.addEventListener("submit", e => {
       e.preventDefault();
       const nick = Auth.profile ? Auth.profile.nick : ""; // 닉네임은 서버가 정한다
       const body = e.target.querySelector(".body").value.trim();
