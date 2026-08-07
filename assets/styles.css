@@ -63,7 +63,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260808e") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260808h") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -675,7 +675,7 @@ table.detail-table th {
   padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--line);
 }
 table.detail-table td {
-  padding: 6px 8px; border-bottom: 1px solid var(--line);
+  padding: 9px 10px; border-bottom: 1px solid var(--line);
   font-size: var(--fs-sm); color: var(--text-sub); vertical-align: top;
 }
 table.detail-table tr:last-child td { border-bottom: none; }
@@ -1267,14 +1267,59 @@ a.bracket-match:hover { border-color: var(--accent); }
   .fr-badge { min-width: 30px; padding: 2px 5px; }
   .fr-pog, .chip-pom { padding: 1px 4px; font-size: 9px; }
   .frate-vs .rr-btn { max-width: none; }
-  /* 경기 상세: 챔피언 이름은 아이콘으로 충분. 칸은 줄바꿈 없이 두고,
-     그래도 넘치면 표 안에서만 가로로 밀린다 (.table-scroll)
-     ⚠ 열 너비를 %로 못 박아 두면(두 팀 표를 맞추려고 그렇게 했다) 좁은 화면에서
-       열이 19px 까지 찌그러진다. 최소 너비를 줘서 표가 화면보다 넓어지게 하고,
-       .table-scroll 안에서 가로로 밀어 보게 한다. (2026-08-07) */
-  table.detail-table { min-width: 620px; }
-  table.detail-table th, table.detail-table td { padding: 6px 5px; white-space: nowrap; }
+  /* ── 경기 상세: 좁은 화면에서는 표를 버리고 **선수 카드**로 다시 짠다 ──
+     375px 에 열 10개짜리 표는 무리다. 가로로 밀게 해 봤더니
+       · 두 팀 표가 따로 밀려 열이 어긋나고
+       · 스크롤바가 아래 표를 가로지르고
+       · 열이 19px 까지 찌그러졌다.
+     한 선수를 세 줄로 나눠 담으면 밀 필요가 없다. (2026-08-08)
+        1줄  이름·포지션        챔피언 스펠
+        2줄  KDA · 딜량 · CS · 골드
+        3줄  아이템                     룬  */
+  table.detail-table, table.detail-table tbody, table.detail-table tr, table.detail-table td {
+    display: block; width: auto;
+  }
+  table.detail-table thead, table.detail-table colgroup { display: none; }
+  table.detail-table { min-width: 0; }
+  /* ⚠ 자리를 안 정해 준 칸은 격자 맨 뒤로 밀린다 — 딜량·CS·골드가 아이템 **아래**로
+     떨어져 있었다. 네 칸 전부 자리를 못 박는다. */
+  table.detail-table tr {
+    display: grid; gap: 7px 10px;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    grid-template-areas:
+      "who   who  champ spell"
+      "kda   dmg  cs    gold"
+      "items items items runes";
+    padding: 12px 13px; border-bottom: 1px solid var(--line);
+  }
+  table.detail-table td { border: none; padding: 0; white-space: normal; }
+
+  .dt-player { grid-area: who; align-self: center; font-size: var(--fs-md); }
+  .dt-champ  { grid-area: champ; align-self: center; }
+  .dt-spell  { grid-area: spell; align-self: center; }
+  .dt-kda    { grid-area: kda; }
+  .dt-dmg    { grid-area: dmg; }
+  .dt-cs     { grid-area: cs; }
+  .dt-gold   { grid-area: gold; justify-self: end; }
+  /* 숫자에는 무엇인지 이름표를 단다 (표 머리를 감췄으므로) */
+  .dt-kda, .dt-num { font-size: var(--fs-md); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .dt-num::before, .dt-kda::before {
+    content: attr(data-k) " "; font-size: 10px; font-weight: 700; color: var(--text-dim);
+  }
+  .dt-items  { grid-area: items; }
+  .dt-runes  { grid-area: runes; justify-self: end; align-self: center; }
   .dt-champ .dd-nm { display: none; }
+
+  /* 정보창이 화면 밖으로 나가지 않게 — 아이콘이 아니라 **칸**에 맞춰 편다.
+     아이콘 기준으로 가운데 정렬하면 줄 끝 아이콘의 정보창이 화면을 넘는다. */
+  .dt-items, .dt-runes, .dt-spell, .dt-champ { position: relative; }
+  .dt-items .dd-chip, .dt-runes .dd-chip, .dt-spell .dd-chip, .dt-champ .dd-chip { position: static; }
+  .dt-items .dd-tip, .dt-runes .dd-tip, .dt-spell .dd-tip, .dt-champ .dd-tip {
+    left: 0; transform: none; width: 100%; max-width: none; min-width: 0;
+  }
+  .dt-runes .dd-tip { left: auto; right: 0; }
+  .dt-items .dd-tip::after, .dt-runes .dd-tip::after,
+  .dt-spell .dd-tip::after, .dt-champ .dd-tip::after { display: none; }
   .dd-ic { width: 20px; height: 20px; }
   .dt-player .pos { margin-left: 3px; }
 }
@@ -1563,12 +1608,14 @@ a.bracket-match:hover { border-color: var(--accent); }
   content: ""; position: absolute; bottom: 100%; left: 50%; margin-left: -5px;
   border: 5px solid transparent; border-bottom-color: var(--line);
 }
-/* ⚠ 정보창은 **표 안에서 잘리기 쉽다.**
-   .table-scroll 은 가로로 밀어 보려고 overflow:auto 인데, 그러면 세로도 함께 잘린다
-   (CSS 규칙상 한쪽만 auto 로 두면 다른 쪽이 visible 로 남지 않는다).
-   그래서 정보창을 **아이콘 아래쪽**에 띄우고, 표 아래에 그만큼 여유를 준다. */
+/* ⚠ 예전에는 정보창이 잘리지 않게 .table-scroll 에 padding-bottom 96px + margin-bottom -96px
+   를 줬는데, 그러면 **가로 스크롤바가 아래 표 한가운데를 가로지른다**(실제로 그랬다).
+   근본 해결: 표를 가로로 밀 일을 없앤다 —
+     · 넓은 화면: 열 너비를 %로 고정했으므로 표가 넘치지 않는다 → overflow 자체가 불필요
+     · 좁은 화면: 표를 버리고 카드로 다시 짠다 (아래 @media)
+   그래서 .table-scroll 은 아무것도 자르지 않는다. 정보창도 잘리지 않는다. (2026-08-08) */
 .detail-table td { overflow: visible; }
-.table-scroll { overflow-x: auto; padding-bottom: 96px; margin-bottom: -96px; }
+.table-scroll { overflow: visible; }
 /* 장신구(와드·렌즈)는 아이템 6칸과 구분되게 살짝 띄운다 */
 .dt-trinket { display: inline-block; margin-left: 6px; padding-left: 6px; border-left: 1px solid var(--line); }
 

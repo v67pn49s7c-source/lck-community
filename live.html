@@ -17,11 +17,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260808e">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260808e">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260808h">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260808h">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260808e">
+  <link rel="stylesheet" href="assets/styles.css?v=20260808h">
 </head>
 <body>
   <main class="page">
@@ -99,12 +99,12 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260808e"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260808e"></script>
-  <script src="assets/store.js?v=20260808e"></script>
-  <script src="assets/app.js?v=20260808e"></script>
-  <script src="assets/ddragon.js?v=20260808e"></script>
-  <script src="assets/race.js?v=20260808e"></script>
+  <script src="assets/data.js?v=20260808h"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260808h"></script>
+  <script src="assets/store.js?v=20260808h"></script>
+  <script src="assets/app.js?v=20260808h"></script>
+  <script src="assets/ddragon.js?v=20260808h"></script>
+  <script src="assets/race.js?v=20260808h"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -215,14 +215,14 @@
               return `<tr>
                 <td class="dt-player">${pl ? `<a href="player.html?id=${q(pl.id)}">${esc(pl.nick)}</a><span class="pos">${esc(lanePos(p) || pl.pos)}</span>` : esc(p.pid)}</td>
                 <td class="dt-champ">${ddChampHTML(p.champ)}</td>
-                ${col(has.spell, `<td class="dt-spell">${ddSpellHTML(p.spell)}</td>`)}
-                <td class="dt-kda"><b>${p.k}</b> / <em>${p.d}</em> / ${p.a}</td>
-                ${col(has.dmg, `<td>${+p.dmg > 0 ? (Math.round(p.dmg / 100) / 10) + "k" : "-"}</td>`)}
-                <td>${p.cs}</td>
-                <td>${p.gold}k</td>
-                ${col(has.items, `<td class="dt-items">${ddItemsHTML(p.items)}${
+                ${col(has.spell, `<td class="dt-spell" data-k="스펠">${ddSpellHTML(p.spell)}</td>`)}
+                <td class="dt-kda" data-k="KDA"><b>${p.k}</b> / <em>${p.d}</em> / ${p.a}</td>
+                ${col(has.dmg, `<td class="dt-num dt-dmg" data-k="딜량">${+p.dmg > 0 ? (Math.round(p.dmg / 100) / 10) + "k" : "-"}</td>`)}
+                <td class="dt-num dt-cs" data-k="CS">${p.cs}</td>
+                <td class="dt-num dt-gold" data-k="골드">${p.gold}k</td>
+                ${col(has.items, `<td class="dt-items" data-k="아이템">${ddItemsHTML(p.items)}${
                   p.trinket ? `<span class="dt-trinket">${ddItemsAny(p.trinket)}</span>` : ""}</td>`)}
-                ${col(has.runes, `<td class="dt-runes">${ddRunesHTML(p.runes)}</td>`)}
+                ${col(has.runes, `<td class="dt-runes" data-k="룬">${ddRunesHTML(p.runes)}</td>`)}
               </tr>`;
             }).join("")}
           </tbody>
