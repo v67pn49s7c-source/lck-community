@@ -116,6 +116,33 @@ const NAV_MENUS = [
   ["선수", "players.html"], ["수상", "awards.html"], ["랭킹", "ranking.html"],
 ];
 
+// ?id= 처럼 **내용이 갈리는 주소**는 canonical·og:url 도 그 주소여야 한다.
+// 고정 canonical 이면 검색엔진이 131개 글과 50명 선수를 한 장으로 합쳐 버린다.
+// 제목·설명도 함께 바꿔 공유·검색 결과가 그 페이지를 가리키게 한다. (2026-08-07)
+function setPageIdentity(keys, opts) {
+  opts = opts || {};
+  const q = new URLSearchParams(location.search);
+  const keep = new URLSearchParams();
+  (keys || []).forEach(k => { const v = q.get(k); if (v) keep.set(k, v); });
+  const qs = keep.toString();
+  const url = location.origin + location.pathname + (qs ? "?" + qs : "");
+  const set = (sel, attr, val) => {
+    if (!val) return;
+    const el = document.head.querySelector(sel);
+    if (el) el.setAttribute(attr, val);
+  };
+  set('link[rel="canonical"]', "href", url);
+  set('meta[property="og:url"]', "content", url);
+  if (opts.title) {
+    document.title = opts.title;
+    set('meta[property="og:title"]', "content", opts.title);
+  }
+  if (opts.desc) {
+    set('meta[name="description"]', "content", opts.desc);
+    set('meta[property="og:description"]', "content", opts.desc);
+  }
+}
+
 function renderHeader(activeMenu, activeTeamId) {
   document.body.classList.add("app-ready"); // 데이터 로드 완료 → 화면 표시
   window.__readyMs = Math.round(performance.now()); // 로딩 체감 측정용
@@ -124,9 +151,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807k")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807k")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807k")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807m")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807m")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807m")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_MENUS.map(([m, href]) => `<a href="${href}" class="${m === activeMenu ? "active" : ""}">${m}</a>`).join("")}
@@ -172,7 +199,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807k");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807m");
 
   renderTabBar(activeMenu);
 }
@@ -559,6 +586,10 @@ function renderPredictWidget() {
   const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
   const voted = getVotes()[match.id];
   const pct = communityPct(match);
+  // 표가 0건이면 communityPct 는 배당(2:2) 기반 추정치를 돌려준다 → 화면에는 정확히 50:50.
+  // 아무도 예측하지 않았는데 "팬심이 반반"이라고 말하는 셈이라 절대 그대로 쓰면 안 된다.
+  // (store.js communityPct 주석의 규칙 — 다른 화면은 지키는데 이 위젯만 빠져 있었다)
+  const shown = pct.n > 0;
 
   const whenEl = document.getElementById("predict-when");
   if (whenEl) whenEl.textContent = live ? "LIVE" : fmtWhen(match.at);
@@ -571,24 +602,26 @@ function renderPredictWidget() {
       <div class="predict-team" style="--team-color:${A.color}">
         <button data-vote="a" class="${voted === "a" ? "voted" : ""}">
           ${teamLogoHTML(A, 38)}
-          <span class="pct" style="color:${voted ? "var(--blue)" : "var(--text)"}">${pct.a}%</span>
+          <span class="pct" style="color:${voted ? "var(--blue)" : "var(--text)"}">${shown ? pct.a + "%" : "—"}</span>
         </button>
       </div>
       <span class="vs-label">VS</span>
       <div class="predict-team" style="--team-color:${B.color}">
         <button data-vote="b" class="${voted === "b" ? "voted" : ""}">
           ${teamLogoHTML(B, 38)}
-          <span class="pct" style="color:${voted ? "var(--accent)" : "var(--text)"}">${pct.b}%</span>
+          <span class="pct" style="color:${voted ? "var(--accent)" : "var(--text)"}">${shown ? pct.b + "%" : "—"}</span>
         </button>
       </div>
     </div>
     <div class="predict-bar">
-      <span class="a" style="width:${pct.a}%"></span>
-      <span class="b" style="width:${pct.b}%"></span>
+      <span class="a" style="width:${shown ? pct.a : 0}%"></span>
+      <span class="b" style="width:${shown ? pct.b : 0}%"></span>
     </div>
     <p class="predict-note">${voted
-      ? `<em>${voted === "a" ? A.abbr : B.abbr} 승리</em>에 예측했습니다 · 마감: 경기 시작 5분 전`
-      : `나의 <em>포인트</em>로 승부 예측하기!`}</p>`;
+      ? `<em>${voted === "a" ? A.abbr : B.abbr} 승리</em>에 예측했습니다 · ${shown ? `${pct.n}명 참여 · ` : ""}마감: 경기 시작 5분 전`
+      : shown
+      ? `${pct.n}명이 예측했습니다 · 한 번 눌러서 참여하세요`
+      : `<em>아직 아무도 예측하지 않았습니다</em> · 첫 예측을 남겨 보세요`}</p>`;
 
   el.querySelectorAll("[data-vote]").forEach(btn => {
     btn.addEventListener("click", () => {

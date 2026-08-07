@@ -11,10 +11,10 @@
   <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/nexus-mobile.png">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807k">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807m">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807k">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807m">
 </head>
 <body>
   <main class="page">
@@ -323,11 +323,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807k"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807k"></script>
-  <script src="assets/store.js?v=20260807k"></script>
-  <script src="assets/app.js?v=20260807k"></script>
-  <script src="assets/ddragon.js?v=20260807k"></script>
+  <script src="assets/data.js?v=20260807m"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807m"></script>
+  <script src="assets/store.js?v=20260807m"></script>
+  <script src="assets/app.js?v=20260807m"></script>
+  <script src="assets/ddragon.js?v=20260807m"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -1317,8 +1317,16 @@
     // ── 팬심지수 자동 생성 (경기마다 투표·사전 토론 글 동기화) ──
     function syncFanPulse() {
       let made = 0;
+      // ★ 최근·예정 경기만 대상으로 한다.
+      //   예전에는 전 경기를 돌아서, 관리자 화면을 열 때마다 4~5월 종료 경기용
+      //   토론 글이 계속 만들어졌다. 그 결과 커뮤니티 첫 페이지가 참여 0인
+      //   자동 글 127개로 덮여 유령 도시처럼 보였다 (2026-08-07).
+      const FRESH = 3 * 24 * 3600e3;          // 끝난 지 3일까지
       sortedMatches().forEach(m => {
         if (!knownTeams(m)) return;
+        if (!m.at) return;
+        const age = Date.now() - new Date(m.at).getTime();
+        if (age > FRESH) return;              // 오래 끝난 경기는 건드리지 않는다
         const A = TEAM_MAP[m.a], B = TEAM_MAP[m.b];
         const dateStr = fmtWhen(m.at);
         // 경기 전: 승부 예측 투표 (마감 = 경기 시작)

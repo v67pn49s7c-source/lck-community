@@ -17,9 +17,19 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807k">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807m">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807k">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807m">
+  <style>
+    /* 이 표의 핵심은 '자력 확보선' 열이다. 좁은 화면에서 전적·득실·잔여를 접고
+       팀 이름 아래 한 줄로 합쳐, 정답 열이 항상 화면 안에 있게 한다 (2026-08-07). */
+    .race-sub { display: none; }
+    @media (max-width: 620px) {
+      .race-table .c-rank, .race-table .c-rec, .race-table .c-pt, .race-table .c-left { display: none; }
+      .race-sub { display: block; font-size: 11px; color: var(--text-dim); margin-top: 2px; font-weight: 500; }
+      .race-table td, .race-table th { padding: 8px 5px; }
+    }
+  </style>
 </head>
 <body>
   <main class="page">
@@ -62,11 +72,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807k"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807k"></script>
-  <script src="assets/store.js?v=20260807k"></script>
-  <script src="assets/app.js?v=20260807k"></script>
-  <script src="assets/race.js?v=20260807k"></script>
+  <script src="assets/data.js?v=20260807m"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807m"></script>
+  <script src="assets/store.js?v=20260807m"></script>
+  <script src="assets/app.js?v=20260807m"></script>
+  <script src="assets/race.js?v=20260807m"></script>
   <script>
   storeReady.then(() => {
     renderHeader("경우의 수", null);
@@ -110,20 +120,22 @@
 
       body.innerHTML = `
         <div style="overflow-x:auto">
-        <table class="standings" style="min-width:560px">
+        <table class="standings race-table">
           <thead><tr>
-            <th>#</th><th style="text-align:left">팀</th><th>전적</th><th>득실</th><th>잔여</th>
+            <th class="c-rank">#</th><th style="text-align:left">팀</th>
+            <th class="c-rec">전적</th><th class="c-pt">득실</th><th class="c-left">잔여</th>
             ${r.cuts.map(c => `<th style="text-align:center">${esc(c.label)}<br><span style="font-weight:400;font-size:11px;color:var(--text-dim)">자력 · 산술</span></th>`).join("")}
           </tr></thead>
           <tbody>
             ${r.rows.map((row, i) => {
               const t = TEAM_MAP[row.team];
               return `<tr${row.team === deepTeam ? ` style="background:color-mix(in srgb, ${t.color} 12%, transparent)"` : ""}>
-                <td>${i + 1}</td>
-                <td style="text-align:left"><span style="display:inline-flex;align-items:center;gap:7px">${teamLogoHTML(t, 20)} <b>${esc(t.abbr)}</b></span></td>
-                <td>${row.w}승 ${row.l}패</td>
-                <td>${row.pt > 0 ? "+" : ""}${row.pt}</td>
-                <td>${row.remaining}</td>
+                <td class="c-rank">${i + 1}</td>
+                <td style="text-align:left"><span style="display:inline-flex;align-items:center;gap:7px">${teamLogoHTML(t, 20)} <b>${esc(t.abbr)}</b></span>
+                  <span class="race-sub">${row.w}승 ${row.l}패 · 득실 ${row.pt > 0 ? "+" : ""}${row.pt} · 잔여 ${row.remaining}</span></td>
+                <td class="c-rec">${row.w}승 ${row.l}패</td>
+                <td class="c-pt">${row.pt > 0 ? "+" : ""}${row.pt}</td>
+                <td class="c-left">${row.remaining}</td>
                 ${row.cuts.map(c => cellHTML(row, c)).join("")}
               </tr>`;
             }).join("")}
@@ -165,6 +177,10 @@
           <b>${esc(A.abbr)} vs ${esc(B.abbr)}</b> · ${esc(fmtWhen(next.at))} — <b>${esc(cutLabel)}</b> 기준<br>
           ${lineFor(A, ifA, ifB)}<br>
           ${lineFor(B, ifB, ifA)}
+        </div>
+        <div style="padding:0 16px 16px">
+          <a class="btn-primary" href="/match/${q(next.id)}" style="display:inline-block;text-decoration:none">
+            이 경기 예측하고 이야기하기 →</a>
         </div>`;
     }
 

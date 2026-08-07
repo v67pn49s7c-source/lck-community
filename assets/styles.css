@@ -54,7 +54,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260807k") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260807m") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -399,9 +399,18 @@ table.board-table tr.notice .col-title { font-weight: 700; }
 .comment-row .c-meta b { color: var(--text); }
 .comment-row .c-meta span { color: var(--text-dim); }
 .comment-row .c-body { margin-top: 3px; font-size: var(--fs-base); white-space: pre-wrap; word-break: break-word; }
-.comment-form { display: flex; gap: 6px; padding: 12px 14px; background: var(--bg-soft); }
-.comment-form input.nick { width: 90px; }
-.comment-form input.body { flex: 1; }
+/* 댓글 입력줄 — 한 줄에 닉네임+비밀번호+본문+버튼을 모두 넣으면 좁은 화면에서
+   '등록' 버튼이 화면 밖으로 밀려 아예 누를 수 없다. 줄바꿈을 허용하고
+   본문 칸이 항상 한 줄을 차지하게 한다 (2026-08-07). */
+.comment-form { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 14px; background: var(--bg-soft); }
+.comment-form input.nick { width: 90px; flex: 0 0 auto; min-width: 0; }
+.comment-form input.pw { width: 120px; flex: 0 0 auto; min-width: 0; }
+.comment-form input.body { flex: 1 1 100%; min-width: 0; order: 10; }
+.comment-form button { flex: 0 0 auto; order: 11; }
+@media (min-width: 640px) {
+  .comment-form input.body { flex: 1 1 auto; order: 0; }
+  .comment-form button { order: 0; }
+}
 
 /* ── 글쓰기 ── */
 .write-form { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
@@ -1122,7 +1131,13 @@ table.award-table td a:hover b { color: var(--accent); }
   .predict-match { grid-template-columns: 1fr auto 1fr; gap: 6px; padding: 10px 8px; }
   .predict-match .pm-info { font-size: 10px; line-height: 1.5; }
   .pm-btn { padding: 6px 7px; font-size: 12px; gap: 5px; }
-  table.board-table .col-views, table.board-table .col-date { display: none; }
+  /* 좁은 화면에서는 제목이 먼저다. 조회·날짜·닉네임·번호를 접어 제목 칸을 넓힌다
+     (이전에는 제목 칸이 57px 라 모든 글이 '[경기 토…' 로 잘렸다 — 2026-08-07) */
+  table.board-table .col-views, table.board-table .col-date,
+  table.board-table .col-no, table.board-table .col-nick { display: none; }
+  table.board-table .col-cat { width: 60px; }
+  table.board-table .col-up { width: 40px; }
+  table.board-table td, table.board-table th { padding: 8px 5px; }
   /* 팀 게시판 메뉴: 슬라이드 대신 5개씩 2줄 그리드 (전 팀 노출) */
   .team-strip-inner { display: grid; grid-template-columns: repeat(5, 1fr); overflow: visible; }
   .team-link { min-width: 0; padding: 7px 2px 5px; }

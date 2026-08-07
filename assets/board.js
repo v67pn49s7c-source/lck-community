@@ -131,7 +131,11 @@ async function initPostPage() {
   }
 
   const t = post.team ? TEAM_MAP[post.team] : null;
-  document.title = `${post.title} — The Nexus`;
+  // 글마다 다른 주소·제목 (고정 canonical 이면 131개 글이 한 장으로 합쳐진다)
+  setPageIdentity(["id"], {
+    title: `${post.title} — The Nexus`,
+    desc: (post.body || "").replace(/\s+/g, " ").slice(0, 120) || "The Nexus 커뮤니티 글",
+  });
 
   const render = () => {
     const cur = getPost(id);
@@ -446,7 +450,11 @@ async function initTeamPage() {
   const id = new URLSearchParams(location.search).get("team");
   const team = TEAM_MAP[id] || TEAMS[0];
   renderHeader("커뮤니티", team.id);
-  document.title = `${team.name} 게시판 — The Nexus`;
+  // 팀마다 다른 주소·제목 (10개 팀 게시판이 한 장으로 합쳐지지 않게)
+  setPageIdentity(["team"], {
+    title: `${team.name} 팬 게시판 — The Nexus`,
+    desc: `${team.name}(${team.abbr}) 팬들이 모이는 게시판, 공식 유튜브 최신 영상, 창립 팬 100인.`,
+  });
 
   renderTeamVideos(team.id);   // 공식 유튜브 최신 영상 (서버 함수가 있을 때만 표시)
 

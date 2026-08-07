@@ -15,9 +15,9 @@
   <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/nexus-mobile.png">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807k">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807m">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807k">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807m">
 </head>
 <body>
   <div class="team-hero" id="player-hero"></div>
@@ -69,12 +69,12 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807k"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807k"></script>
-  <script src="assets/store.js?v=20260807k"></script>
-  <script src="assets/app.js?v=20260807k"></script>
-  <script src="assets/ddragon.js?v=20260807k"></script>
-  <script src="assets/player-photos.js?v=20260807k"></script>
+  <script src="assets/data.js?v=20260807m"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807m"></script>
+  <script src="assets/store.js?v=20260807m"></script>
+  <script src="assets/app.js?v=20260807m"></script>
+  <script src="assets/ddragon.js?v=20260807m"></script>
+  <script src="assets/player-photos.js?v=20260807m"></script>
   <script>
   storeReady.then(async () => {
     const player = getPlayer(new URLSearchParams(location.search).get("id")) || getPlayers()[0];
@@ -84,7 +84,11 @@
     if (!player) {
       document.querySelector("main .stack").innerHTML = `<div class="empty-note">선수를 찾을 수 없습니다.</div>`;
     } else {
-      document.title = `${player.nick} — The Nexus`;
+      // 선수마다 다른 주소·제목·설명 (고정 canonical 이면 50명이 한 장으로 합쳐진다)
+      setPageIdentity(["id"], {
+        title: `${player.nick} (${team ? team.abbr : ""} ${player.pos}) 기록 — The Nexus`,
+        desc: `${player.nick} 선수의 2026 LCK 세트 기록, KDA·킬관여·딜비중과 팬 평점을 한 화면에서.`,
+      });
 
       // 히어로
       const hero = document.getElementById("player-hero");

@@ -205,9 +205,39 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807k"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807k"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807k"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807m"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807m"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807m"); });
+}
+
+// match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
+// 경기방·선수·카드·관리자 화면에서만 쓰므로, 나머지 화면에서는 첫 그림을 막지 않도록
+// 나중에 따로 받는다. (2026-08-07)
+const NEEDS_DETAILS = typeof location === "undefined" ? true
+  : /(live|player|cards|admin)\.html/.test(location.pathname) || location.pathname.indexOf("/match/") === 0;
+
+function ingestDetails(rows) {
+  Cache.details = {};
+  (rows || []).forEach(row => {
+    const d = Cache.details[row.match_id] = Cache.details[row.match_id] || { sets: [] };
+    d.sets.push({ _idx: row.set_index, win: row.win, players: row.players || [] });
+  });
+  _playedTeam = null;   // 편 판정 캐시는 상세가 바뀌면 다시 계산해야 한다
+}
+
+// 상세가 필요 없다고 판단한 화면에서도, **첫 그림이 끝난 뒤** 조용히 받아 둔다.
+// (POG 배지처럼 있으면 좋은 것들이 다음 그림에서 채워진다)
+// storeDetails 를 await 하면 상세가 확실히 들어온 뒤를 보장한다.
+let storeDetails = Promise.resolve();
+function loadDetailsLater() {
+  if (NEEDS_DETAILS) return storeDetails;
+  storeDetails = (async () => {
+    try {
+      const r = await sb.from("match_details").select("*").order("set_index");
+      if (!r.error) ingestDetails(r.data);
+    } catch (e) { /* 없어도 화면은 동작한다 */ }
+  })();
+  return storeDetails;
 }
 
 // ── 초기 로드 ──
@@ -225,7 +255,7 @@ async function fetchAll() {
     sb.from("comments").select("*").order("created_at"),
     // 예측·평점·투표·반응·댓글추천은 원본 대신 **집계 + 내 표**만 받는다 (왕복 1회)
     sb.rpc("get_fan_stats", { p_voter: anonId() }),
-    sb.from("match_details").select("*").order("set_index"),
+    NEEDS_DETAILS ? sb.from("match_details").select("*").order("set_index") : Promise.resolve({ data: [] }),
     // 로고(logo_*)는 무거워서 제외 — loadLogosLater()가 따로 받는다
     // 로고(무거움)와 수집 캐시(lp_cache_*, 아주 큼)는 방문자에게 내려보내지 않는다
     sb.from("site_settings").select("key,value").not("key", "like", "logo_%").not("key", "like", "lp_cache_%"),
@@ -284,11 +314,7 @@ async function fetchAll() {
     up: x.up, views: x.views, ts: Date.parse(x.created_at), comments: commentsByPost[x.id] || [],
   }));
 
-  Cache.details = {};
-  (de.data || []).forEach(row => {
-    const d = Cache.details[row.match_id] = Cache.details[row.match_id] || { sets: [] };
-    d.sets.push({ _idx: row.set_index, win: row.win, players: row.players || [] });
-  });
+  if (NEEDS_DETAILS) ingestDetails(de.data);
 
   // 집계는 matches·players·profiles가 채워진 뒤에 (예전 방식 폴백이 그것들을 쓴다)
   await applyFanStats(fs);
@@ -561,6 +587,10 @@ async function applyMatchToRecords(matchId) {
 // 이제 저장된 records 는 팀 명단(소속·표시 순서)으로만 쓰고, 승패·세트는 matches 에서 센다.
 // 경기와 스테이지는 이름으로 잇는다 — "Road To MSI"/"Road to MSI" 같은 표기 차이를 흡수한다.
 function computedStageRecords(s) {
+  // 별도 대회(Road To MSI 같은 토너먼트)는 자동 계산하지 않는다.
+  // 승률로 줄 세우면 1승 0패 팀이 우승팀 위로 올라간다(브래킷은 승수로 순위를 매기지 않는다).
+  // 관리자가 넣어 둔 전적을 그대로 쓴다. (2026-08-07)
+  if (!stageInTotal(s)) return s.records || [];
   const key = x => String(x || "").trim().toLowerCase();
   const played = Cache.matches.filter(m =>
     m.status === "done" && key(m.stage) === key(s.name) &&
@@ -1819,6 +1849,8 @@ const storeFresh = (async () => {
   await fetchAll();
   snapshotSave();
   loadLogosLater().catch(() => {});
+  // 나중에 받은 상세도 스냅샷에 담아 둔다 (다음 방문에 즉시 보이도록)
+  loadDetailsLater().then(() => snapshotSave()).catch(() => {});
   if (snapshotUsed && before !== cacheFingerprint()) showRefreshToast();
 })();
 
