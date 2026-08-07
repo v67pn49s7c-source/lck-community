@@ -45,11 +45,29 @@ const PAGE_SIZE = 500;
 // 아이템이 있는 행과 없는 행이 섞인다.
 const RAW_VERSION = 3;
 
+// 받아 둔 조각을 순서대로 이어 붙인다 (lp_cache_<페이지>_p0, _p1, …).
+//
+// ⚠ 예전에는 조각을 안 나누고 **한 칸에 통째로** 저장했다. 배치를 받을 때마다
+//   지금까지 받은 전부를 다시 올려서, 500행→1,000행→1,500행… 갈수록 무거워졌다
+//   (라운드 1-2 한 대회를 받는 동안 누적 3.7MB 업로드). 그 업로드가 40초 예산을
+//   다 먹어 라운드 3-4 는 손도 못 대고 끝났다. (2026-08-07)
+//   이제는 **새로 받은 조각만** 올린다.
+async function loadChunks(ck) {
+  const head = JSON.parse((await loadSetting(ck)) || "null");
+  if (!head || head.v !== RAW_VERSION) return null;
+  const rows = [];
+  for (let i = 0; i < (head.parts || 0); i++) {
+    const raw = await loadSetting(`${ck}_p${i}`);
+    if (!raw) return null;                       // 조각이 하나라도 없으면 처음부터
+    try { rows.push(...JSON.parse(raw)); } catch { return null; }
+  }
+  return { ...head, rows };
+}
+
 async function fetchRaw(page, deadline) {
   const ck = cacheKeyOf(page);
   let acc = null;
-  try { acc = JSON.parse(await loadSetting(ck) || "null"); } catch { acc = null; }
-  if (acc && acc.v !== RAW_VERSION) acc = null;          // 옛 형식은 버린다
+  try { acc = await loadChunks(ck); } catch { acc = null; }
   if (acc && acc.done && Date.now() - acc.t < CACHE_MINUTES * 60000) {
     return { rows: acc.rows, games: acc.games, cached: true, done: true, fetched: 0 };
   }
@@ -57,6 +75,7 @@ async function fetchRaw(page, deadline) {
   const where = `OverviewPage='${page.replace(/'/g, "''")}'`;
   // 이어받기: 이미 받아 둔 게 있으면 그 뒤부터
   let rows = (acc && !acc.done && Array.isArray(acc.rows)) ? acc.rows.slice() : [];
+  let parts = (acc && !acc.done && acc.parts) || 0;
   let done = false, fetched = 0, sgWarn = null, cacheWarn = null;
 
   // 페이지 나눠 받기가 어긋나지 않게 **고정된 순서**로 요청한다
@@ -75,13 +94,16 @@ async function fetchRaw(page, deadline) {
     fetched += batch.length;
     rows = rows.concat(batch);
     if (batch.length < PAGE_SIZE) done = true;
-    // ⚠ 체크포인트는 **항상** 남긴다. 예전에는 마지막 배치(500행 미만)일 때 곧바로 break 해서
-    //   여기를 안 탔고, 그 뒤 무거운 단계에서 함수가 죽으면 진행이 하나도 안 남았다.
-    //   그래서 몇 번을 눌러도 늘 처음부터 다시 받았다.
-    try { await saveSetting(ck, JSON.stringify({ v: RAW_VERSION, t: Date.now(), rows, games: null, done: false })); }
-    catch (e) { cacheWarn = (e && e.message || String(e)).slice(0, 80); }
+    // ⚠ 체크포인트는 **항상** 남긴다. 마지막 배치에서 곧바로 break 하면, 그 뒤 무거운
+    //   단계에서 함수가 죽었을 때 진행이 하나도 안 남아 늘 처음부터 다시 받게 된다.
+    //   **새로 받은 조각만** 올린다 (누적 전체를 다시 올리면 갈수록 느려진다).
+    try {
+      if (batch.length) await saveSetting(`${ck}_p${parts}`, JSON.stringify(batch));
+      if (batch.length) parts++;
+      await saveSetting(ck, JSON.stringify({ v: RAW_VERSION, t: Date.now(), parts, games: null, done: false }));
+    } catch (e) { cacheWarn = (e && e.message || String(e)).slice(0, 80); }
     if (done) break;
-    await wait(1200);        // 제한에 안 걸리는 게 재시도보다 싸다
+    await wait(600);         // 제한에 안 걸리는 게 재시도보다 싸다 (너무 길면 예산을 먹는다)
   }
 
   // 세트(게임) 단위 기록 — 밴/픽 순서·타워·억제기·드래곤·바론·전령·팀 골드·경기 시간.
@@ -110,7 +132,7 @@ async function fetchRaw(page, deadline) {
 
   // 스코어보드를 아직 못 받았으면 '다 받았다'고 확정하지 않는다 (다음에 이어서 받는다)
   const allDone = done && !!games;
-  try { await saveSetting(ck, JSON.stringify({ v: RAW_VERSION, t: Date.now(), rows, games, done: allDone })); }
+  try { await saveSetting(ck, JSON.stringify({ v: RAW_VERSION, t: Date.now(), parts, games, done: allDone })); }
   catch (e) { cacheWarn = (e && e.message || String(e)).slice(0, 80); }
   return { rows, games, cached: false, done, fetched, sgWarn, cacheWarn };
 }
@@ -192,6 +214,7 @@ async function fetchMVP(page) {
 }
 
 module.exports = async (req, res) => {
+  const reqStart = Date.now();          // 준비 작업까지 포함한 진짜 시작 시각
   try { await requireAdmin(req); }
   catch (e) { return fail(res, e.status || 500, e.message); }
 
@@ -215,18 +238,33 @@ module.exports = async (req, res) => {
     let stageRecords = [];
     try { stageRecords = await sb("stage_records?select=id,name,ord,records"); } catch {}
 
-    // 서버 함수는 60초 안에 끝나야 한다. 받는 데 40초까지만 쓰고 나머지는 저장에 남긴다.
-    const started = Date.now();
-    const BUDGET_MS = 40000;
+    // 서버 함수는 60초 안에 끝나야 한다.
+    // ⚠ started 를 여기서 찍으면 그 앞의 준비 작업(관리자 확인·이름표 내려받기 11회·
+    //   선수/경기/스테이지 조회)이 예산 밖이 된다. 실제로는 이미 3~5초를 쓴 뒤다.
+    //   그래서 예산을 32초로 잡고, 뒤에 오는 저장·MVP 에 여유를 남긴다. (2026-08-07)
+    const started = reqStart;
+    const BUDGET_MS = 32000;
     let rows = [], games = null, cached = false;
     const sgWarnAll = [], cacheWarnAll = [];
     const pageOf = {};                    // 경기 → 어느 대회 페이지에서 왔는지
     const doneOf = {};                    // 대회 페이지별로 끝까지 받았는지
     const progress = [];
-    for (let i = 0; i < pages.length; i++) {
-      const pg = pages[i];
+    // ⚠ **아직 못 받은 대회를 먼저** 받는다.
+    //   예전에는 적힌 순서대로 받아서, '시즌 전체'를 누르면 라운드 1-2(2,250행)가
+    //   예산을 다 먹고 정작 진행 중인 라운드 3-4 는 손도 못 댔다. (2026-08-07)
+    const doneAlready = {};
+    for (const pg of pages) {
+      try {
+        const h = JSON.parse((await loadSetting(cacheKeyOf(pg))) || "null");
+        doneAlready[pg] = !!(h && h.v === RAW_VERSION && h.done);
+      } catch { doneAlready[pg] = false; }
+    }
+    const order = [...pages].sort((a, b) => (doneAlready[a] ? 1 : 0) - (doneAlready[b] ? 1 : 0));
+
+    for (let i = 0; i < order.length; i++) {
+      const pg = order[i];
       // 남은 시간을 남은 대회 수로 나눠 준다 (한 대회가 시간을 다 쓰지 않게)
-      const left = pages.length - i;
+      const left = order.length - i;
       const remain = started + BUDGET_MS - Date.now();
       // 남은 시간이 없으면 요청을 내지 않는다. 예전에는 하한 3초를 강제로 줘서
       // 예산을 다 쓴 뒤에도 대회마다 요청이 하나씩 더 나갔고, 거기서 제한에 걸리면 함수가 죽었다.
@@ -530,7 +568,7 @@ module.exports = async (req, res) => {
     try {
       const mvpByMatch = {};
       for (const pg of pages) {
-        if (Date.now() - started > 48000) break;      // 시간이 모자라면 MVP 는 다음에
+        if (Date.now() - started > BUDGET_MS + 8000) break;   // 시간이 모자라면 MVP 는 다음에
         const mv = await fetchMVP(pg);
         mv.forEach(r => {
           const name = String(val(r, "MVP") || "").trim();

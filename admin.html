@@ -13,11 +13,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807u">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260807u">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807v">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260807v">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807u">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807v">
 </head>
 <body>
   <main class="page">
@@ -227,7 +227,7 @@
           <button type="button" data-p="LCK/2026 Season/Road to MSI">Road to MSI</button>
           <button type="button" data-p="LCK/2026 Season/Rounds 3-4">라운드 3-4</button>
           <button type="button" data-p="LCK/2026 Season/Cup">LCK 컵</button>
-          <button type="button" data-p="LCK/2026 Season/Rounds 1-2|LCK/2026 Season/Road to MSI|LCK/2026 Season/Rounds 3-4">시즌 전체</button>
+          <button type="button" data-p="LCK/2026 Season/Rounds 3-4|LCK/2026 Season/Road to MSI|LCK/2026 Season/Rounds 1-2">시즌 전체</button>
         </div>
         <div class="admin-list" id="lp-result"></div>
         <div class="admin-list" id="lp-alias"></div>
@@ -238,9 +238,12 @@
           이어 준 뒤 <b>가져오기</b>를 누르세요. 같은 경기를 다시 가져와도 덮어쓰기라 중복되지 않습니다.<br>
           가져오면 <b>세트별 KDA·CS·골드</b>가 저장되어 선수 페이지의 <b>육각형 지표</b>가 채워지고,
           <b>경기 MVP(POM)</b>도 함께 들어옵니다. 이미 만들어진 경기의 대회·그룹·시각은 건드리지 않습니다.<br>
+          <b style="color:var(--accent)">지금 진행 중인 라운드부터 받으세요.</b>
+          라운드 1-2 는 90경기(2,300행)라 혼자 한 번을 다 씁니다. 아이템·룬·오브젝트가
+          필요한 건 <b>진행 중인 라운드 3-4</b> 이므로 그 버튼을 먼저 누르는 편이 빠릅니다.<br>
           한 라운드는 기록이 2,000행이 넘어 <b>한 번에 다 못 받을 수 있습니다.</b> 결과에
           '이어받는 중'이라고 나오면 <b>같은 버튼을 한 번 더</b> 눌러 주세요 — 받은 데까지 저장돼 있어
-          이어서 받습니다. 라운드 1-2 같은 지난 대회는 <b>새 대회로 따로 만들어</b> 넣습니다.<br>
+          이어서 받습니다. ('시즌 전체'는 아직 못 받은 대회부터 알아서 받습니다)<br>
           데이터 출처: Leaguepedia (CC-BY-SA 3.0) — 푸터에 출처를 표기하고 있습니다.
         </div>
 
@@ -326,11 +329,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807u"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807u"></script>
-  <script src="assets/store.js?v=20260807u"></script>
-  <script src="assets/app.js?v=20260807u"></script>
-  <script src="assets/ddragon.js?v=20260807u"></script>
+  <script src="assets/data.js?v=20260807v"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807v"></script>
+  <script src="assets/store.js?v=20260807v"></script>
+  <script src="assets/app.js?v=20260807v"></script>
+  <script src="assets/ddragon.js?v=20260807v"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -1030,11 +1033,29 @@
       const token = Auth.session && Auth.session.access_token;
       // 예전 응답이 재사용되지 않게 매번 다른 주소 + 캐시 사용 안 함
       const url = path + (path.includes("?") ? "&" : "?") + "_=" + Date.now();
-      const r = await fetch(url, {
-        cache: "no-store",
-        headers: token ? { authorization: "Bearer " + token } : {},
-      });
-      const j = await r.json().catch(() => ({ error: "응답을 읽지 못했습니다" }));
+      // 서버 함수는 60초에 끊긴다. 그때 Vercel 은 JSON 이 아니라 오류 **HTML** 을 준다.
+      // 예전에는 그걸 "응답을 읽지 못했습니다" 라고만 띄워서, 시간이 모자란 건지
+      // 진짜 실패인지, 다시 눌러도 되는지 알 길이 없었다. (2026-08-07)
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 70000);
+      let r;
+      try {
+        r = await fetch(url, { cache: "no-store", signal: ctl.signal,
+          headers: token ? { authorization: "Bearer " + token } : {} });
+      } catch (e) {
+        clearTimeout(timer);
+        throw new Error("시간 안에 끝나지 못했습니다. 받은 데까지는 저장돼 있으니 **같은 버튼을 한 번 더** 눌러 주세요.");
+      }
+      clearTimeout(timer);
+      const text = await r.text();
+      let j = null;
+      try { j = JSON.parse(text); } catch { j = null; }
+      if (!j) {
+        if (r.status === 504 || /FUNCTION_INVOCATION_TIMEOUT/i.test(text)) {
+          throw new Error("60초를 넘겨 서버가 중단했습니다. 받은 데까지는 저장돼 있으니 **같은 버튼을 한 번 더** 눌러 주세요.");
+        }
+        throw new Error(`서버 오류 ${r.status} — 응답을 읽지 못했습니다`);
+      }
       if (!r.ok) throw new Error(j.error || ("서버 오류 " + r.status));
       return j;
     }
@@ -1072,6 +1093,8 @@
           ${j.POM상세 && j.POM상세.실패 ? `<br><span style="color:var(--accent)">경기 MVP를 못 받았습니다: ${esc(j.POM상세.실패)}</span>` : ""}
           ${j.POM상세 && j.POM상세.못찾은선수 ? `<br><span style="color:var(--accent)">MVP 선수 ${j.POM상세.못찾은선수}명을 우리 선수와 못 이었습니다</span>` : ""}
           ${j.대회 ? `<br><span style="color:var(--text-dim)">대회: ${esc(j.대회)}</span>` : ""}
+          ${j.대회고침 ? `<br><span style="color:var(--blue)">엉뚱한 대회에 있던 경기 ${j.대회고침}개를 제 대회로 옮겼습니다</span>` : ""}
+          ${(j.경고 || []).map(w => `<br><b style="color:var(--accent)">⚠ ${esc(w)}</b>`).join("")}
           ${j.모르는팀.length ? `<br><span style="color:var(--accent)">모르는 팀 ${j.모르는팀.length}개</span>` : ""}
           ${j.모르는선수.length ? `<br><span style="color:var(--accent)">아직 못 알아본 선수 ${j.모르는선수.length}명</span>` : ""}
           ${(j.이름겹침 || []).length ? `<br><span style="color:var(--accent)">닉네임이 겹쳐 자동 연결 못 함: ${esc(j.이름겹침.join(", "))}</span>` : ""}
