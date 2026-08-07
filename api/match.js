@@ -126,9 +126,12 @@ function page(m, details, players, tournamentName) {
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(desc)}">
 <meta property="og:url" content="${esc(url)}">
-<meta property="og:image" content="${SITE}/assets/brand/nexus-mobile.png">
-<meta name="twitter:card" content="summary">
-<link rel="icon" type="image/png" href="/assets/brand/nexus-mobile.png">
+<meta property="og:image" content="${SITE}/og/match/${encodeURIComponent(m.id)}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${esc(`${AN} ${m.score_a ?? ""} : ${m.score_b ?? ""} ${BN}`)}">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="/assets/brand/nexus-icon.png?v=20260807k">
 ${jsonLd(m, `${AN} vs ${BN}`, url)}
 <style>
 /* 검색 로봇과 자바스크립트가 꺼진 사람을 위한 최소 화면.
