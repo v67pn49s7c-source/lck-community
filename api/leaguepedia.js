@@ -84,7 +84,7 @@ async function fetchRaw(page, deadline) {
       tables: "ScoreboardPlayers=SP",
       fields: "SP.GameId,SP.MatchId,SP.Link,SP.Champion,SP.Kills,SP.Deaths,SP.Assists,SP.CS,SP.Gold,"
         + "SP.Team,SP.Role,SP.Side,SP.PlayerWin,SP.DateTime_UTC,"
-        + "SP.Items,SP.Trinket,SP.SummonerSpells,SP.KeystoneRune,SP.PrimaryTree,SP.SecondaryTree,"
+        + "SP.Items,SP.Trinket,SP.SummonerSpells,SP.KeystoneRune,SP.SecondaryTree,"
         + "SP.DamageToChampions,SP.VisionScore,SP.Pentakills",
       where: "SP." + where,
       order_by: "SP.GameId ASC, SP.Link ASC",
