@@ -13,11 +13,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260808d">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260808d">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260808e">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260808e">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260808d">
+  <link rel="stylesheet" href="assets/styles.css?v=20260808e">
 </head>
 <body>
   <main class="page">
@@ -229,6 +229,7 @@
           <button type="button" data-p="LCK/2026 Season/Cup">LCK 컵</button>
           <button type="button" data-p="LCK/2026 Season/Rounds 3-4|LCK/2026 Season/Road to MSI|LCK/2026 Season/Rounds 1-2">시즌 전체</button>
         </div>
+        <div class="admin-list" id="lp-lastrun" style="padding:0 0 8px"></div>
         <div class="admin-list" id="lp-result"></div>
         <div class="admin-list" id="lp-alias"></div>
         <div class="admin-list" id="lp-links"></div>
@@ -329,12 +330,12 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260808d"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260808d"></script>
-  <script src="assets/store.js?v=20260808d"></script>
-  <script src="assets/app.js?v=20260808d"></script>
-  <script src="assets/ddragon.js?v=20260808d"></script>
-  <script src="assets/brackets.js?v=20260808d"></script>
+  <script src="assets/data.js?v=20260808e"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260808e"></script>
+  <script src="assets/store.js?v=20260808e"></script>
+  <script src="assets/app.js?v=20260808e"></script>
+  <script src="assets/ddragon.js?v=20260808e"></script>
+  <script src="assets/brackets.js?v=20260808e"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -1131,6 +1132,30 @@
     }
 
     let lpLast = null;
+
+    // 매일 새벽에 도는 자동 수집이 잘 되고 있는지 한 줄로 보여 준다.
+    // (크론은 아무도 안 보는 시간에 돌아서, 실패해도 알 길이 없으면 믿을 수 없다)
+    async function renderLastRun() {
+      const el = document.getElementById("lp-lastrun");
+      if (!el) return;
+      let v = null;
+      try { await reloadSetting("lp_last_run"); v = JSON.parse(getSetting("lp_last_run") || "null"); } catch {}
+      if (!v) {
+        el.innerHTML = `<span class="muted">아직 자동 수집 기록이 없습니다 — 매일 새벽 4시에 돕니다.</span>`;
+        return;
+      }
+      const ago = Math.round((Date.now() - v.at) / 3600000);
+      const stale = ago > 30;      // 하루가 훌쩍 넘었으면 뭔가 잘못된 것이다
+      el.innerHTML = `
+        <span class="${stale ? "" : ""}" style="color:${stale ? "var(--accent)" : "var(--text-sub)"}">
+          <b>마지막 수집</b> ${esc(new Date(v.at).toLocaleString("ko-KR"))}
+          (${ago < 1 ? "방금" : ago + "시간 전"} · ${esc(v.by)})
+          — 경기 ${v.경기} · 세트 ${v.세트}${v.끝까지 === false ? " · <b>덜 받음</b>" : ""}
+          ${stale ? "<br><b>하루가 넘도록 안 돌았습니다. Vercel 의 CRON_SECRET 과 Cron Jobs 를 확인해 주세요.</b>" : ""}
+        </span>
+        ${(v.경고 || []).map(w => `<br><span style="color:var(--accent)">⚠ ${esc(w)}</span>`).join("")}`;
+    }
+
     function renderImportAdmin() {
       const sel = document.getElementById("lp-tid");
       // 기본값은 '자동' — 라운드 1-2·Road to MSI 처럼 없는 대회는 서버가 만들어 넣는다.
@@ -1139,6 +1164,7 @@
         + getTournaments().map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join("");
       renderAliasLinks();
       renderYoutubeAdmin();
+      renderLastRun();
     }
 
     function lpMsg(html) { document.getElementById("lp-result").innerHTML = `<div class="admin-item">${html}</div>`; }

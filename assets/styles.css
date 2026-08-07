@@ -46,8 +46,11 @@
   --blue: #2b6fe0;
   --ok: #14713f;
   --warn: #8a6100;
-  --logo-tile: #5b4a50;
-  --logo-line: #76626a;
+  /* 로고 타일 — 라이트 모드에서는 밝게. 예전에는 흰색 로고를 살리려고 어두운 갈색을
+     깔았는데, 밝은 화면에 어두운 네모가 줄지어 서 보기 안 좋다.
+     흰색 로고(BRO·DK·DNS·KRX)는 팀 색이 든 별도 파일로 바꿔 두었다. (2026-08-08) */
+  --logo-tile: #eef1f6;
+  --logo-line: #d7dbe4;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -60,7 +63,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260808d") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260808e") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {

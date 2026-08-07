@@ -11,7 +11,7 @@ function q(v) { return encodeURIComponent(String(v ?? "")); }
 // 라이트 모드에서 안 보이던 팀들 — 원래 로고가 흰색이라 밝은 바탕에서 사라진다.
 // 팀 색이 들어간 별도 파일을 받아 두었다 (assets/logos/<팀> light.svg).
 // 두 장을 겹쳐 두고 CSS 가 테마에 따라 하나만 보여 준다 — 테마를 바꿔도 다시 그릴 필요가 없다.
-const TEAM_LOGO_LIGHT = { bro: 1, dk: 1, dns: 1, krx: 1 };
+const TEAM_LOGO_LIGHT = { bro: 1, dk: 1, dns: 1, krx: 1, hle: 1 };
 
 function teamLogoHTML(team, size) {
   const s = size || 24;
@@ -191,9 +191,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260808d")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260808d")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260808d")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260808e")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260808e")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260808e")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_MENUS.map(([m, href]) => `<a href="${href}" class="${m === activeMenu ? "active" : ""}">${m}</a>`).join("")}
@@ -243,7 +243,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260808d");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260808e");
 
   renderTabBar(activeMenu);
 }

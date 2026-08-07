@@ -671,6 +671,16 @@ module.exports = async (req, res) => {
       warnings.push("자동 갱신 대상 페이지를 기억하지 못했습니다: " + (e && e.message || e));
     }
 
+    // 자동 수집이 잘 돌고 있는지 사장님이 볼 수 있게 마지막 결과를 남긴다.
+    // 크론은 아무도 안 보는 시간에 도는데, 실패해도 알 길이 없으면 '알아서 되는' 걸 믿을 수 없다.
+    try {
+      await saveSetting("lp_last_run", JSON.stringify({
+        at: Date.now(), by: byCron ? "자동" : "관리자",
+        page, 경기: matchRowsU.length, 세트: detailRows.length,
+        끝까지: allDone, 경고: warnings.slice(0, 3),
+      }));
+    } catch { /* 기록에 실패해도 수집 자체는 성공이다 */ }
+
     return ok(res, { ...summary, 저장함: true, 저장된경기: matchRowsU.length, 저장된세트: detailRows.length,
                      POM저장: pomSaved, POM상세: pomInfo, 선수등록: madePlayers,
                      대회고침: tidFixRows.length, 경고: warnings,
