@@ -22,7 +22,7 @@ from http.server import BaseHTTPRequestHandler
 from io import BytesIO
 from urllib.parse import urlparse, parse_qs
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 W, H = 1200, 630
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -67,30 +67,30 @@ def sb(path):
 
 
 def canvas(col_a, col_b):
-    """어두운 바탕 + 양 팀 색이 좌우에서 은은하게 번지는 배경."""
-    img = Image.new("RGB", (W, H))
-    d = ImageDraw.Draw(img)
-    for y in range(H):
-        t = y / H
-        d.line([(0, y), (W, y)], fill=(int(19 - 8 * t), int(21 - 9 * t), int(31 - 14 * t)))
+    """어두운 바탕 + 양 팀 색이 좌우에서 은은하게 번지는 배경.
 
-    glow = Image.new("RGB", (W, H), (0, 0, 0))
+    빛과 그라데이션은 **작게 그려서 확대**한다. 1200x630 을 파이썬 반복문으로
+    칠하면 75만 번을 돌아 3초 넘게 걸린다(SNS 크롤러가 포기할 수 있는 시간).
+    작게 그린 뒤 Pillow 의 네이티브 확대·합성을 쓰면 같은 그림이 훨씬 빨리 나온다.
+    """
+    SW, SH = 120, 63                       # 1/10 크기로 그린다 (어차피 부드러운 빛이라 손실이 없다)
+    small = Image.new("RGB", (SW, SH))
+    d = ImageDraw.Draw(small)
+    for y in range(SH):
+        t = y / SH
+        d.line([(0, y), (SW, y)], fill=(int(19 - 8 * t), int(21 - 9 * t), int(31 - 14 * t)))
+
+    glow = Image.new("RGB", (SW, SH), (0, 0, 0))
     g = ImageDraw.Draw(glow)
-    for cx, col in ((W * 0.15, col_a), (W * 0.85, col_b)):
-        c, r0 = hx(col), 440
-        for i in range(48, 0, -1):
-            rr = r0 * i / 48
-            a = (1 - i / 48) ** 2 * 0.32
-            g.ellipse([cx - rr, H * 0.46 - rr, cx + rr, H * 0.46 + rr],
+    for cx, col in ((SW * 0.15, col_a), (SW * 0.85, col_b)):
+        c, r0 = hx(col), SW * 0.37
+        for i in range(40, 0, -1):
+            rr = r0 * i / 40
+            a = (1 - i / 40) ** 2 * 0.34
+            g.ellipse([cx - rr, SH * 0.46 - rr, cx + rr, SH * 0.46 + rr],
                       fill=(int(c[0] * a), int(c[1] * a), int(c[2] * a)))
-    # 가산 합성 (빛이 겹치는 느낌)
-    px, gx = img.load(), glow.load()
-    for y in range(H):
-        for x in range(W):
-            r, gg, b = px[x, y]
-            r2, g2, b2 = gx[x, y]
-            px[x, y] = (min(255, r + r2), min(255, gg + g2), min(255, b + b2))
 
+    img = ImageChops.add(small, glow).resize((W, H), Image.BICUBIC)
     d = ImageDraw.Draw(img)
     d.rectangle([0, 0, W, 7], fill=hx("#ff4655"))
     return img, d
@@ -141,16 +141,28 @@ def og_match(match_id):
 
 
 def og_race():
-    """경우의 수 요약 — 잔여 경기 수와 조합 수만 (계산 자체는 화면이 한다)."""
+    """경우의 수 요약.
+
+    ⚠ 숫자는 화면(race.html)과 **같은 단위**여야 한다. 두 그룹을 합쳐 세면
+    화면은 "14경기 16,384가지"인데 이미지에는 "26경기 104만 가지"가 찍혀
+    같은 서비스가 서로 다른 말을 하게 된다. 그룹별로 세고 큰 쪽 하나만 쓴다.
+    """
     ms = sb("matches?select=status,stage&limit=500") or []
-    remain = sum(1 for m in ms if m.get("status") != "done"
-                 and "3-4" in (m.get("stage") or ""))
+    per = {}
+    for m in ms:
+        st = (m.get("stage") or "")
+        if "3-4" not in st:
+            continue
+        per.setdefault(st, 0)
+        if m.get("status") != "done":
+            per[st] += 1
+    remain = max(per.values()) if per else 0
+
     img, d = canvas("#4a8cff", "#ff4655")
     brand(d, "LCK 경우의 수")
-    d.text((64, H * 0.36), "우리 팀은 몇 승이 더 필요한가", font=font(64), fill=(242, 244, 248))
+    d.text((64, H * 0.36), "우리 팀은 몇 승이 더 필요한가", font=font(62), fill=(242, 244, 248))
     if remain:
-        combos = 2 ** min(remain, 20)
-        d.text((64, H * 0.56), f"남은 {remain}경기 · {combos:,}가지 조합 전수 계산",
+        d.text((64, H * 0.56), f"남은 {remain}경기 · {2 ** remain:,}가지 조합 전수 계산",
                font=font(40), fill=hx("#f5b942"))
     d.text((64, H - 156), "자력 확보선 · 산술 가능선 · 매일 갱신", font=font(34), fill=(154, 161, 176))
     footer(d)
