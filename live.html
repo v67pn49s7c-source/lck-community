@@ -220,15 +220,12 @@
         </table>
         </div>`;
       };
-      // 챔피언이 기록된(=출전한) 선수만, 소속 팀 기준으로 나눠서 표시
+      // 챔피언이 기록된(=출전한) 선수만, 그 세트의 편 기준으로 나눠서 표시
+      // (현재 소속으로 가르면 이적 선수가 반대편에 들어간다 — setSides 가 그것까지 처리한다)
       const playersInSet = set.players.filter(p => (p.champ || "").trim());
+      const sideOf = setSides(match, playersInSet);
       const aList = [], bList = [];
-      playersInSet.forEach(p => {
-        const pl = getPlayer(p.pid);
-        if (pl && pl.team === match.b) bList.push(p);
-        else if (pl && pl.team === match.a) aList.push(p);
-        else (aList.length <= bList.length ? aList : bList).push(p); // 로스터에 없는 id 안전망
-      });
+      playersInSet.forEach(p => (sideOf[p.pid] === "b" ? bList : aList).push(p));
       document.getElementById("details-body").innerHTML = half(aList, match.a) + half(bList, match.b);
     }
 

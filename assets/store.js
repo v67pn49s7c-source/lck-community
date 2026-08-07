@@ -974,15 +974,25 @@ function fanRatingRows(match, setIndex) {
   const posOrder = ["탑", "정글", "미드", "원딜", "서폿"];
   const played = setIndex == null ? playedPidsForMatch(match.id) : playedPidsForSet(match.id, setIndex);
   const { count: setsOf, total: totalSets } = setsPlayedForMatch(match.id);
-  const side = teamId => {
-    let ps = teamPlayers(teamId);
-    if (played.size) ps = ps.filter(p => played.has(p.id));
+  // 편은 **그 경기 명단** 으로 가른다. 현재 소속(teamPlayers)으로 가르면
+  // 이적한 선수가 어느 칸에도 안 잡혀 그 자리가 통째로 비어 버린다 (2026-08-07).
+  const sideOfPid = {};
+  ((Cache.details[match.id] || {}).sets || []).forEach(s => {
+    const sd = setSides(match, s.players);
+    (s.players || []).forEach(p => { if (p.pid && sd[p.pid]) sideOfPid[p.pid] = sd[p.pid]; });
+  });
+  const side = which => {
+    let ps = played.size
+      ? [...played].map(getPlayer).filter(Boolean).filter(p => (sideOfPid[p.id] || null) === which)
+      : teamPlayers(which === "a" ? match.a : match.b);
+    // 세트 기록이 아예 없는 경기는 현재 로스터로 대신한다
+    if (!played.size) ps = ps.filter(Boolean);
     // 많이 나온 선수부터 — 교체로 한 세트만 뛴 선수가 주전 위에 오지 않게
     return ps.map(p => ({ p, s: fanSplitForPlayer(p.id, match.id, setIndex),
                           sets: setsOf[p.id] || 0, totalSets }))
              .sort((x, y) => y.sets - x.sets);
   };
-  const A = side(match.a), B = side(match.b);
+  const A = side("a"), B = side("b");
   const rows = [], used = new Set();
   posOrder.forEach(pos => {
     const as = A.filter(x => x.p.pos === pos), bs = B.filter(x => x.p.pos === pos);
@@ -996,6 +1006,85 @@ function fanRatingRows(match, setIndex) {
   A.filter(x => !used.has(x.p.id)).forEach(x => rows.push({ pos: x.p.pos, a: x, b: null }));
   B.filter(x => !used.has(x.p.id)).forEach(x => rows.push({ pos: x.p.pos, a: null, b: x }));
   return rows;
+}
+
+// ── 세트 안에서 누가 어느 편이었나 ────────────────────────
+// 왜 필요한가: players.team 은 **현재 소속**이라 이적한 선수의 과거 경기를 판정할 수 없다.
+//   실제로 Aiming·Taeyoon·Diable·Sharvel 의 승/패·킬관여가 이 때문에 깨져
+//   "킬관여 222%", "49세트 2승 47패" 같은 값이 선수 페이지에 나왔다 (2026-08-07).
+// 어떻게 정하나:
+//   1) 수집기가 넣어 준 side 가 있으면 그대로 쓴다 (가장 정확 — 그 경기 당시 소속)
+//   2) 없으면 현재 소속이 그 경기 두 팀 중 하나인 선수부터 배정하고,
+//      남은 선수(=이적자)는 아직 5자리가 안 찬 쪽에 넣는다
+// 돌려주는 값: { 선수id: "a" | "b" }
+function setSides(match, setPlayers) {
+  const out = {};
+  const list = (setPlayers || []).filter(p => p && p.pid);
+  const count = { a: 0, b: 0 };
+  const left = [];
+  list.forEach(p => {
+    if (p.side === "a" || p.side === "b") { out[p.pid] = p.side; count[p.side]++; return; }
+    const t = playedForTeam(p.pid) || (getPlayer(p.pid) || {}).team;
+    if (t === match.a) { out[p.pid] = "a"; count.a++; }
+    else if (t === match.b) { out[p.pid] = "b"; count.b++; }
+    else left.push(p.pid);
+  });
+  left.forEach(pid => {
+    const side = count.a <= count.b ? "a" : "b";   // 덜 찬 쪽으로
+    out[pid] = side; count[side]++;
+  });
+  return out;
+}
+
+// 이 선수가 이번 시즌 **실제로 뛴** 팀 (현재 소속과 다를 수 있다).
+//
+// 왜 필요한가: 이적 선수가 **옛 소속과 붙은 경기**에서는 현재 소속으로 가르면
+//   한쪽이 6명이 된다. 예) Aiming 은 지금 KRX 인데 시즌 대부분을 KT 로 뛰었다
+//   → KRX vs KT 경기에서 KRX 쪽에 원딜이 둘(Aiming·LazyFeel), KT 쪽엔 원딜이 없음.
+//
+// 어떻게 정하나 (2단계):
+//   1차 — 현재 소속으로 가능한 만큼 배정하고, 남은 선수는 덜 찬 쪽에 넣는다.
+//         이적 선수는 옛 소속 팀 경기(상대에 현 소속이 없는 경기)에서 자연히 옛 팀에 붙는다.
+//   2차 — 그렇게 붙은 팀을 세어 다수결로 "이 선수가 뛴 팀"을 정한다.
+//         이제 옛 소속과 붙은 경기에서도 올바른 편으로 간다.
+// 결과는 한 번만 계산해 두고 재사용한다.
+let _playedTeam = null;
+function playedForTeam(pid) {
+  if (!_playedTeam) {
+    _playedTeam = {};
+    const tally = {};
+    // 1차 배정 — playedForTeam 을 쓰지 않는 기본 규칙 (여기서 부르면 무한 반복)
+    const basic = (m, list) => {
+      const res = {}, cnt = { a: 0, b: 0 }, rest = [];
+      list.forEach(p => {
+        if (p.side === "a" || p.side === "b") { res[p.pid] = p.side; cnt[p.side]++; return; }
+        const t = (getPlayer(p.pid) || {}).team;
+        if (t === m.a) { res[p.pid] = "a"; cnt.a++; }
+        else if (t === m.b) { res[p.pid] = "b"; cnt.b++; }
+        else rest.push(p.pid);
+      });
+      rest.forEach(id => { const s = cnt.a <= cnt.b ? "a" : "b"; res[id] = s; cnt[s]++; });
+      return res;
+    };
+    Cache.matches.forEach(m => {
+      const det = Cache.details[m.id];
+      if (!det) return;
+      det.sets.forEach(s => {
+        const list = (s.players || []).filter(p => p && p.pid);
+        const res = basic(m, list);
+        list.forEach(p => {
+          const team = res[p.pid] === "a" ? m.a : m.b;
+          if (!team) return;
+          (tally[p.pid] = tally[p.pid] || {})[team] = (tally[p.pid][team] || 0) + 1;
+        });
+      });
+    });
+    Object.keys(tally).forEach(id => {
+      const e = Object.entries(tally[id]).sort((x, y) => y[1] - x[1]);
+      if (e.length) _playedTeam[id] = e[0][0];
+    });
+  }
+  return _playedTeam[pid] || null;
 }
 
 // 경기 POG: 전체 평균 1위 선수 (동률이면 참여자 많은 쪽 · 출전 기록이 있으면 출전 선수만)
@@ -1253,19 +1342,20 @@ function playerAggregate(pid, tid) {
       if (+row.vs > 0) { vis += +row.vs; visSets++; }
       penta += +row.penta || 0;
 
+      // 편 가르기는 **그 세트 명단** 기준 (현재 소속으로 하면 이적 선수가 깨진다)
+      const sides = setSides(m, s.players);
+      const mySide = sides[pid];
+      const mates = (s.players || []).filter(p => sides[p.pid] === mySide);
+
       // 킬 관여율 = (킬+어시) ÷ 우리 팀 총 킬
-      const teamKills = (s.players || [])
-        .filter(p => (getPlayer(p.pid) || {}).team === player.team)
-        .reduce((n, p) => n + (+p.k || 0), 0);
+      const teamKills = mates.reduce((n, p) => n + (+p.k || 0), 0);
       if (teamKills > 0) { kpSum += (rk + ra) / teamKills; kpSets++; }
 
       // 딜 비중: 우리 팀 총 딜에서 내가 넣은 몫 (팀 색깔이 달라도 공평하게 비교된다)
-      const teamDmg = (s.players || [])
-        .filter(p => (getPlayer(p.pid) || {}).team === player.team)
-        .reduce((n, p) => n + (+p.dmg || 0), 0);
+      const teamDmg = mates.reduce((n, p) => n + (+p.dmg || 0), 0);
       if (teamDmg > 0 && +row.dmg > 0) { dmgShareSum += (+row.dmg) / teamDmg; dmgShareSets++; }
 
-      const won = (s.win === "a" ? m.a : m.b) === player.team;
+      const won = mySide === s.win;
       if (won) wins++;
 
       const c = (champs[row.champ] = champs[row.champ] || { champ: row.champ, sets: 0, wins: 0, k: 0, d: 0, a: 0, last: null });

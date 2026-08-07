@@ -177,15 +177,21 @@ function numberCandidates() {
   });
 
   // 챔피언 수 + 승률 극단 (10픽 이상)
+  // ⚠ 예전에는 배열 앞 5명을 A팀으로 가정했는데, 명단은 팀별로 묶여 있지 않다
+  //   (253세트 전부 섞여 있어 승률이 100% 틀렸다 — 2026-08-07).
+  //   반드시 setSides() 로 편을 갈라야 한다.
   const pick = {};
   Object.keys(Cache.details).forEach(mid => {
+    const m = Cache.matches.find(x => x.id === mid);
+    if (!m) return;
     (Cache.details[mid].sets || []).forEach(s => {
-      (s.players || []).forEach((p, i) => {
+      const sides = setSides(m, s.players);
+      (s.players || []).forEach(p => {
         const ch = (p.champ || "").trim();
-        if (!ch) return;
+        if (!ch || !sides[p.pid]) return;
         const r = pick[ch] = pick[ch] || { n: 0, w: 0 };
         r.n++;
-        if (s.win === (i < 5 ? "a" : "b")) r.w++;
+        if (s.win === sides[p.pid]) r.w++;
       });
     });
   });

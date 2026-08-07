@@ -207,6 +207,11 @@ module.exports = async (req, res) => {
           at: g.at, sets: [], scoreA: 0, scoreB: 0,
         });
         // ⚠ 세트마다 블루/레드가 바뀐다. 이긴 팀 '이름'을 경기 기준 A팀과 대조해야 한다.
+        // ⚠⚠ 그런데 여기서의 A(=1세트 블루팀)와 실제 저장될 matches.a 는 다를 수 있다.
+        //     matches.a 는 일정표(schedule-sync)가 Team1 으로 정하기 때문이다.
+        //     그래서 여기서는 a/b 로 확정하지 말고 **이긴 팀 id** 를 그대로 들고 가서,
+        //     저장 직전에 실제 경기의 a 와 대조해 a/b 를 정한다.
+        //     (이 구분을 안 해서 7경기 16세트의 승패가 통째로 뒤집혀 저장돼 있었다 — 2026-08-07)
         const winnerName = names.find(n => g.teams[n].win) || null;
         const winIsA = winnerName === m.aName;
         if (winnerName) { if (winIsA) m.scoreA++; else m.scoreB++; }
@@ -214,6 +219,7 @@ module.exports = async (req, res) => {
         m.sets.push({
           n: setNoOf(g.gid) || m.sets.length + 1,
           win: winIsA ? "a" : "b",
+          winTeam: winnerName ? (teamMap[winnerName] || null) : null,
           players: g.players.map(r => {
             const link = val(r, "Link");
             if (!playerMap[link]) {
@@ -230,6 +236,9 @@ module.exports = async (req, res) => {
             const second = ko.rune(val(r, "SecondaryTree"));
             return {
               pid: playerMap[link] || null, lpName: link,
+              // 그 세트에 어느 팀 소속으로 뛰었는가 — players.team(현재 소속)으로는
+              // 이적 선수의 과거 경기를 판정할 수 없어 승/패·팀합계가 틀어진다.
+              team: teamMap[val(r, "Team")] || null,
               champ: champKo(val(r, "Champion")),
               k: Number(val(r, "Kills")) || 0, d: Number(val(r, "Deaths")) || 0, a: Number(val(r, "Assists")) || 0,
               cs: Number(val(r, "CS")) || 0,
@@ -320,13 +329,18 @@ module.exports = async (req, res) => {
       // 아직 없는 경기는, 그 대회를 **끝까지 받았을 때만** 만든다.
       // (덜 받은 상태로 만들면 세트를 덜 세어 스코어가 1:0 처럼 틀리게 들어간다)
       if (prev || !doneOf[pg]) {
+        // ★ 승패·편 가르기의 기준은 **실제 저장된 경기의 a** 다.
+        //   Leaguepedia 의 1세트 블루팀(m.a)과 다를 수 있고, 다르면 전부 뒤집힌다.
+        const baseA = prev ? prev.a : m.a;
         m.sets.forEach(s => {
+          const win = s.winTeam && baseA ? (s.winTeam === baseA ? "a" : "b") : s.win;
           const players = s.players.filter(p => p.pid).map(p => ({
             pid: p.pid, champ: p.champ, spell: p.spell, k: p.k, d: p.d, a: p.a,
             cs: p.cs, gold: p.gold, items: p.items, runes: p.runes,
             dmg: p.dmg, vs: p.vs, penta: p.penta,
+            side: p.team && baseA ? (p.team === baseA ? "a" : "b") : null,
           }));
-          if (players.length) detailRows.push({ match_id: id, set_index: s.n - 1, win: s.win, players });
+          if (players.length) detailRows.push({ match_id: id, set_index: s.n - 1, win, players });
         });
         return;
       }
@@ -344,13 +358,16 @@ module.exports = async (req, res) => {
         score_a: (prev && prev.counted) ? prev.score_a : (done ? m.scoreA : null),
         score_b: (prev && prev.counted) ? prev.score_b : (done ? m.scoreB : null),
       });
+      // 새로 만드는 경기도 같은 규칙 — 여기서는 저장할 a 가 m.a 다
       m.sets.forEach(s => {
+        const win = s.winTeam && m.a ? (s.winTeam === m.a ? "a" : "b") : s.win;
         const players = s.players.filter(p => p.pid).map(p => ({
           pid: p.pid, champ: p.champ, spell: p.spell, k: p.k, d: p.d, a: p.a,
           cs: p.cs, gold: p.gold, items: p.items, runes: p.runes,
           dmg: p.dmg, vs: p.vs, penta: p.penta,
+          side: p.team && m.a ? (p.team === m.a ? "a" : "b") : null,
         }));
-        if (players.length) detailRows.push({ match_id: id, set_index: s.n - 1, win: s.win, players });
+        if (players.length) detailRows.push({ match_id: id, set_index: s.n - 1, win, players });
       });
     });
 
