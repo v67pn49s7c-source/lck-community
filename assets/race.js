@@ -8,17 +8,20 @@
 //     (동률이면 세트득실·규정으로 갈리는데, 그건 아직 결정되지 않았다)
 //   · 동률로 갈리는 조합의 비율(tiePct)을 함께 돌려줘 화면이 그대로 밝히게 한다.
 //
-// 용어:
-//   자력 확보선(safe) = 남은 경기에서 그만큼만 이기면 **다른 경기 결과와 무관하게**
-//                       그 순위 안이 보장되는 최소 승수. null 이면 자력으로는 불가.
-//   산술 가능선(hope) = 다른 경기 결과가 전부 따라줄 때 그 순위 안(동률 없이)이
-//                       되는 최소 승수. null 이면 산술상 불가.
+// 내부 용어 (화면에는 이 말을 그대로 쓰지 않는다 — raceSay() 가 사람 말로 바꾼다):
+//   safe = 남은 경기에서 그만큼만 이기면 **다른 경기 결과와 무관하게** 그 순위 안이
+//          보장되는 최소 승수. null 이면 우리 힘만으로는 불가.
+//   hope = 다른 경기 결과가 전부 따라줄 때 그 순위 안(동률 없이)이 되는 최소 승수.
+//          null 이면 산술상 불가.
 
 // teams: 그룹 팀 id 5개 · base: {id:{w,l,sw,sl}} 현재 누적 · remain: [{a,b}] 잔여 경기
 // cuts: [{k:2, label:"2위 안"}, …]
 function raceCompute(teams, base, remain, cuts) {
   const n = remain.length;
-  if (n > 18) return null;                      // 2^18 넘는 전수는 하지 않는다 (시즌 초반)
+  // 한 그룹(5팀 더블 라운드 로빈)은 20경기다. 라운드가 막 시작하면 잔여가 딱 20이라,
+  // 예전 상한(18)이면 라운드 초반 내내 페이지가 빈 채로 있었다.
+  // 실측: 18경기 110ms · 20경기 약 0.4초 (22경기부터는 2초를 넘어 거부한다).
+  if (n > 20) return null;
   const total = 1 << n;
   const ti = {}; teams.forEach((t, i) => { ti[t] = i; });
   const baseW = teams.map(t => (base[t] || { w: 0 }).w);
@@ -74,8 +77,6 @@ function raceCompute(teams, base, remain, cuts) {
            tiePct: tieCnt.map(c => Math.round((c / total) * 100)) };
 }
 
-// 그룹의 순위표 컷 — 자리(숫자) 기준으로만 말한다.
-// 각 자리의 의미(직행·플레이-인 등)는 공식 규정 기준으로 화면에서 따로 설명한다.
 // 2026 LCK 공식 규정 기준 — 정규 라운드 3-4 가 끝나면 **그룹별 순위**로 다음이 갈린다.
 //   레전드 1·2위 → 플레이오프 승자조 2라운드 직행 (1·2번 시드)
 //   레전드 3·4위 → 플레이오프 승자조 1라운드     (3·4번 시드)
@@ -203,4 +204,22 @@ function raceCopyText(stageId) {
   });
   out += `\n(Leaguepedia 기록 기준 · 비영리 팬 제작 · 틀린 곳 있으면 알려주세요)`;
   return out;
+}
+
+/** 계산 결과가 없을 때 **왜** 없는지 알려 준다.
+ *  예전에는 무조건 "아직 계산할 경기가 없습니다" 였는데, 실제로는 잔여 경기가
+ *  너무 많아 거부된 경우(라운드 초반)일 수도 있어 사실과 달랐다. */
+function raceWhyEmpty(stageId) {
+  const stage = Cache.records.find(s => s.id === stageId);
+  if (!stage || !RACE_CUTS[stageId]) return "이 그룹은 아직 준비 중입니다";
+  const teams = (stage.records || []).map(r => r.team).filter(t => TEAM_MAP[t]);
+  const key = x => String(x || "").trim().toLowerCase();
+  const names = new Set(Cache.records.filter(stageInTotal).map(s => key(s.name)));
+  const left = Cache.matches.filter(m =>
+    m.status !== "done" && names.has(key(m.stage)) &&
+    teams.includes(m.a) && teams.includes(m.b)).length;
+  if (!left) return "이 그룹은 남은 경기가 없습니다 — 순위가 모두 확정됐습니다";
+  if (left > 20) return `남은 ${left}경기는 조합이 100만 가지가 넘어 전수 계산을 하지 않습니다. `
+    + `경기가 몇 번 더 치러지면 자동으로 나타납니다.`;
+  return "아직 계산할 경기가 없습니다";
 }
