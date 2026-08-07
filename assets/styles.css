@@ -60,7 +60,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260807y") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260807z") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -905,9 +905,12 @@ table.award-table td a:hover b { color: var(--accent); }
 .bracket-wrap { overflow-x: auto; }
 .bracket { display: flex; gap: 12px; padding: 14px; align-items: stretch; min-width: min-content; }
 .bracket-col { flex: 1; min-width: 216px; display: flex; flex-direction: column; gap: 10px; }
+/* 라운드 머리띠 · 경기 제목줄 — 배경이 진한 보라라 글자는 **항상 흰색**이어야 한다.
+   color 를 테마 변수로 두면 라이트 모드에서 흰 배경 글자색이 얹혀 1.00:1(완전히 안 보임)이
+   된다. 실제로 그랬다. 배경이 고정색이면 글자도 고정색으로 못 박는다. (2026-08-07) */
 .bracket-col-title {
   text-align: center; font-size: var(--fs-sm); font-weight: 800;
-  padding: 7px 4px; color: #fff;
+  padding: 7px 4px; color: #fff !important;
   background: linear-gradient(100deg, #241a4d, #4a2a7a 55%, #8b3fa8);
   clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
 }
@@ -915,22 +918,46 @@ table.award-table td a:hover b { color: var(--accent); }
 .bracket-match { border: 1px solid var(--line); background: var(--card); }
 .bm-head {
   display: flex; justify-content: space-between; gap: 6px;
-  font-size: var(--fs-xs); font-weight: 700; color: #fff;
+  font-size: var(--fs-xs); font-weight: 700; color: #fff !important;
   background: linear-gradient(90deg, #3b2a66, #7a3396);
   padding: 4px 9px;
 }
-.bm-head .bm-date { font-weight: 500; opacity: .85; }
+.bm-head .bm-date, .bm-head span { color: #fff !important; font-weight: 500; }
+.bm-head > span:first-child { font-weight: 700; }
+/* 한 자리 = [출처 라벨] [로고+이름] [점수]
+   출처 라벨은 "그 자리에 누가 오는가"를 말한다 — 5위·6위 같은 시드이거나,
+   "R1 승자 →" 처럼 앞 경기에서 올라오는 자리다. 아직 안 정해진 자리도 이걸로 읽힌다. */
 .bm-slot {
-  display: flex; align-items: center; gap: 8px;
+  display: grid; grid-template-columns: 46px 1fr auto;
+  align-items: center; gap: 8px;
   padding: 7px 9px; border-top: 1px solid var(--line);
-  font-weight: 700; font-size: var(--fs-md);
+  font-weight: 700; font-size: var(--fs-md); min-height: 40px;
 }
 .bm-slot:first-of-type { border-top: none; }
-.bm-slot .score { margin-left: auto; font-weight: 800; font-variant-numeric: tabular-nums; }
+/* 자리 라벨 — 이긴 칸은 색 배경이 깔려서 흐린 글자가 4.4:1 언저리로 떨어진다.
+   본문색을 조금 죽인 정도로 두어 두 테마·두 배경(보통 칸·이긴 칸) 모두에서 읽히게 한다. */
+.bm-from {
+  font-size: 10px; font-weight: 800; line-height: 1.2;
+  color: color-mix(in srgb, var(--text) 78%, transparent); word-break: keep-all;
+}
+.bm-from .arrow { display: block; font-size: 9px; font-weight: 600; }
+.bm-who { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.bm-who span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bm-slot .score { font-weight: 800; font-variant-numeric: tabular-nums; font-size: var(--fs-lg); }
 .bm-slot.tbd { color: var(--text-dim); font-weight: 600; font-size: var(--fs-sm); }
-.bm-slot.winner { background: color-mix(in srgb, var(--accent) 9%, transparent); }
-.bm-slot.winner .score { color: var(--accent); }
+
+/* 이긴 자리 — 무엇을 얻었는지에 따라 색이 다르다 (범례와 짝을 맞춘다) */
+.bm-slot.winner { background: color-mix(in srgb, var(--ok) 22%, transparent); }
+.bm-slot.winner.adv-final { background: color-mix(in srgb, var(--blue) 26%, transparent); }
+.bm-slot.winner .score { color: var(--text); }
 .bm-slot.loser { color: var(--text-dim); }
+.bm-slot.loser .score { color: var(--text-dim); }
+
+/* 범례 — 색이 무슨 뜻인지 */
+.bl-key { display: inline-flex; align-items: center; gap: 5px; margin: 0 8px; }
+.bl-key i { width: 11px; height: 11px; display: inline-block; border-radius: 2px; }
+.bl-key i.adv { background: color-mix(in srgb, var(--ok) 60%, transparent); }
+.bl-key i.fin { background: color-mix(in srgb, var(--blue) 60%, transparent); }
 .bracket-legend {
   padding: 10px 14px; border-top: 1px solid var(--line);
   font-size: var(--fs-sm); color: var(--text-sub); text-align: center;
@@ -1495,3 +1522,13 @@ table.award-table td a:hover b { color: var(--accent); }
 .sb-links a { color: var(--accent); text-decoration: none; }
 .sb-links a:hover { text-decoration: underline; }
 .sb-links span { color: var(--text-dim); font-weight: 600; }
+
+/* 대진표 — 열 = 라운드, 행 = 위/아래 가지 (공식 대진표와 같은 배치) */
+.bracket-col-body {
+  display: grid; grid-template-rows: repeat(var(--rows, 1), 1fr);
+  gap: 10px; flex: 1; align-content: center;
+}
+.tbd-logo {
+  width: 22px; height: 22px; border: 1px dashed var(--line);
+  background: var(--bg-soft); flex-shrink: 0;
+}
