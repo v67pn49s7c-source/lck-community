@@ -205,9 +205,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260808a"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260808a"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260808a"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260808b"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260808b"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260808b"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -296,9 +296,13 @@ async function fetchAll() {
   Cache.founding = ff.data || [];
   Cache.profiles = pf.data || [];
 
-  Cache.tournaments = (t.data || []).map(x => ({ id: x.id, name: x.name, type: x.type, stages: x.stages || [], note: x.note || "" }));
+  Cache.tournaments = (t.data || []).map(x => ({
+    id: x.id, name: x.name, type: x.type, stages: x.stages || [], note: x.note || "",
+    bracket: x.bracket || {},   // 대진 설정(시드 표·상자 연결). 칸이 없어도 {} 라 안전하다
+  }));
   Cache.matches = (m.data || []).map(x => ({
     id: x.id, tid: x.tid, stage: x.stage, at: x.at, a: x.a, b: x.b, label: x.label || "",
+    lp_id: x.lp_id || null,     // 리그피디아 원본 id (대진표 연결 화면에서 구분에 쓴다)
     oddsA: Number(x.odds_a), oddsB: Number(x.odds_b), status: x.status, scoreA: x.score_a, scoreB: x.score_b,
     counted: x.counted,
   }));
@@ -484,6 +488,16 @@ function getTournaments() { return Cache.tournaments; }
 function addTournament(t) {
   Cache.tournaments.push(t);
   sb.from("tournaments").insert({ id: t.id, name: t.name, type: t.type, stages: t.stages, note: t.note }).then(r => sbWriteFail(r.error, "addTournament"));
+}
+/** 대회의 일부 칸만 고친다 (대진 설정 저장에 쓴다).
+ *  addTournament 는 건드리지 않는다 — bracket 키를 안 보내야 SQL 실행 전에도 대회 추가가 된다. */
+function updateTournament(id, patch) {
+  Cache.tournaments = Cache.tournaments.map(t => (t.id === id ? { ...t, ...patch } : t));
+  const COLS = { name: "name", type: "type", stages: "stages", note: "note", bracket: "bracket" };
+  const row = {};
+  Object.keys(patch).forEach(k => { if (COLS[k]) row[COLS[k]] = patch[k]; });
+  return sb.from("tournaments").update(row).eq("id", id)
+    .then(r => { sbWriteFail(r.error, "updateTournament"); return r; });
 }
 function deleteTournament(id) {
   Cache.tournaments = Cache.tournaments.filter(t => t.id !== id);

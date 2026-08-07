@@ -13,11 +13,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260808a">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260808a">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260808b">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260808b">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260808a">
+  <link rel="stylesheet" href="assets/styles.css?v=20260808b">
 </head>
 <body>
   <main class="page">
@@ -329,11 +329,12 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260808a"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260808a"></script>
-  <script src="assets/store.js?v=20260808a"></script>
-  <script src="assets/app.js?v=20260808a"></script>
-  <script src="assets/ddragon.js?v=20260808a"></script>
+  <script src="assets/data.js?v=20260808b"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260808b"></script>
+  <script src="assets/store.js?v=20260808b"></script>
+  <script src="assets/app.js?v=20260808b"></script>
+  <script src="assets/ddragon.js?v=20260808b"></script>
+  <script src="assets/brackets.js?v=20260808b"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -389,8 +390,19 @@
           <span class="grow"><b>${esc(t.name)}</b> <span class="muted">· ${esc(t.type)}${t.note ? " · " + esc(t.note) : ""}</span><br>
             <span class="muted">스테이지: ${t.stages.map(esc).join(" → ")}</span></span>
           <span class="muted">경기 ${getMatches().filter(m => m.tid === t.id).length}개</span>
+          ${BRACKETS[(t.bracket && t.bracket.format) || t.id]
+            ? `<button class="btn-secondary" data-brk="${t.id}">대진표 설정</button>` : ""}
           <button class="btn-danger" data-del-t="${t.id}">삭제</button>
-        </div>`).join("") || `<div class="empty-note">등록된 대회가 없습니다</div>`;
+        </div>
+        <div class="admin-list" id="brk-${t.id}" style="display:none"></div>`).join("")
+        || `<div class="empty-note">등록된 대회가 없습니다</div>`;
+
+      el.querySelectorAll("[data-brk]").forEach(b => b.addEventListener("click", () => {
+        const box = document.getElementById("brk-" + b.dataset.brk);
+        const open = box.style.display === "none";
+        box.style.display = open ? "" : "none";
+        if (open) renderBracketAdmin(b.dataset.brk);
+      }));
 
       el.querySelectorAll("[data-del-t]").forEach(b => b.addEventListener("click", () => {
         const t = getTournaments().find(x => x.id === b.dataset.delT);
@@ -398,6 +410,64 @@
         deleteTournament(b.dataset.delT);
         renderAll();
       }));
+    }
+
+    // ── 대진표 설정 (시드 표 · 상자 ↔ 경기 연결) ──────────────
+    //
+    // 대진표의 **모양**은 코드(assets/brackets.js)에 있다. 여기서 정하는 건 둘뿐이다:
+    //   ① 시드 표 — "1시드가 어느 팀인가". 정규 라운드가 끝나야 정해진다.
+    //   ② 상자 ↔ 경기 연결 — 대진표의 어느 칸이 어느 경기인가.
+    //      리그피디아가 플레이오프 경기에 무슨 id 를 붙일지 미리 알 수 없어서,
+    //      짐작이 틀렸을 때 사장님이 손으로 이어 줄 수 있는 길이 필요하다.
+    // 둘 다 **안 넣어도 대진표는 그려진다** — 자리 라벨이 대신 설명한다.
+    function renderBracketAdmin(tid) {
+      const box = document.getElementById("brk-" + tid);
+      const t = getTournaments().find(x => x.id === tid);
+      const spec = BRACKETS[(t.bracket && t.bracket.format) || tid];
+      if (!spec) { box.innerHTML = `<div class="admin-note">이 대회는 대진표 모양이 없습니다.</div>`; return; }
+      const cfg = t.bracket || {};
+      const ms = getMatches().filter(m => m.tid === tid)
+        .sort((a, b) => new Date(a.at) - new Date(b.at));
+      const teamOpts = sel => `<option value="">— 미정 —</option>` + TEAMS.map(x =>
+        `<option value="${esc(x.id)}" ${x.id === sel ? "selected" : ""}>${esc(x.name)}</option>`).join("");
+      const matchOpts = sel => `<option value="">— 자동 —</option>` + ms.map(m => {
+        const A = TEAM_MAP[m.a], B = TEAM_MAP[m.b];
+        const when = m.at ? fmtMD(m.at) : "";
+        return `<option value="${esc(m.id)}" ${m.id === sel ? "selected" : ""}>${esc(when)} ${esc((A||{}).abbr||m.a||"?")} vs ${esc((B||{}).abbr||m.b||"?")}</option>`;
+      }).join("");
+
+      box.innerHTML = `
+        <div class="admin-note" style="border-top:none">
+          <b>시드 표</b> — 각 시드가 어느 팀인지 골라 주세요. 대진표의 "1위·5위" 자리가 이 값으로 채워집니다.
+        </div>
+        ${(spec.seedTags || []).map((tag, i) => `
+          <div class="admin-item">
+            <span class="grow"><b>${i + 1}시드</b> <span class="muted">${esc(tag)}</span></span>
+            <select data-seed="${i}">${teamOpts((cfg.seeds || [])[i] || "")}</select>
+          </div>`).join("")}
+        <div class="admin-note">
+          <b>경기 연결</b> — 대진표의 각 칸이 어느 경기인지 골라 주세요.
+          <b>'자동'으로 두면 알아서 찾습니다</b> — 못 찾을 때만 손으로 이어 주시면 됩니다.
+        </div>
+        ${spec.nodes.map(n => `
+          <div class="admin-item">
+            <span class="grow"><b>${esc(n.title)}</b> <span class="muted">${esc(n.a.from)} vs ${esc(n.b.from)}</span></span>
+            <select data-link="${esc(n.id)}">${matchOpts((cfg.links || {})[n.id] || "")}</select>
+          </div>`).join("")}
+        <div class="admin-item" style="justify-content:flex-end">
+          <button class="btn-primary" data-brk-save="${esc(tid)}">대진표 설정 저장</button>
+        </div>`;
+
+      box.querySelector("[data-brk-save]").addEventListener("click", async () => {
+        const seeds = [...box.querySelectorAll("[data-seed]")]
+          .sort((x, y) => +x.dataset.seed - +y.dataset.seed).map(x => x.value);
+        const links = {};
+        box.querySelectorAll("[data-link]").forEach(x => { if (x.value) links[x.dataset.link] = x.value; });
+        const r = await updateTournament(tid, { bracket: { ...cfg, seeds, links } });
+        if (r && r.error) { alert("저장하지 못했습니다: " + r.error.message); return; }
+        alert("저장했습니다. 대진표 페이지에서 확인하세요.");
+        renderTournamentList();
+      });
     }
 
     document.getElementById("tournament-form").addEventListener("submit", e => {

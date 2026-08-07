@@ -140,7 +140,9 @@ async function runSync({ pages, force }) {
         tid: defaultTid || (prev ? prev.tid : null),
         // 팀으로 그룹을 찾고, 못 찾으면(그룹 간 경기 등) Leaguepedia 주차 이름
         stage: prev ? prev.stage : (pickStage(a, b) || val(r, "Tab") || ""),
-        label: "",
+        // ⚠ 기존 경기의 label 을 빈 문자열로 덮지 않는다. 관리자가 붙여 둔 표기가
+        //   갱신 때마다 조용히 지워졌다 (이제 매일 자동으로 도는 만큼 더 나쁘다). 2026-08-07
+        label: prev ? (prev.label || "") : "",
         odds_a: 2, odds_b: 2,
         // 관리자가 '진행 중'으로 바꿔 둔 경기를 되돌리지 않는다
         status: finished ? "done" : (prev && prev.status === "live" ? "live" : "upcoming"),

@@ -22,26 +22,27 @@ const BRACKETS = {
     cols: ["1라운드", "2라운드", "3-4라운드", "최종전"],
     rows: 2,
     nodes: [
-      { id: "R1", col: 0, row: 2, title: "Round 1", match: /_Round1_1$/i,
-        a: { from: "5위" }, b: { from: "6위" },
+      { id: "R1", col: 0, row: 2, title: "Round 1", find: /_Round1_1$/i,
+        a: { from: "5위", seed: 5 }, b: { from: "6위", seed: 6 },
         win: { to: "2라운드", kind: "adv" }, lose: { to: "탈락", kind: "out" } },
 
-      { id: "R2", col: 1, row: 2, title: "Round 2", match: /_Round2_1$/i,
-        a: { from: "4위" }, b: { from: "R1 승자", arrow: "→" },
+      { id: "R2", col: 1, row: 2, title: "Round 2", find: /_Round2_1$/i,
+        a: { from: "4위", seed: 4 }, b: { from: "R1 승자", arrow: "→", winOf: "R1" },
         win: { to: "4라운드", kind: "adv" }, lose: { to: "탈락", kind: "out" } },
 
-      { id: "R3", col: 2, row: 1, title: "Round 3", match: /_Round3_1$/i,
-        a: { from: "1위" }, b: { from: "2위" },
+      { id: "R3", col: 2, row: 1, title: "Round 3", find: /_Round3_1$/i,
+        a: { from: "1위", seed: 1 }, b: { from: "2위", seed: 2 },
         win: { to: "MSI 1시드", kind: "fin" }, lose: { to: "최종전", kind: "adv" } },
 
-      { id: "R4", col: 2, row: 2, title: "Round 4", match: /_Round3_2$/i,
-        a: { from: "3위" }, b: { from: "R2 승자", arrow: "→" },
+      { id: "R4", col: 2, row: 2, title: "Round 4", find: /_Round3_2$/i,
+        a: { from: "3위", seed: 3 }, b: { from: "R2 승자", arrow: "→", winOf: "R2" },
         win: { to: "최종전", kind: "adv" }, lose: { to: "탈락", kind: "out" } },
 
-      { id: "F", col: 3, row: 0, title: "Final Round", match: /_Round4_1$/i,
-        a: { from: "R3 패자", arrow: "↘" }, b: { from: "R4 승자", arrow: "↗" },
+      { id: "F", col: 3, row: 0, title: "Final Round", find: /_Round4_1$/i,
+        a: { from: "R3 패자", arrow: "↘", loseOf: "R3" }, b: { from: "R4 승자", arrow: "↗", winOf: "R4" },
         win: { to: "MSI 2시드", kind: "fin" }, lose: { to: "탈락", kind: "out" } },
     ],
+    seedTags: ["1-2라운드 1위","2위","3위","4위","5위","6위"],
     legend: [["adv", "다음 라운드 진출"], ["fin", "2026 MSI 진출"]],
   },
 
@@ -53,18 +54,19 @@ const BRACKETS = {
     cols: ["1·2라운드", "최종전"],
     rows: 2,
     nodes: [
-      { id: "PI-R1", col: 0, row: 1, title: "Round 1 (8/26)", match: /_(PI)?R(ound)?1_1$/i,
-        a: { from: "레전드 5위" }, b: { from: "라이즈 1위" },
+      { id: "PI-R1", col: 0, row: 1, title: "Round 1 (8/26)",
+        a: { from: "레전드 5위", seed: 1 }, b: { from: "라이즈 1위", seed: 2 },
         win: { to: "플레이오프 5시드", kind: "fin" }, lose: { to: "최종전", kind: "adv" } },
 
-      { id: "PI-R2", col: 0, row: 2, title: "Round 2 (8/27)", match: /_(PI)?R(ound)?2_1$/i,
-        a: { from: "라이즈 2위" }, b: { from: "라이즈 3위" },
+      { id: "PI-R2", col: 0, row: 2, title: "Round 2 (8/27)",
+        a: { from: "라이즈 2위", seed: 3 }, b: { from: "라이즈 3위", seed: 4 },
         win: { to: "최종전", kind: "adv" }, lose: { to: "시즌 8위", kind: "out" } },
 
-      { id: "PI-F", col: 1, row: 0, title: "Final Round (8/28)", match: /_(PI)?F(inal)?_?1?$/i,
-        a: { from: "R1 패자", arrow: "↘" }, b: { from: "R2 승자", arrow: "↗" },
+      { id: "PI-F", col: 1, row: 0, title: "Final Round (8/28)",
+        a: { from: "R1 패자", arrow: "↘", loseOf: "PI-R1" }, b: { from: "R2 승자", arrow: "↗", winOf: "PI-R2" },
         win: { to: "플레이오프 6시드", kind: "fin" }, lose: { to: "시즌 7위", kind: "out" } },
     ],
+    seedTags: ["레전드 5위","라이즈 1위","라이즈 2위","라이즈 3위"],
     legend: [["adv", "다음 경기 진출"], ["fin", "플레이오프 진출"]],
   },
 
@@ -78,60 +80,128 @@ const BRACKETS = {
     rows: 4,
     nodes: [
       // 승자조
-      { id: "UB-R1-M1", col: 0, row: 1, title: "승자조 R1 (8/29)", match: /_UBR1M1$/i,
-        a: { from: "레전드 3위" }, b: { from: "3시드가 지목", arrow: "PI 통과팀" },
+      { id: "UB-R1-M1", col: 0, row: 1, title: "승자조 R1 (8/29)",
+        a: { from: "레전드 3위", seed: 3 }, b: { from: "3시드가 지목", arrow: "PI 통과팀" },
         win: { to: "승자조 R2", kind: "adv" }, lose: { to: "패자조 R1", kind: "out" } },
-      { id: "UB-R1-M2", col: 0, row: 2, title: "승자조 R1 (8/30)", match: /_UBR1M2$/i,
-        a: { from: "레전드 4위" }, b: { from: "지목받지 않은", arrow: "PI 통과팀" },
+      { id: "UB-R1-M2", col: 0, row: 2, title: "승자조 R1 (8/30)",
+        a: { from: "레전드 4위", seed: 4 }, b: { from: "지목받지 않은", arrow: "PI 통과팀" },
         win: { to: "승자조 R2", kind: "adv" }, lose: { to: "패자조 R1", kind: "out" } },
 
-      { id: "UB-R2-M1", col: 1, row: 1, title: "승자조 R2 (9/1)", match: /_UBR2M1$/i,
-        a: { from: "레전드 1위" }, b: { from: "1시드가 지목", arrow: "UB R1 승자" },
+      { id: "UB-R2-M1", col: 1, row: 1, title: "승자조 R2 (9/1)",
+        a: { from: "레전드 1위", seed: 1 }, b: { from: "1시드가 지목", arrow: "UB R1 승자" },
         win: { to: "승자조 R3", kind: "adv" }, lose: { to: "패자조", kind: "out" } },
-      { id: "UB-R2-M2", col: 1, row: 2, title: "승자조 R2 (9/2)", match: /_UBR2M2$/i,
-        a: { from: "레전드 2위" }, b: { from: "지목받지 않은", arrow: "UB R1 승자" },
+      { id: "UB-R2-M2", col: 1, row: 2, title: "승자조 R2 (9/2)",
+        a: { from: "레전드 2위", seed: 2 }, b: { from: "지목받지 않은", arrow: "UB R1 승자" },
         win: { to: "승자조 R3", kind: "adv" }, lose: { to: "패자조", kind: "out" } },
 
-      { id: "UB-R3", col: 2, row: 1, title: "승자조 R3 (9/5)", match: /_UBR3$/i,
-        a: { from: "UB R2-M1 승자", arrow: "↘" }, b: { from: "UB R2-M2 승자", arrow: "↗" },
+      { id: "UB-R3", col: 2, row: 1, title: "승자조 R3 (9/5)",
+        a: { from: "UB R2-M1 승자", arrow: "↘", winOf: "UB-R2-M1" }, b: { from: "UB R2-M2 승자", arrow: "↗", winOf: "UB-R2-M2" },
         win: { to: "결승 직행", kind: "fin" }, lose: { to: "결승 진출전", kind: "adv" } },
 
       // 패자조
-      { id: "LB-R1", col: 1, row: 3, title: "패자조 R1 (9/3)", match: /_LBR1$/i,
-        a: { from: "UB R1-M1 패자", arrow: "↘" }, b: { from: "UB R1-M2 패자", arrow: "↗" },
+      { id: "LB-R1", col: 1, row: 3, title: "패자조 R1 (9/3)",
+        a: { from: "UB R1-M1 패자", arrow: "↘", loseOf: "UB-R1-M1" }, b: { from: "UB R1-M2 패자", arrow: "↗", loseOf: "UB-R1-M2" },
         win: { to: "패자조 R2", kind: "adv" }, lose: { to: "시즌 6위", kind: "out" } },
-      { id: "LB-R2", col: 2, row: 3, title: "패자조 R2 (9/4)", match: /_LBR2$/i,
-        a: { from: "LB R1 승자", arrow: "↘" }, b: { from: "UB R2 패자 중 낮은 시드" },
+      { id: "LB-R2", col: 2, row: 3, title: "패자조 R2 (9/4)",
+        a: { from: "LB R1 승자", arrow: "↘", winOf: "LB-R1" }, b: { from: "UB R2 패자 중 낮은 시드" },
         win: { to: "패자조 R3", kind: "adv" }, lose: { to: "시즌 5위", kind: "out" } },
-      { id: "LB-R3", col: 3, row: 3, title: "패자조 R3 (9/6)", match: /_LBR3$/i,
-        a: { from: "UB R2 패자 중 높은 시드" }, b: { from: "LB R2 승자", arrow: "↗" },
+      { id: "LB-R3", col: 3, row: 3, title: "패자조 R3 (9/6)",
+        a: { from: "UB R2 패자 중 높은 시드" }, b: { from: "LB R2 승자", arrow: "↗", winOf: "LB-R2" },
         win: { to: "결승 진출전", kind: "adv" }, lose: { to: "시즌 4위", kind: "out" } },
-      { id: "LB-F", col: 3, row: 1, title: "결승 진출전 (9/12)", match: /_LBF$/i,
-        a: { from: "UB R3 패자", arrow: "↘" }, b: { from: "LB R3 승자", arrow: "↗" },
+      { id: "LB-F", col: 3, row: 1, title: "결승 진출전 (9/12)",
+        a: { from: "UB R3 패자", arrow: "↘", loseOf: "UB-R3" }, b: { from: "LB R3 승자", arrow: "↗", winOf: "LB-R3" },
         win: { to: "결승", kind: "adv" }, lose: { to: "시즌 3위", kind: "out" } },
 
-      { id: "GF", col: 4, row: 0, title: "결승 (9/13)", match: /_GF$/i,
-        a: { from: "UB R3 승자", arrow: "↘" }, b: { from: "결승 진출전 승자", arrow: "↗" },
+      { id: "GF", col: 4, row: 0, title: "결승 (9/13)",
+        a: { from: "UB R3 승자", arrow: "↘", winOf: "UB-R3" }, b: { from: "결승 진출전 승자", arrow: "↗", winOf: "LB-F" },
         win: { to: "2026 LCK 우승", kind: "fin" }, lose: { to: "준우승", kind: "out" } },
     ],
+    seedTags: ["레전드 1위","레전드 2위","레전드 3위","레전드 4위","PI 1차 통과","PI 최종 통과"],
     legend: [["adv", "다음 라운드 진출"], ["fin", "결승 직행 · 우승"]],
   },
 };
 
 /** 대회 하나의 대진표를 그릴 재료를 만든다.
- *  경기를 못 찾은 마디도 **그대로 돌려준다** — 아직 안 치러진 경기는 빈 칸으로 보여야 한다. */
+ *  경기를 못 찾은 마디도 **그대로 돌려준다** — 아직 안 치러진 경기는 빈 칸으로 보여야 한다.
+ *
+ *  경기를 찾는 순서 (**관리자가 이어 둔 것이 언제나 1순위**):
+ *    ① tournaments.bracket.links[마디id] — 관리자 화면에서 드롭다운으로 이어 둔 경기
+ *    ② match 정규식 — 리그피디아 id 패턴. **실제로 확인한 대회에만** 넣는다.
+ *       플레이-인·플레이오프는 리그피디아가 무슨 id 를 붙일지 알 수 없어 정규식이 없다.
+ *
+ *  ⚠ 예전에는 label 로도 찾았는데 그건 죽은 코드였다 —
+ *    api/schedule-sync.js 가 갱신할 때마다 label 을 빈 문자열로 덮어쓴다. (2026-08-07)
+ */
 function bracketOf(tid) {
-  const spec = BRACKETS[tid];
+  const t = (Cache.tournaments || []).find(x => x.id === tid);
+  const cfg = (t && t.bracket) || {};
+  const spec = BRACKETS[cfg.format] || BRACKETS[tid];
   if (!spec) return null;
+
   const ms = (Cache.matches || []).filter(m => m.tid === tid);
-  const used = new Set();
-  const nodes = spec.nodes.map(n => {
-    const m = ms.find(x => !used.has(x.id) &&
-      ((n.match && n.match.test(x.id)) || (x.label || "").trim().toUpperCase() === n.id));
-    if (m) used.add(m.id);
-    return { ...n, match: m || null };
+  const nodes = spec.nodes.map(n => ({ ...n, match: null, linkBroken: false }));
+
+  // ① 관리자가 이어 둔 연결 먼저
+  nodes.forEach(n => {
+    const id = cfg.links && cfg.links[n.id];
+    if (!id) return;
+    const m = ms.find(x => x.id === id);
+    if (m) n.match = m; else n.linkBroken = true;
   });
-  return { ...spec, tid, nodes };
+  // ② 남은 자리만 정규식으로
+  const used = new Set(nodes.filter(n => n.match).map(n => n.match.id));
+  nodes.forEach(n => {
+    if (n.match || n.linkBroken || !n.find) return;
+    const m = ms.find(x => !used.has(x.id) && n.find.test(x.id));
+    if (m) { n.match = m; used.add(m.id); }
+  });
+
+  // ③ 시드 표 — 관리자가 넣은 값. 순위표에서 짐작하지 않는다.
+  //    (순위표는 동점을 이름순으로 가르기 때문에 시드를 파생하면 틀릴 수 있다)
+  const tags = spec.seedTags || [];
+  const saved = cfg.seeds || [];
+  const seeds = tags.map((tag, i) => ({ no: i + 1, tag, team: saved[i] || "" }));
+
+  resolveSlots(nodes, seeds);
+  return { ...spec, tid, nodes, seeds, planned: !!(t && t.planned) };
+}
+
+/** 각 자리에 어느 팀이 오는지 채운다.
+ *  경기가 이미 있으면 그 경기의 a/b 가 답이다(가장 확실). 없으면 시드·앞 경기 결과로 채운다.
+ *  **확실하지 않으면 비워 둔다** — 자리 라벨이 대신 설명한다. */
+function resolveSlots(nodes, seeds) {
+  const byId = {};
+  nodes.forEach(n => { byId[n.id] = n; });
+  const seedTeam = no => {
+    const s = seeds[no - 1];
+    return s && isRealTeam(s.team) ? s.team : null;
+  };
+  const put = (n, side, team) => { n[side + "Team"] = isRealTeam(team) ? team : null; };
+
+  // 결과로 정해지는 자리는 앞 경기부터 차례로 풀어야 하므로 몇 번 돈다
+  for (let pass = 0; pass < nodes.length; pass++) {
+    nodes.forEach(n => {
+      ["a", "b"].forEach(side => {
+        if (n[side + "Team"]) return;
+        const m = n.match;
+        // 경기가 있으면 그게 답이다
+        const fromMatch = m ? (side === "a" ? m.a : m.b) : null;
+        if (isRealTeam(fromMatch)) { put(n, side, fromMatch); return; }
+        const meta = n[side] || {};
+        if (meta.seed) { put(n, side, seedTeam(meta.seed)); return; }
+        if (meta.winOf || meta.loseOf) {
+          const src = byId[meta.winOf || meta.loseOf];
+          const sm = src && src.match;
+          if (!sm || sm.status !== "done" || sm.scoreA == null || sm.scoreB == null) return;
+          if (sm.scoreA === sm.scoreB) return;                 // 동점은 판정하지 않는다
+          const winSide = sm.scoreA > sm.scoreB ? "a" : "b";
+          const wantWin = !!meta.winOf;
+          const pick = wantWin ? winSide : (winSide === "a" ? "b" : "a");
+          put(n, side, src[pick + "Team"] || (pick === "a" ? sm.a : sm.b));
+        }
+      });
+    });
+  }
 }
 
 // ── 대진표 그리기 ──────────────────────────────────────────────
@@ -165,9 +235,10 @@ function nodeHTML(n, spec) {
 
   const slot = side => {
     const meta = n[side] || {};
-    const team = m ? (side === "a" ? m.a : m.b) : null;
+    // 자리값은 해석기(resolveSlots)가 채워 둔다 — 경기가 없어도 시드·앞 경기 결과로 채워진다
+    const team = n[side + "Team"] || (m ? (side === "a" ? m.a : m.b) : null);
     const score = m ? (side === "a" ? m.scoreA : m.scoreB) : null;
-    const t = team ? TEAM_MAP[team] : null;
+    const t = isRealTeam(team) ? TEAM_MAP[team] : null;
     const won = winSide === side;
     const lost = winSide && winSide !== side;
     // 이겨서 무엇을 얻었나 — 색이 갈린다 (범례와 짝)
