@@ -118,7 +118,9 @@ async function initPostPage() {
   const el = document.getElementById("post-view");
 
   if (!post) {
-    el.innerHTML = `<div class="empty-note">글을 찾을 수 없습니다.</div>`;
+    el.innerHTML = `<div class="empty-note">글을 찾을 수 없습니다. 지워졌거나 주소가 잘못됐습니다.<br>
+      <a class="btn-secondary" href="community.html" style="display:inline-block;margin-top:10px;text-decoration:none">커뮤니티로</a></div>`;
+    noIndex();   // 없는 주소가 검색에 잡히지 않게
     initSidebar(); renderFooter();
     return;
   }

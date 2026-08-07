@@ -169,8 +169,28 @@ def og_race():
     return img
 
 
+def og_site():
+    """어느 페이지를 공유하든 뜨는 기본 카드.
+
+    예전에는 256x253 정사각 로고 한 장이었다. 카카오톡·X·스레드는 정사각을
+    작은 썸네일로 줄여 버려서, 어떤 링크를 보내도 '뭔지 모를 작은 그림'이 떴다.
+    가로 카드(1200x630)로 바꾸면 같은 자리에 큰 배너가 뜬다.
+
+    이 함수의 결과는 assets/brand/og-default.png 로 미리 그려 두고 쓴다
+    (모든 페이지가 쓰는 그림이라, 크롤러를 기다리게 하지 않는 편이 낫다).
+    다시 그리려면: python3 assets/brand/build.py
+    """
+    img, d = canvas("#4a8cff", "#ff4655")
+    brand(d, "LCK 팬 커뮤니티")
+    d.text((64, H * 0.36), "경기가 끝나면 여기서 이야기한다", font=font(58), fill=(242, 244, 248))
+    d.text((64, H * 0.55), "승부예측 · 세트별 팬 평점 · 경우의 수", font=font(40), fill=hx("#f5b942"))
+    d.text((64, H - 156), "LCK 10개 팀 일정 · 순위 · 선수 기록", font=font(34), fill=(154, 161, 176))
+    footer(d)
+    return img
+
+
 class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
+    def _render(self):
         q = parse_qs(urlparse(self.path).query)
         kind = (q.get("kind") or ["match"])[0]
         mid = (q.get("id") or [""])[0]
@@ -178,11 +198,37 @@ class handler(BaseHTTPRequestHandler):
             img = og_race() if kind == "race" else (og_match(mid) if mid else None)
         except Exception:
             img = None
-        if img is None:                       # 실패해도 링크가 깨지지 않게 브랜드 카드로
-            img, d = canvas("#4a8cff", "#ff4655")
-            brand(d, "LCK 팬 커뮤니티")
-            d.text((64, H * 0.44), "THE NEXUS", font=font(88), fill=(242, 244, 248))
-            footer(d)
+        if img is None:                       # 실패해도 링크가 깨지지 않게 기본 카드로
+            img = og_site()
+        buf = BytesIO()
+        img.save(buf, "PNG", optimize=True)
+        return buf.getvalue()
+
+    def _head(self, n):
+        self.send_header("Content-Type", "image/png")
+        self.send_header("Content-Length", str(n))
+        # 끝난 경기는 오래, 예정 경기는 짧게 (스코어가 바뀐다)
+        self.send_header("Cache-Control", "public, s-maxage=1800, stale-while-revalidate=86400")
+        self.end_headers()
+
+    def do_HEAD(self):
+        # 카카오톡 등 일부 크롤러는 GET 전에 HEAD 로 먼저 물어본다.
+        # 응답이 없으면 미리보기를 통째로 포기하므로 헤더만 똑같이 돌려준다.
+        self.send_response(200)
+        self._head(len(self._render()))
+
+    def do_GET(self):
+        q = parse_qs(urlparse(self.path).query)
+        kind = (q.get("kind") or ["match"])[0]
+        mid = (q.get("id") or [""])[0]
+        try:
+            img = (og_race() if kind == "race"
+                   else og_site() if kind == "site"
+                   else (og_match(mid) if mid else None))
+        except Exception:
+            img = None
+        if img is None:
+            img = og_site()
 
         buf = BytesIO()
         img.save(buf, "PNG", optimize=True)

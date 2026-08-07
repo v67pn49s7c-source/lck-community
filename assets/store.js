@@ -205,9 +205,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807m"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807m"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807m"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807n"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807n"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807n"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -256,9 +256,12 @@ async function fetchAll() {
     // 예측·평점·투표·반응·댓글추천은 원본 대신 **집계 + 내 표**만 받는다 (왕복 1회)
     sb.rpc("get_fan_stats", { p_voter: anonId() }),
     NEEDS_DETAILS ? sb.from("match_details").select("*").order("set_index") : Promise.resolve({ data: [] }),
-    // 로고(logo_*)는 무거워서 제외 — loadLogosLater()가 따로 받는다
-    // 로고(무거움)와 수집 캐시(lp_cache_*, 아주 큼)는 방문자에게 내려보내지 않는다
-    sb.from("site_settings").select("key,value").not("key", "like", "logo_%").not("key", "like", "lp_cache_%"),
+    // 로고(logo_*)는 무거워서 제외 — loadLogosLater()가 따로 받는다.
+    // 수집 캐시(lp_*)도 제외 — 관리자 화면에서만 쓰는데 43KB 나 되어, 모든 방문자가
+    // 모든 페이지에서 받고 있었다. (예전 필터가 lp_cache_% 라 실제 키 lp_aliases·
+    // lp_mvp_*·lp_sched_* 를 하나도 못 걸렀다. 2026-08-07)
+    // 관리자 화면은 reloadSetting("lp_aliases") 로 필요할 때 직접 받는다.
+    sb.from("site_settings").select("key,value").not("key", "like", "logo_%").not("key", "like", "lp_%"),
     sb.from("polls").select("*").order("created_at"),
     sb.from("founding_fans").select("*").order("no"),
     sb.from("profiles").select("id,nick,fav_team"),

@@ -12,12 +12,15 @@
   <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
   <meta property="og:title" content="LCK 선수 기록 — The Nexus">
   <meta property="og:description" content="선수의 KDA·킬관여·딜 비중·CS를 같은 포지션 안에서 비교하는 육각형 지표와 경기별 팬 평점.">
-  <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/nexus-mobile.png">
+  <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/og-default.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
-  <meta name="twitter:card" content="summary">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807m">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807n">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260807n">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807m">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807n">
 </head>
 <body>
   <div class="team-hero" id="player-hero"></div>
@@ -69,20 +72,28 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807m"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807m"></script>
-  <script src="assets/store.js?v=20260807m"></script>
-  <script src="assets/app.js?v=20260807m"></script>
-  <script src="assets/ddragon.js?v=20260807m"></script>
-  <script src="assets/player-photos.js?v=20260807m"></script>
+  <script src="assets/data.js?v=20260807n"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807n"></script>
+  <script src="assets/store.js?v=20260807n"></script>
+  <script src="assets/app.js?v=20260807n"></script>
+  <script src="assets/ddragon.js?v=20260807n"></script>
+  <script src="assets/player-photos.js?v=20260807n"></script>
   <script>
   storeReady.then(async () => {
-    const player = getPlayer(new URLSearchParams(location.search).get("id")) || getPlayers()[0];
+    // ⚠ 없는 id 로 들어와도 "|| getPlayers()[0]" 로 엉뚱한 선수를 보여 주던 자리다.
+    //   주소는 ?id=asdf 인데 화면은 다른 선수라 검색엔진이 가짜 페이지를 무한히 만든다.
+    //   id 를 아예 안 준 경우(선수 목록에서 온 게 아닌 접근)에만 첫 선수를 보여 준다.
+    const askedId = new URLSearchParams(location.search).get("id");
+    const player = askedId ? getPlayer(askedId) : getPlayers()[0];
     const team = player ? TEAM_MAP[player.team] : null;
     renderHeader("선수", team ? team.id : null);
 
     if (!player) {
-      document.querySelector("main .stack").innerHTML = `<div class="empty-note">선수를 찾을 수 없습니다.</div>`;
+      document.querySelector("main .stack").innerHTML =
+        `<div class="empty-note">선수를 찾을 수 없습니다.<br>
+           <a class="btn-secondary" href="players.html" style="display:inline-block;margin-top:10px;text-decoration:none">선수 목록으로</a>
+         </div>`;
+      noIndex();   // 없는 주소가 검색에 잡히지 않게
     } else {
       // 선수마다 다른 주소·제목·설명 (고정 canonical 이면 50명이 한 장으로 합쳐진다)
       setPageIdentity(["id"], {

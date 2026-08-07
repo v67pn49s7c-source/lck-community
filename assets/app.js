@@ -143,6 +143,16 @@ function setPageIdentity(keys, opts) {
   }
 }
 
+/** 없는 글·없는 선수처럼 "내용이 없는 주소"를 검색에서 빼 달라고 알린다.
+ *  이걸 안 하면 ?id=아무거나 가 전부 색인돼서, 검색 결과에 빈 페이지가 쌓인다. */
+function noIndex() {
+  if (document.head.querySelector('meta[name="robots"]')) return;
+  const m = document.createElement("meta");
+  m.name = "robots";
+  m.content = "noindex, follow";
+  document.head.appendChild(m);
+}
+
 function renderHeader(activeMenu, activeTeamId) {
   document.body.classList.add("app-ready"); // 데이터 로드 완료 → 화면 표시
   window.__readyMs = Math.round(performance.now()); // 로딩 체감 측정용
@@ -151,9 +161,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807m")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807m")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807m")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807n")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807n")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807n")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_MENUS.map(([m, href]) => `<a href="${href}" class="${m === activeMenu ? "active" : ""}">${m}</a>`).join("")}
@@ -199,7 +209,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807m");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807n");
 
   renderTabBar(activeMenu);
 }

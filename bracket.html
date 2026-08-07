@@ -12,12 +12,15 @@
   <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
   <meta property="og:title" content="LCK 대진표 — The Nexus">
   <meta property="og:description" content="LCK 토너먼트 대진표. 라운드별 승자와 다음 상대를 한눈에.">
-  <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/nexus-mobile.png">
+  <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/og-default.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
-  <meta name="twitter:card" content="summary">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807m">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807n">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260807n">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807m">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807n">
 </head>
 <body>
   <main class="page">
@@ -42,10 +45,10 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807m"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807m"></script>
-  <script src="assets/store.js?v=20260807m"></script>
-  <script src="assets/app.js?v=20260807m"></script>
+  <script src="assets/data.js?v=20260807n"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807n"></script>
+  <script src="assets/store.js?v=20260807n"></script>
+  <script src="assets/app.js?v=20260807n"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("경기", null);
@@ -56,7 +59,12 @@
       const ts = getTournaments();
       const sel = document.getElementById("tournament-select");
       if (!ts.length) { sel.innerHTML = `<option>등록된 대회 없음</option>`; return; }
-      if (!ts.find(t => t.id === state.tid)) state.tid = ts[ts.length - 1].id;
+      // ⚠ 예전에는 무조건 마지막 대회를 골랐다. 그게 라운드 구분이 없는 대회면
+      //   화면이 통째로 비어 버린다(실제로 그랬다). 대진이 있는 대회를 먼저 고른다.
+      if (!ts.find(t => t.id === state.tid)) {
+        const withStages = ts.filter(t => (t.stages || []).length);
+        state.tid = (withStages.length ? withStages : ts).slice(-1)[0].id;
+      }
       sel.innerHTML = ts.map(t => `<option value="${t.id}" ${t.id === state.tid ? "selected" : ""}>${esc(t.name)}</option>`).join("");
       sel.onchange = () => { state.tid = sel.value; renderBracket(); };
     }
@@ -88,6 +96,19 @@
       if (!t) { el.innerHTML = `<div class="empty-note">대회를 먼저 만들어 주세요 (관리자 메뉴)</div>`; return; }
 
       const ms = sortedMatches().filter(m => m.tid === t.id);
+      // 라운드가 나뉘지 않은 대회(정규시즌 등)는 대진표로 그릴 게 없다.
+      // 빈 화면 대신 지금 볼 수 있는 곳으로 보낸다.
+      if (!(t.stages || []).length) {
+        el.innerHTML = `<div class="empty-note" style="padding:28px 16px">
+          <b>${esc(t.name)}</b>은 아직 대진이 나뉘지 않았습니다.<br>
+          플레이오프 대진이 확정되면 여기에 표시됩니다.
+          <div style="margin-top:14px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap">
+            <a class="btn-primary" href="race.html" style="text-decoration:none">경우의 수 보기</a>
+            <a class="btn-secondary" href="standings.html" style="text-decoration:none">순위표</a>
+            <a class="btn-secondary" href="matches.html" style="text-decoration:none">경기 일정</a>
+          </div></div>`;
+        return;
+      }
       el.innerHTML = t.stages.map(stage => {
         const list = ms.filter(m => m.stage === stage);
         return `

@@ -8,13 +8,16 @@
   <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
   <meta property="og:title" content="The Nexus — LCK 팬 커뮤니티">
   <meta property="og:description" content="경기마다 팬심지수 투표! 전체·양 팀 팬·중립의 여론을 비교해 보세요.">
-  <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/nexus-mobile.png">
+  <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/og-default.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
-  <meta name="twitter:card" content="summary">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807m">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807n">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260807n">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807m">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807n">
 </head>
 <body>
   <main class="page">
@@ -323,11 +326,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807m"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807m"></script>
-  <script src="assets/store.js?v=20260807m"></script>
-  <script src="assets/app.js?v=20260807m"></script>
-  <script src="assets/ddragon.js?v=20260807m"></script>
+  <script src="assets/data.js?v=20260807n"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807n"></script>
+  <script src="assets/store.js?v=20260807n"></script>
+  <script src="assets/app.js?v=20260807n"></script>
+  <script src="assets/ddragon.js?v=20260807n"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -369,6 +372,10 @@
       renderFooter();
       return;
     }
+
+    // 수집 캐시(lp_*)는 방문자에게 안 내려간다(43KB) — 관리자 화면에서만 직접 받는다.
+    // ⚠ 이게 없으면 아래 "연결 저장"이 빈 값을 저장해 기존 이름 연결을 통째로 지운다.
+    await reloadSetting("lp_aliases");
 
     // ── 대회 관리 ──
     function renderTournamentList() {
@@ -1097,7 +1104,9 @@
         `<div class="admin-item"><button class="btn-primary" type="button" id="lp-alias-save">연결 저장</button>
           <span class="muted">저장한 뒤 다시 "미리보기"를 누르면 반영됩니다</span></div>`;
 
-      document.getElementById("lp-alias-save").addEventListener("click", () => {
+      document.getElementById("lp-alias-save").addEventListener("click", async () => {
+        // 저장 직전에 서버 값을 다시 받는다 — 그 사이 수집기가 이름을 덧붙였을 수 있다
+        await reloadSetting("lp_aliases");
         let cfg = {};
         try { cfg = JSON.parse(getSetting("lp_aliases") || "{}"); } catch {}
         cfg.teams = cfg.teams || {}; cfg.players = cfg.players || {};
