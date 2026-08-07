@@ -60,7 +60,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260808b") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260808d") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -903,24 +903,29 @@ table.award-table td a:hover b { color: var(--accent); }
 
 /* ── 대진표 (브래킷) ── */
 .bracket-wrap { overflow-x: auto; }
-.bracket { display: flex; gap: 12px; padding: 14px; align-items: stretch; min-width: min-content; }
-.bracket-col { flex: 1; min-width: 216px; display: flex; flex-direction: column; gap: 10px; }
-/* 라운드 머리띠 · 경기 제목줄 — 배경이 진한 보라라 글자는 **항상 흰색**이어야 한다.
-   color 를 테마 변수로 두면 라이트 모드에서 흰 배경 글자색이 얹혀 1.00:1(완전히 안 보임)이
-   된다. 실제로 그랬다. 배경이 고정색이면 글자도 고정색으로 못 박는다. (2026-08-07) */
+/* 대진표는 숨 쉴 자리가 있어야 읽힌다. 열 사이·칸 사이를 넉넉히 준다. */
+.bracket { display: flex; gap: 22px; padding: 20px 18px; align-items: stretch; min-width: min-content; }
+.bracket-col { flex: 1; min-width: 248px; display: flex; flex-direction: column; gap: 14px; }
+/* 라운드 머리띠 · 경기 제목줄 — 사이트 대표색(붉은 계열)으로. 보라색 그라데이션은 뺐다.
+   배경이 고정색이므로 글자도 고정 흰색으로 못 박는다 — 테마 변수로 두면 라이트 모드에서
+   흰 배경 글자색이 얹혀 명암비 1.00:1(완전히 안 보임)이 된다. (2026-08-08) */
 .bracket-col-title {
-  text-align: center; font-size: var(--fs-sm); font-weight: 800;
-  padding: 7px 4px; color: #fff !important;
-  background: linear-gradient(100deg, #241a4d, #4a2a7a 55%, #8b3fa8);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
+  text-align: center; font-size: var(--fs-md); font-weight: 800; letter-spacing: -0.02em;
+  padding: 9px 6px; color: #fff !important;
+  background: linear-gradient(100deg, #8f1622, var(--accent-solid) 60%, #e0414f);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
 }
 .bracket-col-body { display: flex; flex-direction: column; gap: 10px; flex: 1; justify-content: center; }
-.bracket-match { border: 1px solid var(--line); background: var(--card); }
+.bracket-match {
+  border: 1px solid var(--line); background: var(--card); display: block;
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 0 100%);
+}
+a.bracket-match:hover { border-color: var(--accent); }
 .bm-head {
-  display: flex; justify-content: space-between; gap: 6px;
-  font-size: var(--fs-xs); font-weight: 700; color: #fff !important;
-  background: linear-gradient(90deg, #3b2a66, #7a3396);
-  padding: 4px 9px;
+  display: flex; justify-content: space-between; align-items: center; gap: 6px;
+  font-size: var(--fs-sm); font-weight: 700; color: #fff !important;
+  background: linear-gradient(90deg, #7a1420, var(--accent-solid));
+  padding: 6px 11px;
 }
 .bm-head .bm-date, .bm-head span { color: #fff !important; font-weight: 500; }
 .bm-head > span:first-child { font-weight: 700; }
@@ -928,16 +933,16 @@ table.award-table td a:hover b { color: var(--accent); }
    출처 라벨은 "그 자리에 누가 오는가"를 말한다 — 5위·6위 같은 시드이거나,
    "R1 승자 →" 처럼 앞 경기에서 올라오는 자리다. 아직 안 정해진 자리도 이걸로 읽힌다. */
 .bm-slot {
-  display: grid; grid-template-columns: 46px 1fr auto;
-  align-items: center; gap: 8px;
-  padding: 7px 9px; border-top: 1px solid var(--line);
-  font-weight: 700; font-size: var(--fs-md); min-height: 40px;
+  display: grid; grid-template-columns: 54px 1fr auto;
+  align-items: center; gap: 10px;
+  padding: 10px 11px; border-top: 1px solid var(--line);
+  font-weight: 700; font-size: var(--fs-lg); min-height: 48px;
 }
 .bm-slot:first-of-type { border-top: none; }
 /* 자리 라벨 — 이긴 칸은 색 배경이 깔려서 흐린 글자가 4.4:1 언저리로 떨어진다.
    본문색을 조금 죽인 정도로 두어 두 테마·두 배경(보통 칸·이긴 칸) 모두에서 읽히게 한다. */
 .bm-from {
-  font-size: 10px; font-weight: 800; line-height: 1.2;
+  font-size: 11px; font-weight: 800; line-height: 1.25;
   color: color-mix(in srgb, var(--text) 78%, transparent); word-break: keep-all;
 }
 .bm-from .arrow { display: block; font-size: 9px; font-weight: 600; }
@@ -959,7 +964,7 @@ table.award-table td a:hover b { color: var(--accent); }
 .bl-key i.adv { background: color-mix(in srgb, var(--ok) 60%, transparent); }
 .bl-key i.fin { background: color-mix(in srgb, var(--blue) 60%, transparent); }
 .bracket-legend {
-  padding: 10px 14px; border-top: 1px solid var(--line);
+  padding: 13px 16px; border-top: 1px solid var(--line);
   font-size: var(--fs-sm); color: var(--text-sub); text-align: center;
 }
 
@@ -1532,3 +1537,40 @@ table.award-table td a:hover b { color: var(--accent); }
   width: 22px; height: 22px; border: 1px dashed var(--line);
   background: var(--bg-soft); flex-shrink: 0;
 }
+
+/* ── 아이콘에 마우스를 올리면 뜨는 정보창 ──────────────────────
+   브라우저 기본 title 은 1초쯤 뒤에야 뜨고 꾸밀 수도 없다. 직접 만든다.
+   키보드로도 볼 수 있게 tabindex + :focus-within 을 함께 쓴다. */
+.dd-chip { position: relative; display: inline-block; line-height: 0; outline: none; }
+.dd-tip {
+  position: absolute; top: calc(100% + 7px); left: 50%; transform: translateX(-50%);
+  z-index: 60; min-width: 120px; max-width: 230px; width: max-content;
+  padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--bg-soft); color: var(--text);
+  box-shadow: 0 6px 20px rgba(0,0,0,.35);
+  font-size: var(--fs-sm); line-height: 1.45; text-align: left;
+  opacity: 0; visibility: hidden; transition: opacity .1s;
+  pointer-events: none; white-space: normal;
+}
+.dd-chip:hover .dd-tip, .dd-chip:focus .dd-tip, .dd-chip:focus-within .dd-tip { opacity: 1; visibility: visible; }
+.dd-tip b { display: block; font-weight: 800; }
+.dd-tip em { display: block; margin-top: 3px; font-style: normal; color: var(--text-sub); font-size: var(--fs-xs); }
+/* 화살표 (아이콘 쪽을 가리킨다) */
+.dd-tip::after {
+  content: ""; position: absolute; bottom: 100%; left: 50%; margin-left: -5px;
+  border: 5px solid transparent; border-bottom-color: var(--line);
+}
+/* ⚠ 정보창은 **표 안에서 잘리기 쉽다.**
+   .table-scroll 은 가로로 밀어 보려고 overflow:auto 인데, 그러면 세로도 함께 잘린다
+   (CSS 규칙상 한쪽만 auto 로 두면 다른 쪽이 visible 로 남지 않는다).
+   그래서 정보창을 **아이콘 아래쪽**에 띄우고, 표 아래에 그만큼 여유를 준다. */
+.detail-table td { overflow: visible; }
+.table-scroll { overflow-x: auto; padding-bottom: 96px; margin-bottom: -96px; }
+/* 장신구(와드·렌즈)는 아이템 6칸과 구분되게 살짝 띄운다 */
+.dt-trinket { display: inline-block; margin-left: 6px; padding-left: 6px; border-left: 1px solid var(--line); }
+
+/* 라이트 모드용 팀 로고 — BRO·DK·DNS·KRX 는 원래 로고가 흰색이라 밝은 바탕에서 사라진다.
+   팀 색이 들어간 파일을 겹쳐 두고 테마에 따라 하나만 보여 준다. */
+.team-logo.has-light .lg-light { display: none; }
+:root[data-theme="light"] .team-logo.has-light .lg-dark { display: none; }
+:root[data-theme="light"] .team-logo.has-light .lg-light { display: block; }

@@ -3,7 +3,7 @@
 // localStorage에 캐시하고, 화면에서는 한글 텍스트를 실제 인게임 아이콘으로 바꾼다.
 // 네트워크 실패 시에는 기존처럼 텍스트로 표시된다 (안전한 성능 저하).
 
-const DD = { ver: null, items: {}, spells: {}, runes: {}, champs: {} };
+const DD = { ver: null, items: {}, trinkets: {}, itemInfo: {}, spells: {}, runes: {}, runeInfo: {}, champs: {} };
 const DD_CDN = "https://ddragon.leagueoflegends.com/cdn";
 
 // 옛 이름·다른 표기 → 현재 정식 이름 (시즌 개편으로 이름이 바뀐 것들)
@@ -43,7 +43,7 @@ async function ddInit() {
     const ver = vers[0];
     // 같은 패치면 캐시 재사용 (패치가 바뀌면 자동 갱신)
     try {
-      const cached = JSON.parse(localStorage.getItem("nexus_dd_v2") || "null");
+      const cached = JSON.parse(localStorage.getItem("nexus_dd_v3") || "null");
       if (cached && cached.ver === ver) { Object.assign(DD, cached); return true; }
     } catch {}
     const base = `${DD_CDN}/${ver}/data/ko_KR/`;
@@ -54,16 +54,44 @@ async function ddInit() {
       fetch(base + "champion.json").then(r => r.json()),
     ]);
     DD.ver = ver;
+    // ⚠ 장신구(와드·렌즈)는 아이템 칸에서 걸러야 한다. Data Dragon 이 종류를 알려 준다
+    //   (tags 에 "Trinket", 또는 inStore=false / 상점 밖 아이템).
+    //   이미 저장된 기록에 섞여 있어서, 화면에서도 한 번 더 거른다. (2026-08-08)
     Object.entries(item.data).forEach(([id, it]) => {
-      if (it.name && DD.items[it.name] == null) DD.items[it.name] = id;
+      if (!it.name) return;
+      if (DD.items[it.name] == null) DD.items[it.name] = id;
+      if ((it.tags || []).includes("Trinket")) DD.trinkets[it.name] = id;
+      // 마우스를 올렸을 때 보여 줄 것 — 이름 · 값 · 한 줄 설명
+      DD.itemInfo[it.name] = {
+        gold: (it.gold && it.gold.total) || 0,
+        // plaintext 가 가장 짧고 읽기 쉽다. 없으면 설명에서 태그를 걷어 낸다.
+        text: (it.plaintext || "").trim()
+          || String(it.description || "").replace(/<br\s*\/?>/gi, " ").replace(/<[^>]+>/g, "").trim().slice(0, 90),
+      };
     });
-    Object.values(summ.data).forEach(s => { DD.spells[s.name] = s.image.full; });
+    // ⚠ 같은 이름의 소환사 주문이 여러 개다 — 소환사의 협곡(CLASSIC)용과
+    //   아레나(JADE·CHERRY)용이 따로 있고, 이름은 '점멸'로 똑같다.
+    //   그냥 넣으면 **나중 것이 덮어써서** 프로 경기 화면에 아레나 아이콘이 뜬다
+    //   (SummonerFlash_Jade 등 — 실제로 그랬다). 협곡용을 우선한다. (2026-08-08)
+    Object.values(summ.data).forEach(sp => {
+      const classic = (sp.modes || []).includes("CLASSIC");
+      if (classic || DD.spells[sp.name] == null) {
+        if (classic || !DD.spells[sp.name]) DD.spells[sp.name] = sp.image.full;
+      }
+      if (classic) DD.spells[sp.name] = sp.image.full;     // 협곡용이면 무조건 이긴다
+    });
     runes.forEach(tree => {
       DD.runes[tree.name] = tree.icon; // 트리 이름 (정밀·지배·마법·결의·영감)
-      tree.slots.forEach(sl => sl.runes.forEach(r => { DD.runes[r.name] = r.icon; }));
+      DD.runeInfo[tree.name] = { text: `${tree.name} 계열` };
+      tree.slots.forEach(sl => sl.runes.forEach(r => {
+        DD.runes[r.name] = r.icon;
+        DD.runeInfo[r.name] = {
+          text: String(r.shortDesc || r.longDesc || "").replace(/<br\s*\/?>/gi, " ").replace(/<[^>]+>/g, "").trim().slice(0, 110),
+        };
+      }));
     });
     Object.values(champ.data).forEach(ch => { DD.champs[ch.name] = ch.id; }); // 영문 id (최신 초상화용)
-    try { localStorage.setItem("nexus_dd_v2", JSON.stringify(DD)); } catch {}
+    try { localStorage.setItem("nexus_dd_v3", JSON.stringify(DD)); } catch {}
     return true;
   } catch (e) { console.error("[ddragon]", e); return false; }
 }
@@ -94,8 +122,9 @@ function ddChampHTML(name, size) {
   const px = size || 26;
   const square = DD.ver ? `${DD_CDN}/${DD.ver}/img/champion/${id}.png`
                         : `https://cdn.communitydragon.org/latest/champion/${id}/square`;
-  return `<img class="dd-ic champ" src="${ddChampSrc(id)}" data-fallback="${square}"`
-    + ` alt="${esc(name)}" title="${esc(name)}" width="${px}" height="${px}" decoding="async">`
+  return `<span class="dd-chip"><img class="dd-ic champ" src="${ddChampSrc(id)}" data-fallback="${square}"`
+    + ` alt="${esc(name)}" width="${px}" height="${px}" decoding="async">`
+    + `<span class="dd-tip"><b>${esc(name)}</b></span></span>`
     + ` <span class="dd-nm">${esc(name)}</span>`;
 }
 // 소환사 주문: "점멸, 점화" / "점멸/텔레포트" 등 구분자 자유
@@ -106,21 +135,45 @@ function ddSpellHTML(str) {
   return parts.map(nm => {
     const f = ddLookup(DD.spells, nm);
     return f
-      ? `<img class="dd-ic" src="${DD_CDN}/${DD.ver}/img/spell/${f}" alt="${esc(nm)}" title="${esc(nm)}" width="22" height="22" decoding="async">`
+      ? ddChip(`${DD_CDN}/${DD.ver}/img/spell/${f}`, nm, "소환사 주문")
       : `<span class="dd-miss" title="이름이 정확하지 않아요">${esc(nm)}</span>`;
   }).join("");
 }
 // 아이템: 쉼표 구분
+// 아이콘 하나 — 마우스를 올리면 이름과 설명이 뜨는 껍데기로 감싼다.
+// title 속성은 브라우저가 1초쯤 뒤에야 보여 주고 꾸밀 수도 없어서, 직접 만든다.
+function ddChip(src, name, sub, cls) {
+  return `<span class="dd-chip" tabindex="0">
+    <img class="dd-ic ${cls || ""}" src="${src}" alt="${esc(name)}" width="22" height="22" decoding="async">
+    <span class="dd-tip"><b>${esc(name)}</b>${sub ? `<em>${esc(sub)}</em>` : ""}</span>
+  </span>`;
+}
+
+/** 장신구처럼 **거르지 않고** 그대로 그려야 하는 아이콘 (와드·렌즈) */
+function ddItemsAny(str) {
+  const parts = (str || "").split(/[,·;]/).map(s => s.trim()).filter(Boolean);
+  if (!parts.length || !DD.ver) return esc(str || "");
+  return parts.map(nm => {
+    const id = ddLookup(DD.items, nm);
+    if (!id) return `<span class="dd-miss">${esc(nm)}</span>`;
+    return ddChip(`${DD_CDN}/${DD.ver}/img/item/${id}.png`, nm, "장신구");
+  }).join("");
+}
+
 function ddItemsHTML(str) {
   const parts = (str || "").split(/[,·;]/).map(s => s.trim()).filter(Boolean);
   if (!parts.length) return "";
   if (!DD.ver) return esc(str);
-  return parts.map(nm => {
-    const id = ddLookup(DD.items, nm);
-    return id
-      ? `<img class="dd-ic" src="${DD_CDN}/${DD.ver}/img/item/${id}.png" alt="${esc(nm)}" title="${esc(nm)}" width="22" height="22" decoding="async">`
-      : `<span class="dd-miss" title="이름이 정확하지 않아요">${esc(nm)}</span>`;
-  }).join("");
+  return parts
+    // 장신구(와드·렌즈)는 아이템이 아니다 — 이미 저장된 기록에 섞여 있어 여기서 거른다
+    .filter(nm => !ddLookup(DD.trinkets, nm))
+    .map(nm => {
+      const id = ddLookup(DD.items, nm);
+      if (!id) return `<span class="dd-miss" title="이름이 정확하지 않아요">${esc(nm)}</span>`;
+      const info = DD.itemInfo[nm] || {};
+      const sub = [info.gold ? `${info.gold.toLocaleString()}골드` : "", info.text].filter(Boolean).join(" · ");
+      return ddChip(`${DD_CDN}/${DD.ver}/img/item/${id}.png`, nm, sub);
+    }).join("");
 }
 // ── 관리자용 아이콘 선택기 ────────────────────────────────
 // 텍스트 입력 대신 아이콘을 클릭해서 고르는 창. 카테고리·검색 지원.
@@ -306,8 +359,7 @@ function ddRunesHTML(str) {
   if (!DD.ver) return esc(str);
   return parts.map(nm => {
     const ic = ddLookup(DD.runes, nm);
-    return ic
-      ? `<img class="dd-ic rune" src="${DD_CDN}/img/${ic}" alt="${esc(nm)}" title="${esc(nm)}" width="22" height="22" decoding="async">`
-      : `<span class="dd-miss" title="이름이 정확하지 않아요">${esc(nm)}</span>`;
+    if (!ic) return `<span class="dd-miss" title="이름이 정확하지 않아요">${esc(nm)}</span>`;
+    return ddChip(`${DD_CDN}/img/${ic}`, nm, (DD.runeInfo[nm] || {}).text || "룬", "rune");
   }).join("");
 }

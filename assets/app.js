@@ -8,12 +8,19 @@ function esc(s) {
 // 따옴표·꺾쇠가 섞여 있으면 링크 태그를 탈출해 스크립트가 되므로 반드시 통과시킨다.
 function q(v) { return encodeURIComponent(String(v ?? "")); }
 
+// 라이트 모드에서 안 보이던 팀들 — 원래 로고가 흰색이라 밝은 바탕에서 사라진다.
+// 팀 색이 들어간 별도 파일을 받아 두었다 (assets/logos/<팀> light.svg).
+// 두 장을 겹쳐 두고 CSS 가 테마에 따라 하나만 보여 준다 — 테마를 바꿔도 다시 그릴 필요가 없다.
+const TEAM_LOGO_LIGHT = { bro: 1, dk: 1, dns: 1, krx: 1 };
+
 function teamLogoHTML(team, size) {
   const s = size || 24;
   const cut = Math.max(4, Math.round(s * 0.2));
-  return `<span class="team-logo" style="width:${s}px;height:${s}px;
+  const light = TEAM_LOGO_LIGHT[team.id]
+    ? `<img class="lg-light" src="assets/logos/${encodeURIComponent(team.id + " light")}.svg" alt="">` : "";
+  return `<span class="team-logo${light ? " has-light" : ""}" style="width:${s}px;height:${s}px;
     clip-path:polygon(0 0, 100% 0, 100% calc(100% - ${cut}px), calc(100% - ${cut}px) 100%, 0 100%);">
-    <img src="assets/logos/${team.id}.svg" alt="${team.abbr} 로고"></span>`;
+    <img class="lg-dark" src="assets/logos/${team.id}.svg" alt="${team.abbr} 로고">${light}</span>`;
 }
 
 // 팀 슬롯: 실제 팀이면 로고, 아니면 "미정 자리" 표시 (토너먼트 대진용)
@@ -184,9 +191,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260808b")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260808b")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260808b")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260808d")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260808d")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260808d")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_MENUS.map(([m, href]) => `<a href="${href}" class="${m === activeMenu ? "active" : ""}">${m}</a>`).join("")}
@@ -236,7 +243,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260808b");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260808d");
 
   renderTabBar(activeMenu);
 }

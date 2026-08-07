@@ -405,9 +405,10 @@ module.exports = async (req, res) => {
               if (!playerInfo[link]) playerInfo[link] = { team: teamMap[val(r, "Team")] || null, role: val(r, "Role") };
             }
             // 아이템·장신구·스펠·룬은 Leaguepedia 가 영어로 주므로 한글로 바꿔 저장한다
+            // ⚠ 장신구(와드·렌즈)는 **아이템이 아니다.** 아이템 칸에 끼워 넣으면
+            //   6칸 아이템 사이에 와드가 섞여 보인다. 따로 담는다. (2026-08-08)
             const items = splitList(val(r, "Items")).map(ko.item);
             const trinket = String(val(r, "Trinket") || "").trim();
-            if (trinket) items.push(ko.item(trinket));
             const spells = splitList(val(r, "SummonerSpells")).map(ko.spell);
             const keystone = ko.rune(val(r, "KeystoneRune"));
             const second = ko.rune(val(r, "SecondaryTree"));
@@ -424,6 +425,7 @@ module.exports = async (req, res) => {
               pos: posOf(val(r, "Role")) || null,
               gold: Math.round((Number(val(r, "Gold")) || 0) / 100) / 10,
               items: items.join(", "),
+              trinket: trinket ? ko.item(trinket) : "",
               spell: spells.join(", "),
               runes: [keystone, second].filter(Boolean).join("/"),
               dmg: Number(val(r, "DamageToChampions")) || 0,
@@ -533,7 +535,7 @@ module.exports = async (req, res) => {
           const win = s.winTeam && baseA ? (s.winTeam === baseA ? "a" : "b") : s.win;
           const players = s.players.filter(p => p.pid).map(p => ({
             pid: p.pid, champ: p.champ, spell: p.spell, k: p.k, d: p.d, a: p.a,
-            cs: p.cs, gold: p.gold, items: p.items, runes: p.runes, pos: p.pos,
+            cs: p.cs, gold: p.gold, items: p.items, trinket: p.trinket, runes: p.runes, pos: p.pos,
             dmg: p.dmg, vs: p.vs, penta: p.penta,
             side: p.team && baseA ? (p.team === baseA ? "a" : "b") : null,
           }));
@@ -570,7 +572,7 @@ module.exports = async (req, res) => {
         const win = s.winTeam && m.a ? (s.winTeam === m.a ? "a" : "b") : s.win;
         const players = s.players.filter(p => p.pid).map(p => ({
           pid: p.pid, champ: p.champ, spell: p.spell, k: p.k, d: p.d, a: p.a,
-          cs: p.cs, gold: p.gold, items: p.items, runes: p.runes, pos: p.pos,
+          cs: p.cs, gold: p.gold, items: p.items, trinket: p.trinket, runes: p.runes, pos: p.pos,
           dmg: p.dmg, vs: p.vs, penta: p.penta,
           side: p.team && m.a ? (p.team === m.a ? "a" : "b") : null,
         }));

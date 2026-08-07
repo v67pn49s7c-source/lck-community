@@ -17,11 +17,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260808b">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260808b">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260808d">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260808d">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260808b">
+  <link rel="stylesheet" href="assets/styles.css?v=20260808d">
 </head>
 <body>
   <main class="page">
@@ -99,12 +99,12 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260808b"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260808b"></script>
-  <script src="assets/store.js?v=20260808b"></script>
-  <script src="assets/app.js?v=20260808b"></script>
-  <script src="assets/ddragon.js?v=20260808b"></script>
-  <script src="assets/race.js?v=20260808b"></script>
+  <script src="assets/data.js?v=20260808d"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260808d"></script>
+  <script src="assets/store.js?v=20260808d"></script>
+  <script src="assets/app.js?v=20260808d"></script>
+  <script src="assets/ddragon.js?v=20260808d"></script>
+  <script src="assets/race.js?v=20260808d"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -186,7 +186,6 @@
       const has = {
         spell: all.some(p => (p.spell || "").trim()),
         dmg:   all.some(p => +p.dmg > 0),
-        vs:    all.some(p => +p.vs > 0),
         items: all.some(p => (p.items || "").trim()),
         runes: all.some(p => (p.runes || "").trim()),
       };
@@ -204,11 +203,11 @@
         <table class="detail-table">
           <colgroup>
             <col class="c-player"><col class="c-champ">${col(has.spell, `<col class="c-spell">`)}<col class="c-kda">
-            ${col(has.dmg, `<col class="c-dmg">`)}<col class="c-cs"><col class="c-gold">${col(has.vs, `<col class="c-vs">`)}
+            ${col(has.dmg, `<col class="c-dmg">`)}<col class="c-cs"><col class="c-gold">
             ${col(has.items, `<col class="c-items">`)}${col(has.runes, `<col class="c-runes">`)}
           </colgroup>
           <thead><tr><th>선수</th><th>챔피언</th>${col(has.spell, "<th>스펠</th>")}<th>KDA</th>
-            ${col(has.dmg, "<th>딜량</th>")}<th>CS</th><th>골드</th>${col(has.vs, "<th>시야</th>")}
+            ${col(has.dmg, "<th>딜량</th>")}<th>CS</th><th>골드</th>
             ${col(has.items, "<th>아이템</th>")}${col(has.runes, "<th>룬</th>")}</tr></thead>
           <tbody>
             ${list.map(p => {
@@ -221,8 +220,8 @@
                 ${col(has.dmg, `<td>${+p.dmg > 0 ? (Math.round(p.dmg / 100) / 10) + "k" : "-"}</td>`)}
                 <td>${p.cs}</td>
                 <td>${p.gold}k</td>
-                ${col(has.vs, `<td>${+p.vs > 0 ? p.vs : "-"}</td>`)}
-                ${col(has.items, `<td class="dt-items">${ddItemsHTML(p.items)}</td>`)}
+                ${col(has.items, `<td class="dt-items">${ddItemsHTML(p.items)}${
+                  p.trinket ? `<span class="dt-trinket">${ddItemsAny(p.trinket)}</span>` : ""}</td>`)}
                 ${col(has.runes, `<td class="dt-runes">${ddRunesHTML(p.runes)}</td>`)}
               </tr>`;
             }).join("")}
