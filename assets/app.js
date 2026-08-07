@@ -184,9 +184,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807x")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807x")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807x")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807y")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807y")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807y")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_MENUS.map(([m, href]) => `<a href="${href}" class="${m === activeMenu ? "active" : ""}">${m}</a>`).join("")}
@@ -236,7 +236,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807x");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807y");
 
   renderTabBar(activeMenu);
 }
@@ -1268,8 +1268,12 @@ const SB_ROWS = [
   { k: "barons",  name: "바론",   fmt: v => v },
   { k: "dragons", name: "드래곤", fmt: v => v },
   { k: "heralds", name: "전령",   fmt: v => v },
-  { k: "grubs",   name: "공허충", fmt: v => v },
-  { k: "atakhan", name: "아타칸", fmt: v => v },
+  // optional = 시즌·패치에 따라 맵에 없을 수 있는 오브젝트.
+  // 양쪽 다 0 이면 줄을 아예 그리지 않는다 — 없는 오브젝트를 "0 : 0" 으로 보여 주면
+  // 그게 있는 건데 아무도 못 먹은 것처럼 읽힌다.
+  // (아타칸은 2026 시즌 맵에 없다. 칸은 계속 받아 두니, 다시 생기면 저절로 나타난다)
+  { k: "grubs",   name: "공허충", fmt: v => v, optional: true },
+  { k: "atakhan", name: "아타칸", fmt: v => v, optional: true },
 ];
 
 // 드래곤 종류 — 리그피디아가 종류별로 세어 준다.
@@ -1320,6 +1324,7 @@ function setScoreboardHTML(match, set) {
     const v = g[r.k];
     if (!v || (v.a == null && v.b == null)) return "";
     const a = +v.a || 0, b = +v.b || 0, max = Math.max(a, b);
+    if (r.optional && !max) return "";        // 맵에 없는 오브젝트는 줄을 만들지 않는다
     const w = x => (max ? Math.round((x / max) * 1000) / 10 : 0);
     return `<div class="sb-row" role="group" aria-label="${esc(r.name)} ${esc(String(r.fmt(a)))} 대 ${esc(String(r.fmt(b)))}">
       <span class="sb-v ${a >= b ? "hi" : ""}">${esc(String(r.fmt(a)))}</span>
