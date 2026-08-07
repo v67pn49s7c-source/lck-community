@@ -184,9 +184,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807t")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807t")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807t")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807u")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807u")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807u")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_MENUS.map(([m, href]) => `<a href="${href}" class="${m === activeMenu ? "active" : ""}">${m}</a>`).join("")}
@@ -236,7 +236,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807t");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807u");
 
   renderTabBar(activeMenu);
 }
@@ -1327,4 +1327,23 @@ function setScoreboardHTML(match, set) {
     ${pickBanRow("픽", "picks", "pick")}
     ${pickBanRow("밴", "bans", "ban")}
   </div>`;
+}
+
+// ── 라인 순서 (탑 → 정글 → 미드 → 원딜 → 서폿) ─────────────────
+// Leaguepedia 는 세트 안 선수를 **이름 알파벳순**으로 준다. 그대로 그리면
+// 탑·미드·서폿·정글·원딜처럼 뒤죽박죽이라, 팬이 라인별로 비교할 수가 없다.
+// 세트 기록에 담긴 포지션(pos)을 먼저 쓰고, 없으면 선수 등록 정보를 본다.
+const LANE_ORDER = ["탑", "정글", "미드", "원딜", "서폿"];
+const LANE_ALIAS = {
+  top: "탑", jungle: "정글", jng: "정글", mid: "미드", middle: "미드",
+  bot: "원딜", adc: "원딜", ad: "원딜", support: "서폿", sup: "서폿",
+};
+function lanePos(p) {
+  const raw = (p && (p.pos || p.role)) || ((getPlayer(p && p.pid) || {}).pos) || "";
+  const k = String(raw).trim();
+  return LANE_ALIAS[k.toLowerCase()] || k;
+}
+function byLanePos(a, b) {
+  const ia = LANE_ORDER.indexOf(lanePos(a)), ib = LANE_ORDER.indexOf(lanePos(b));
+  return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
 }

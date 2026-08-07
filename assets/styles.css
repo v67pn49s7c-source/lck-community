@@ -60,7 +60,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260807t") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260807u") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -653,7 +653,20 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
 .detail-team-head:first-child { border-top: none; }
 /* 표가 화면보다 넓으면 잘리는 대신 표 안에서만 가로로 밀린다 */
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-table.detail-table { width: 100%; border-collapse: collapse; }
+/* ⚠ 두 팀 표는 **서로 다른 <table>** 이다. 자동 열너비로 두면 팀마다 이름 길이가 달라
+   열 위치가 어긋나 위아래가 안 맞는다(실제로 그랬다). 열 너비를 못 박아 맞춘다.
+   (2026-08-07) */
+table.detail-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+table.detail-table col.c-player { width: 21%; }
+table.detail-table col.c-champ  { width: 17%; }
+table.detail-table col.c-spell  { width: 8%; }
+table.detail-table col.c-kda    { width: 13%; }
+table.detail-table col.c-dmg    { width: 9%; }
+table.detail-table col.c-cs     { width: 8%; }
+table.detail-table col.c-gold   { width: 9%; }
+table.detail-table col.c-vs     { width: 7%; }
+table.detail-table col.c-items  { width: 20%; }
+table.detail-table col.c-runes  { width: 12%; }
 table.detail-table th {
   font-size: var(--fs-xs); font-weight: 600; color: var(--text-dim);
   padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--line);
@@ -666,7 +679,8 @@ table.detail-table tr:last-child td { border-bottom: none; }
 .dt-player a { font-weight: 700; color: var(--text); }
 .dt-player a:hover { color: var(--accent); }
 .dt-player .pos { margin-left: 5px; font-size: 10px; color: var(--text-dim); }
-.dt-champ { font-weight: 700; color: var(--text); white-space: nowrap; }
+.dt-champ { font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dt-player { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dt-kda { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .dt-kda b { color: var(--text); }
 .dt-kda em { font-style: normal; color: var(--accent); }
@@ -1219,7 +1233,11 @@ table.award-table td a:hover b { color: var(--accent); }
   .fr-pog, .chip-pom { padding: 1px 4px; font-size: 9px; }
   .frate-vs .rr-btn { max-width: none; }
   /* 경기 상세: 챔피언 이름은 아이콘으로 충분. 칸은 줄바꿈 없이 두고,
-     그래도 넘치면 표 안에서만 가로로 밀린다 (.table-scroll) */
+     그래도 넘치면 표 안에서만 가로로 밀린다 (.table-scroll)
+     ⚠ 열 너비를 %로 못 박아 두면(두 팀 표를 맞추려고 그렇게 했다) 좁은 화면에서
+       열이 19px 까지 찌그러진다. 최소 너비를 줘서 표가 화면보다 넓어지게 하고,
+       .table-scroll 안에서 가로로 밀어 보게 한다. (2026-08-07) */
+  table.detail-table { min-width: 620px; }
   table.detail-table th, table.detail-table td { padding: 6px 5px; white-space: nowrap; }
   .dt-champ .dd-nm { display: none; }
   .dd-ic { width: 20px; height: 20px; }

@@ -14,7 +14,7 @@
 // 데이터 출처: Leaguepedia (CC-BY-SA 3.0) — 푸터에 출처를 표기하고 있다.
 
 const { ok, fail, sb, requireAdmin } = require("./_lib");
-const { val, wait, cargo, loadSetting, saveSetting, matchIdOf, stagePicker, autoLinkPlayers, checkAliases, resolveTid, buildNewPlayers, normNick, loadNameMaps, splitList, canonStage } = require("./_lp");
+const { val, wait, cargo, loadSetting, saveSetting, matchIdOf, stagePicker, autoLinkPlayers, checkAliases, resolveTid, buildNewPlayers, normNick, loadNameMaps, splitList, canonStage, posOf } = require("./_lp");
 
 const CACHE_MINUTES = 10;
 const isWin = v => /^(1|yes|true)$/i.test(String(v || "").trim());
@@ -337,6 +337,9 @@ module.exports = async (req, res) => {
               champ: champKo(val(r, "Champion")),
               k: Number(val(r, "Kills")) || 0, d: Number(val(r, "Deaths")) || 0, a: Number(val(r, "Assists")) || 0,
               cs: Number(val(r, "CS")) || 0,
+              // 그 세트에 어느 라인으로 뛰었는가 — 화면이 탑→정글→미드→원딜→서폿 순으로
+              // 줄 세우는 데 쓴다 (리그피디아는 이름 알파벳순으로 준다)
+              pos: posOf(val(r, "Role")) || null,
               gold: Math.round((Number(val(r, "Gold")) || 0) / 100) / 10,
               items: items.join(", "),
               spell: spells.join(", "),
@@ -448,7 +451,7 @@ module.exports = async (req, res) => {
           const win = s.winTeam && baseA ? (s.winTeam === baseA ? "a" : "b") : s.win;
           const players = s.players.filter(p => p.pid).map(p => ({
             pid: p.pid, champ: p.champ, spell: p.spell, k: p.k, d: p.d, a: p.a,
-            cs: p.cs, gold: p.gold, items: p.items, runes: p.runes,
+            cs: p.cs, gold: p.gold, items: p.items, runes: p.runes, pos: p.pos,
             dmg: p.dmg, vs: p.vs, penta: p.penta,
             side: p.team && baseA ? (p.team === baseA ? "a" : "b") : null,
           }));
@@ -485,7 +488,7 @@ module.exports = async (req, res) => {
         const win = s.winTeam && m.a ? (s.winTeam === m.a ? "a" : "b") : s.win;
         const players = s.players.filter(p => p.pid).map(p => ({
           pid: p.pid, champ: p.champ, spell: p.spell, k: p.k, d: p.d, a: p.a,
-          cs: p.cs, gold: p.gold, items: p.items, runes: p.runes,
+          cs: p.cs, gold: p.gold, items: p.items, runes: p.runes, pos: p.pos,
           dmg: p.dmg, vs: p.vs, penta: p.penta,
           side: p.team && m.a ? (p.team === m.a ? "a" : "b") : null,
         }));

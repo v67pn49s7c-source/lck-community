@@ -17,11 +17,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807t">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260807t">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807u">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260807u">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807t">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807u">
 </head>
 <body>
   <main class="page">
@@ -99,12 +99,12 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807t"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807t"></script>
-  <script src="assets/store.js?v=20260807t"></script>
-  <script src="assets/app.js?v=20260807t"></script>
-  <script src="assets/ddragon.js?v=20260807t"></script>
-  <script src="assets/race.js?v=20260807t"></script>
+  <script src="assets/data.js?v=20260807u"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807u"></script>
+  <script src="assets/store.js?v=20260807u"></script>
+  <script src="assets/app.js?v=20260807u"></script>
+  <script src="assets/ddragon.js?v=20260807u"></script>
+  <script src="assets/race.js?v=20260807u"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -202,6 +202,11 @@
         </div>
         <div class="table-scroll">
         <table class="detail-table">
+          <colgroup>
+            <col class="c-player"><col class="c-champ">${col(has.spell, `<col class="c-spell">`)}<col class="c-kda">
+            ${col(has.dmg, `<col class="c-dmg">`)}<col class="c-cs"><col class="c-gold">${col(has.vs, `<col class="c-vs">`)}
+            ${col(has.items, `<col class="c-items">`)}${col(has.runes, `<col class="c-runes">`)}
+          </colgroup>
           <thead><tr><th>선수</th><th>챔피언</th>${col(has.spell, "<th>스펠</th>")}<th>KDA</th>
             ${col(has.dmg, "<th>딜량</th>")}<th>CS</th><th>골드</th>${col(has.vs, "<th>시야</th>")}
             ${col(has.items, "<th>아이템</th>")}${col(has.runes, "<th>룬</th>")}</tr></thead>
@@ -209,7 +214,7 @@
             ${list.map(p => {
               const pl = getPlayer(p.pid);
               return `<tr>
-                <td class="dt-player">${pl ? `<a href="player.html?id=${q(pl.id)}">${esc(pl.nick)}</a><span class="pos">${esc(pl.pos)}</span>` : esc(p.pid)}</td>
+                <td class="dt-player">${pl ? `<a href="player.html?id=${q(pl.id)}">${esc(pl.nick)}</a><span class="pos">${esc(lanePos(p) || pl.pos)}</span>` : esc(p.pid)}</td>
                 <td class="dt-champ">${ddChampHTML(p.champ)}</td>
                 ${col(has.spell, `<td class="dt-spell">${ddSpellHTML(p.spell)}</td>`)}
                 <td class="dt-kda"><b>${p.k}</b> / <em>${p.d}</em> / ${p.a}</td>
@@ -231,6 +236,10 @@
       const sideOf = setSides(match, playersInSet);
       const aList = [], bList = [];
       playersInSet.forEach(p => (sideOf[p.pid] === "b" ? bList : aList).push(p));
+      // 탑 → 정글 → 미드 → 원딜 → 서폿 순으로.
+      // 리그피디아는 **선수 이름 알파벳순**으로 주기 때문에, 정렬하지 않으면
+      // 탑·미드·서폿·정글·원딜처럼 뒤죽박죽으로 나온다. (2026-08-07)
+      aList.sort(byLanePos); bList.sort(byLanePos);
       // 세트 스코어보드(밴픽·오브젝트·골드)를 표 위에 얹는다.
       // 아직 재수집하지 않은 세트는 재료가 없어 빈 문자열이 돌아온다.
       document.getElementById("details-body").innerHTML =

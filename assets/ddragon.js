@@ -100,7 +100,7 @@ function ddChampHTML(name, size) {
 }
 // 소환사 주문: "점멸, 점화" / "점멸/텔레포트" 등 구분자 자유
 function ddSpellHTML(str) {
-  const parts = (str || "").split(/[,/·]/).map(s => s.trim()).filter(Boolean);
+  const parts = (str || "").split(/[,/·;]/).map(s => s.trim()).filter(Boolean);
   if (!parts.length) return "";
   if (!DD.ver) return esc(str);
   return parts.map(nm => {
@@ -112,7 +112,7 @@ function ddSpellHTML(str) {
 }
 // 아이템: 쉼표 구분
 function ddItemsHTML(str) {
-  const parts = (str || "").split(/[,·]/).map(s => s.trim()).filter(Boolean);
+  const parts = (str || "").split(/[,·;]/).map(s => s.trim()).filter(Boolean);
   if (!parts.length) return "";
   if (!DD.ver) return esc(str);
   return parts.map(nm => {
@@ -301,7 +301,7 @@ document.addEventListener("click", e => {
 
 // 룬: "정복자/결의" 처럼 핵심룬/보조트리
 function ddRunesHTML(str) {
-  const parts = (str || "").split(/[,/·]/).map(s => s.trim()).filter(Boolean);
+  const parts = (str || "").split(/[,/·;]/).map(s => s.trim()).filter(Boolean);
   if (!parts.length) return "";
   if (!DD.ver) return esc(str);
   return parts.map(nm => {

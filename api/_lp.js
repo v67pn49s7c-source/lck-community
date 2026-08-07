@@ -228,7 +228,13 @@ async function loadNameMaps() {
 }
 
 // Cargo 의 List 칸은 ;; 로 이어 온다 (가끔 , 인 경우도 있어 둘 다 본다)
-const splitList = v => String(v || "").split(/;;|(?<!\d),(?!\d)/).map(x => x.trim()).filter(Boolean);
+// Leaguepedia 는 목록을 필드마다 다르게 구분한다 —
+//   아이템: "Sundered Sky;Black Cleaver;…"   ← **세미콜론 하나**
+//   스펠  : "Smite,Flash"                    ← 쉼표
+// 예전에는 ';;'(두 개)와 쉼표만 잘라서, 아이템 5개가 통째로 한 덩어리 문자열이 됐다.
+// 그러면 이름을 못 알아봐 아이콘도 한글 이름도 안 나온다. (2026-08-07)
+// 쉼표 앞뒤가 숫자면 자르지 않는다 ("1,234" 같은 값을 지키기 위해).
+const splitList = v => String(v || "").split(/;+|(?<!\d),(?!\d)/).map(x => x.trim()).filter(Boolean);
 
 // ── 선수 자동 등록 ────────────────────────────────────────
 // 우리 DB 에 없는 선수(지난 라운드의 이적·은퇴 선수 등)를 만들어 준다.
