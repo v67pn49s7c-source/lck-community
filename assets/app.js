@@ -184,9 +184,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807w")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807w")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807w")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807x")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807x")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807x")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_MENUS.map(([m, href]) => `<a href="${href}" class="${m === activeMenu ? "active" : ""}">${m}</a>`).join("")}
@@ -236,7 +236,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807w");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807x");
 
   renderTabBar(activeMenu);
 }
@@ -1268,7 +1268,20 @@ const SB_ROWS = [
   { k: "barons",  name: "바론",   fmt: v => v },
   { k: "dragons", name: "드래곤", fmt: v => v },
   { k: "heralds", name: "전령",   fmt: v => v },
+  { k: "grubs",   name: "공허충", fmt: v => v },
+  { k: "atakhan", name: "아타칸", fmt: v => v },
 ];
+
+// 드래곤 종류 — 리그피디아가 종류별로 세어 준다.
+// ⚠ '영혼'은 드래곤 4마리를 먼저 모은 팀이 얻는다. 종류는 몇 번째 용이었는지에 달렸는데
+//   우리는 **개수만** 받으므로 어떤 영혼인지는 알 수 없다. 그래서 종류를 단정하지 않고
+//   "영혼"이라고만 적는다. (아는 것보다 더 말하지 않는다)
+const DRAKE_KO = {
+  infernal: ["화염", "🔥"], mountain: ["대지", "⛰️"], ocean: ["바다", "🌊"],
+  cloud: ["바람", "💨"], hextech: ["마공학", "⚙️"], chemtech: ["화학공학", "☣️"],
+  elder: ["장로", "👑"],
+};
+const SOUL_AT = 4;
 
 function setScoreboardHTML(match, set) {
   const g = (set && set.game) || {};
@@ -1317,6 +1330,30 @@ function setScoreboardHTML(match, set) {
     </div>`;
   }).join("");
 
+  // 드래곤 종류 — 종류별 개수를 아이콘으로. 4마리를 모았으면 '영혼'.
+  const drakeSide = s => {
+    const d = (g.drakes || {})[s];
+    if (!d) return "";
+    const total = (g.dragons || {})[s] || 0;
+    const chips = Object.keys(DRAKE_KO).filter(k => d[k]).map(k => {
+      const [nm, ic] = DRAKE_KO[k];
+      return `<span class="sb-drake" title="${esc(nm)} 드래곤 ${d[k]}마리">${ic}${d[k] > 1 ? `<b>${d[k]}</b>` : ""}</span>`;
+    }).join("");
+    return chips + (total >= SOUL_AT ? `<span class="sb-soul" title="드래곤 4마리 — 영혼 획득">영혼</span>` : "");
+  };
+  const drakeRow = (g.drakes && (g.drakes.a || g.drakes.b))
+    ? `<div class="sb-pb">
+         <div class="sb-pb-side drake">${drakeSide("a")}</div>
+         <div class="sb-pb-lb">드래곤</div>
+         <div class="sb-pb-side drake r">${drakeSide("b")}</div>
+       </div>` : "";
+
+  const links = [
+    g.vod ? `<a href="${esc(g.vod)}" target="_blank" rel="noopener">▶ 다시보기</a>` : "",
+    g.mh ? `<a href="${esc(g.mh)}" target="_blank" rel="noopener">라이엇 전적</a>` : "",
+    g.patch ? `<span>패치 ${esc(g.patch)}</span>` : "",
+  ].filter(Boolean).join("");
+
   return `<div class="scoreboard">
     <div class="sb-head">
       ${head(A, "a", wonA)}
@@ -1324,8 +1361,10 @@ function setScoreboardHTML(match, set) {
       ${head(B, "b", !wonA)}
     </div>
     ${bars ? `<div class="sb-bars">${bars}</div>` : ""}
+    ${drakeRow}
     ${pickBanRow("픽", "picks", "pick")}
     ${pickBanRow("밴", "bans", "ban")}
+    ${links ? `<div class="sb-links">${links}</div>` : ""}
   </div>`;
 }
 

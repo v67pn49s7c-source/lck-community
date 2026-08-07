@@ -60,7 +60,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260807w") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260807x") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -1477,3 +1477,21 @@ table.award-table td a:hover b { color: var(--accent); }
 .fav-pick button.active { border-color: var(--pick-color); border-width: 2px; color: var(--text);
   background: color-mix(in srgb, var(--pick-color) 14%, transparent); }
 .fav-pick button[disabled] { opacity: .45; cursor: not-allowed; }
+
+/* 드래곤 종류 · 영혼 */
+.sb-pb-side.drake { gap: 6px; align-items: center; font-size: var(--fs-md); }
+.sb-drake { display: inline-flex; align-items: center; gap: 1px; line-height: 1; }
+.sb-drake b { font-size: 11px; font-weight: 800; color: var(--text-sub); }
+.sb-soul {
+  font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 3px;
+  background: var(--accent-solid); color: #fff; white-space: nowrap;
+}
+/* 다시보기·공식 전적·패치 */
+.sb-links {
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+  padding: 9px 14px; border-top: 1px solid var(--line);
+  font-size: var(--fs-sm); font-weight: 700;
+}
+.sb-links a { color: var(--accent); text-decoration: none; }
+.sb-links a:hover { text-decoration: underline; }
+.sb-links span { color: var(--text-dim); font-weight: 600; }

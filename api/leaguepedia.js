@@ -119,7 +119,15 @@ async function fetchRaw(page, deadline) {
           + "SG.Gamelength,SG.Team1Kills,SG.Team2Kills,SG.Team1Gold,SG.Team2Gold,"
           + "SG.Team1Towers,SG.Team2Towers,SG.Team1Inhibitors,SG.Team2Inhibitors,"
           + "SG.Team1Dragons,SG.Team2Dragons,SG.Team1Barons,SG.Team2Barons,"
-          + "SG.Team1RiftHeralds,SG.Team2RiftHeralds,SG.Team1Bans,SG.Team2Bans,SG.Team1Picks,SG.Team2Picks",
+          + "SG.Team1RiftHeralds,SG.Team2RiftHeralds,SG.Team1Bans,SG.Team2Bans,SG.Team1Picks,SG.Team2Picks,"
+          // 드래곤 종류별 · 아타칸 · 공허충 — 표에 이 칸들이 다 있다(확인함)
+          + "SG.Team1Infernals,SG.Team2Infernals,SG.Team1Mountains,SG.Team2Mountains,"
+          + "SG.Team1Oceans,SG.Team2Oceans,SG.Team1Clouds,SG.Team2Clouds,"
+          + "SG.Team1Hextechs,SG.Team2Hextechs,SG.Team1Chemtechs,SG.Team2Chemtechs,"
+          + "SG.Team1Elders,SG.Team2Elders,SG.Team1Atakhans,SG.Team2Atakhans,"
+          + "SG.Team1VoidGrubs,SG.Team2VoidGrubs,"
+          // 다시보기·공식 전적·패치 (팬이 바로 눌러 볼 수 있게)
+          + "SG.VOD,SG.MatchHistory,SG.Patch",
         where: "SG." + where, order_by: "SG.GameId ASC", limit: "500",
       }, 0, deadline);
     } catch (e) {
@@ -149,19 +157,32 @@ function sgStats(x, champKo) {
   const t2 = String(val(x, "Team2") || "").trim();
   if (!t1 || !t2) return null;
   const num = v => { const n = Number(v); return Number.isFinite(n) && String(v).trim() !== "" ? n : null; };
-  const side = i => ({
-    kills:   num(val(x, `Team${i}Kills`)),
-    gold:    num(val(x, `Team${i}Gold`)),
-    towers:  num(val(x, `Team${i}Towers`)),
-    inhib:   num(val(x, `Team${i}Inhibitors`)),
-    dragons: num(val(x, `Team${i}Dragons`)),
-    barons:  num(val(x, `Team${i}Barons`)),
-    heralds: num(val(x, `Team${i}RiftHeralds`)),
-    bans:    splitList(val(x, `Team${i}Bans`)).map(ko),
-    picks:   splitList(val(x, `Team${i}Picks`)).map(ko),
-  });
+  // 드래곤 종류 — 화면이 아이콘으로 그린다. 0 인 종류는 담지 않는다.
+  const DRAKES = [["infernal","Infernals"],["mountain","Mountains"],["ocean","Oceans"],
+                  ["cloud","Clouds"],["hextech","Hextechs"],["chemtech","Chemtechs"],["elder","Elders"]];
+  const side = i => {
+    const drakes = {};
+    DRAKES.forEach(([k, f]) => { const n = num(val(x, `Team${i}${f}`)); if (n) drakes[k] = n; });
+    return {
+      kills:   num(val(x, `Team${i}Kills`)),
+      gold:    num(val(x, `Team${i}Gold`)),
+      towers:  num(val(x, `Team${i}Towers`)),
+      inhib:   num(val(x, `Team${i}Inhibitors`)),
+      dragons: num(val(x, `Team${i}Dragons`)),
+      barons:  num(val(x, `Team${i}Barons`)),
+      heralds: num(val(x, `Team${i}RiftHeralds`)),
+      atakhan: num(val(x, `Team${i}Atakhans`)),
+      grubs:   num(val(x, `Team${i}VoidGrubs`)),
+      drakes:  Object.keys(drakes).length ? drakes : null,
+      bans:    splitList(val(x, `Team${i}Bans`)).map(ko),
+      picks:   splitList(val(x, `Team${i}Picks`)).map(ko),
+    };
+  };
   const len = String(val(x, "Gamelength") || "").trim();
-  const out = { len: len || null, byTeam: {} };
+  const vod = String(val(x, "VOD") || "").trim();
+  const mh = String(val(x, "MatchHistory") || "").trim();
+  const patch = String(val(x, "Patch") || "").trim();
+  const out = { len: len || null, vod: vod || null, mh: mh || null, patch: patch || null, byTeam: {} };
   out.byTeam[t1] = side(1);
   out.byTeam[t2] = side(2);
   // 담긴 게 하나도 없으면(칸이 비어 있는 대회) 저장하지 않는다
@@ -186,7 +207,11 @@ function gameForSave(stats, blueName, teamMap, baseA) {
   };
   const out = {};
   if (stats.len) out.len = stats.len;
-  ["kills", "gold", "towers", "inhib", "dragons", "barons", "heralds", "bans", "picks"].forEach(k => {
+  if (stats.vod) out.vod = stats.vod;         // 경기 다시보기
+  if (stats.mh) out.mh = stats.mh;            // 라이엇 공식 전적
+  if (stats.patch) out.patch = stats.patch;
+  ["kills", "gold", "towers", "inhib", "dragons", "barons", "heralds",
+   "atakhan", "grubs", "drakes", "bans", "picks"].forEach(k => {
     const v = pair(k);
     if (v && !(Array.isArray(v.a) && !v.a.length && Array.isArray(v.b) && !v.b.length)) out[k] = v;
   });
