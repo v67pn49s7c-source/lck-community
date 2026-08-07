@@ -184,9 +184,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807p")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807p")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807p")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807q")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807q")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807q")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_MENUS.map(([m, href]) => `<a href="${href}" class="${m === activeMenu ? "active" : ""}">${m}</a>`).join("")}
@@ -232,7 +232,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807p");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807q");
 
   renderTabBar(activeMenu);
 }
@@ -1043,7 +1043,7 @@ function shareRatingCard(match) {
         g.textAlign = right ? "right" : "left";
       }
       // 교체 출전이면 표시 (한 세트만 뛴 선수가 왜 여기 있는지 보이게)
-      if (x.sets && x.totalSets && x.sets < x.totalSets) {
+      if (x.setsComplete && x.sets && x.totalSets && x.sets < x.totalSets) {   // 세트를 다 모은 경기에서만
         g.fillStyle = "#4a5160"; g.font = F("500", 12);
         g.fillText(`${x.sets}세트 출전`, nameX, y + (x.s.all && splitText(x.s) ? 32 : 30));
       }
@@ -1240,4 +1240,81 @@ async function initHome() {
   storeFresh.then(draw).catch(() => {});
   initSidebar();
   renderFooter();
+}
+
+// ── 세트 스코어보드 ──────────────────────────────────────────────
+// 한 세트의 '경기 전체 기록'을 한눈에: 진영·시간·밴픽·오브젝트·골드.
+// 재료는 match_details.game (수집기가 리그피디아 ScoreboardGames 에서 담는다).
+// 아직 재수집하지 않은 세트는 game 이 비어 있으므로 아무것도 그리지 않는다.
+//
+// game 안의 a/b 는 **언제나 그 경기의 a팀/b팀** 기준이다 (블루/레드가 아니다).
+// 블루가 어느 쪽이었는지는 game.blue 가 따로 알려 준다.
+
+const SB_ROWS = [
+  { k: "kills",   name: "킬",     fmt: v => v },
+  { k: "gold",    name: "골드",   fmt: v => (Math.round(v / 100) / 10) + "K" },
+  { k: "towers",  name: "타워",   fmt: v => v },
+  { k: "inhib",   name: "억제기", fmt: v => v },
+  { k: "barons",  name: "바론",   fmt: v => v },
+  { k: "dragons", name: "드래곤", fmt: v => v },
+  { k: "heralds", name: "전령",   fmt: v => v },
+];
+
+function setScoreboardHTML(match, set) {
+  const g = (set && set.game) || {};
+  if (!g || !Object.keys(g).length) return "";
+  const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
+  if (!A || !B) return "";
+
+  const wonA = set.win === "a";
+  const sideChip = s => g.blue ? (g.blue === s ? `<span class="sb-side blue">블루</span>`
+                                              : `<span class="sb-side red">레드</span>`) : "";
+  const head = (t, s, won) => `
+    <div class="sb-team ${s}">
+      ${teamLogoHTML(t, 22)}
+      <b class="team-text" style="--team-color:${t.color}">${esc(t.abbr)}</b>
+      ${sideChip(s)}
+      <span class="sb-wl ${won ? "w" : "l"}">${won ? "승" : "패"}</span>
+    </div>`;
+
+  // 밴·픽 — 순서 그대로. 밴은 흐리게 + 사선.
+  const champs = (list, kind) => (list || []).map(c =>
+    `<span class="sb-ch ${kind}" title="${esc(c)}">${ddChampHTML(c, 26) || esc(c)}</span>`).join("");
+  const pickBanRow = (label, key, kind) => {
+    const v = g[key];
+    if (!v || (!(v.a || []).length && !(v.b || []).length)) return "";
+    return `<div class="sb-pb">
+      <div class="sb-pb-side">${champs(v.a, kind)}</div>
+      <div class="sb-pb-lb">${label}</div>
+      <div class="sb-pb-side r">${champs(v.b, kind)}</div>
+    </div>`;
+  };
+
+  // 비교 막대 — 가운데 항목 이름을 두고 양쪽으로 뻗는다.
+  // 길이는 그 줄의 큰 값 기준(a/max, b/max)이라 두 값의 차이가 그대로 보인다.
+  // 합계 100% 로 나누면 "0 대 0" 같은 줄에서 한쪽이 꽉 차 보여 오해를 준다.
+  const bars = SB_ROWS.map(r => {
+    const v = g[r.k];
+    if (!v || (v.a == null && v.b == null)) return "";
+    const a = +v.a || 0, b = +v.b || 0, max = Math.max(a, b);
+    const w = x => (max ? Math.round((x / max) * 1000) / 10 : 0);
+    return `<div class="sb-row" role="group" aria-label="${esc(r.name)} ${esc(String(r.fmt(a)))} 대 ${esc(String(r.fmt(b)))}">
+      <span class="sb-v ${a >= b ? "hi" : ""}">${esc(String(r.fmt(a)))}</span>
+      <span class="sb-bar l">${a ? `<i style="width:${w(a)}%;background:${A.color}"></i>` : ""}</span>
+      <span class="sb-k">${esc(r.name)}</span>
+      <span class="sb-bar r">${b ? `<i style="width:${w(b)}%;background:${B.color}"></i>` : ""}</span>
+      <span class="sb-v ${b >= a ? "hi" : ""}">${esc(String(r.fmt(b)))}</span>
+    </div>`;
+  }).join("");
+
+  return `<div class="scoreboard">
+    <div class="sb-head">
+      ${head(A, "a", wonA)}
+      <div class="sb-len">${g.len ? esc(g.len) : ""}<span>경기 시간</span></div>
+      ${head(B, "b", !wonA)}
+    </div>
+    ${bars ? `<div class="sb-bars">${bars}</div>` : ""}
+    ${pickBanRow("픽", "picks", "pick")}
+    ${pickBanRow("밴", "bans", "ban")}
+  </div>`;
 }

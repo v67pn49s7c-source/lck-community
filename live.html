@@ -17,11 +17,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807p">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260807p">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807q">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260807q">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807p">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807q">
 </head>
 <body>
   <main class="page">
@@ -99,12 +99,12 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807p"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807p"></script>
-  <script src="assets/store.js?v=20260807p"></script>
-  <script src="assets/app.js?v=20260807p"></script>
-  <script src="assets/ddragon.js?v=20260807p"></script>
-  <script src="assets/race.js?v=20260807p"></script>
+  <script src="assets/data.js?v=20260807q"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807q"></script>
+  <script src="assets/store.js?v=20260807q"></script>
+  <script src="assets/app.js?v=20260807q"></script>
+  <script src="assets/ddragon.js?v=20260807q"></script>
+  <script src="assets/race.js?v=20260807q"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -171,8 +171,10 @@
       card.style.display = "";
 
       const tabsEl = document.getElementById("set-tabs");
+      // 라벨은 **저장된 진짜 세트 번호**(_idx)로 찍는다. 배열 위치로 찍으면,
+      // 세트가 일부만 수집된 경기에서 2세트가 "1세트"로 표시된다.
       tabsEl.innerHTML = d.sets.map((s, i) =>
-        `<button data-set="${i}" class="${i === curSet ? "active" : ""}">${i + 1}세트</button>`).join("");
+        `<button data-set="${i}" class="${i === curSet ? "active" : ""}">${(s._idx ?? i) + 1}세트</button>`).join("");
       tabsEl.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
         curSet = Number(b.dataset.set); renderDetails();
       }));
@@ -229,11 +231,16 @@
       const sideOf = setSides(match, playersInSet);
       const aList = [], bList = [];
       playersInSet.forEach(p => (sideOf[p.pid] === "b" ? bList : aList).push(p));
-      document.getElementById("details-body").innerHTML = half(aList, match.a) + half(bList, match.b);
+      // 세트 스코어보드(밴픽·오브젝트·골드)를 표 위에 얹는다.
+      // 아직 재수집하지 않은 세트는 재료가 없어 빈 문자열이 돌아온다.
+      document.getElementById("details-body").innerHTML =
+        setScoreboardHTML(match, set) + half(aList, match.a) + half(bList, match.b);
     }
 
     // ── 팬심 평점 (경기 종료 후 · 아군/상대/중립 분리 + POG) ──
-    let rateSet = 0;                       // 지금 평가 중인 세트
+    // ⚠ 이 값은 **저장되는 세트 번호 그 자체**다 (배열 위치가 아니다).
+    //   배열 위치로 두면 세트가 일부만 수집된 경기에서 엉뚱한 세트에 평점이 붙는다.
+    let rateSet = 0;                       // 지금 평가 중인 세트 (진짜 set_index)
     function renderRatingPanel() {
       if (!match) return;
       const card = document.getElementById("rating-card");
@@ -243,12 +250,13 @@
         card.style.display = "none"; return;
       }
       card.style.display = "";
-      if (rateSet >= det.sets.length) rateSet = 0;
+      const idxOf = s => s._idx ?? 0;
+      if (!det.sets.some(s => idxOf(s) === rateSet)) rateSet = idxOf(det.sets[0]);
 
       // 세트 고르기
       const tabs = document.getElementById("rating-sets");
-      tabs.innerHTML = det.sets.map((_, i) =>
-        `<button data-rset="${i}" class="${i === rateSet ? "active" : ""}">${i + 1}세트</button>`).join("");
+      tabs.innerHTML = det.sets.map(s =>
+        `<button data-rset="${idxOf(s)}" class="${idxOf(s) === rateSet ? "active" : ""}">${idxOf(s) + 1}세트</button>`).join("");
       tabs.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
         rateSet = Number(b.dataset.rset); renderRatingPanel();
       }));
@@ -285,7 +293,7 @@
         const respect = s.opp && s.opp.n >= 2 && s.opp.avg >= 8;
         const gap = (s.home && s.opp) ? Math.round((s.home.avg - s.opp.avg) * 10) / 10 : null;
         // 교체 출전(전 세트를 뛰지 않은 선수) — 왜 이 선수가 목록에 있는지 보이게 한다
-        const isSub = x.sets && x.totalSets && x.sets < x.totalSets;
+        const isSub = x.setsComplete && x.sets && x.totalSets && x.sets < x.totalSets;   // 세트를 다 모은 경기에서만
         return `
         <div class="frate fv-cell ${dir} ${isPog ? "pog" : ""}">
           <div class="fr-head">

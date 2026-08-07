@@ -205,9 +205,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807p"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807p"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807p"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807q"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807q"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807q"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -220,7 +220,7 @@ function ingestDetails(rows) {
   Cache.details = {};
   (rows || []).forEach(row => {
     const d = Cache.details[row.match_id] = Cache.details[row.match_id] || { sets: [] };
-    d.sets.push({ _idx: row.set_index, win: row.win, players: row.players || [] });
+    d.sets.push({ _idx: row.set_index, win: row.win, players: row.players || [], game: row.game || {} });
   });
   _playedTeam = null;   // 편 판정 캐시는 상세가 바뀌면 다시 계산해야 한다
 }
@@ -981,9 +981,12 @@ function playedPidsForMatch(matchId) {
   return played;
 }
 // 이 세트에 실제로 나온 선수 (챔피언이 기록된 사람만)
+// setIndex 는 **저장된 진짜 세트 번호**(match_details.set_index) 다.
+// sets 배열은 DB 에 행이 있는 세트만 담은 압축 배열이라, 위치로 꺼내면
+// 세트가 일부만 수집된 경기에서 다른 세트를 집는다. (2026-08-07)
 function playedPidsForSet(matchId, setIndex) {
   const det = Cache.details[matchId];
-  const s = ((det && det.sets) || [])[setIndex];
+  const s = ((det && det.sets) || []).find(x => (x._idx ?? -1) === setIndex);
   const out = new Set();
   ((s && s.players) || []).forEach(p => {
     if (p.pid && (p.champ || "").trim()) out.add(p.pid);
@@ -998,7 +1001,12 @@ function setsPlayedForMatch(matchId) {
   ((det && det.sets) || []).forEach(s => (s.players || []).forEach(p => {
     if (p.pid && (p.champ || "").trim()) n[p.pid] = (n[p.pid] || 0) + 1;
   }));
-  return { count: n, total: ((det && det.sets) || []).length };
+  // total 은 '실제로 치러진 세트 수'여야 한다. 수집된 개수를 쓰면, 덜 수집된 경기에서
+  // 모두가 전 세트를 뛴 것처럼 보여 교체 출전 배지가 사라지거나 주전에게 잘못 붙는다.
+  const got = ((det && det.sets) || []).length;
+  const m = Cache.matches.find(x => x.id === matchId);
+  const real = (m && m.scoreA != null && m.scoreB != null) ? m.scoreA + m.scoreB : null;
+  return { count: n, total: real == null ? got : real, complete: real != null && got === real };
 }
 // 팬심 평점 표: 포지션별로 양 팀 선수를 짝지어 행 구성 (좌우 미러 배치용)
 // setIndex 를 주면 **그 세트에 나온 선수만** (교체 선수가 안 뛴 세트에 뜨지 않게).
@@ -1006,7 +1014,7 @@ function setsPlayedForMatch(matchId) {
 function fanRatingRows(match, setIndex) {
   const posOrder = ["탑", "정글", "미드", "원딜", "서폿"];
   const played = setIndex == null ? playedPidsForMatch(match.id) : playedPidsForSet(match.id, setIndex);
-  const { count: setsOf, total: totalSets } = setsPlayedForMatch(match.id);
+  const { count: setsOf, total: totalSets, complete: setsComplete } = setsPlayedForMatch(match.id);
   // 편은 **그 경기 명단** 으로 가른다. 현재 소속(teamPlayers)으로 가르면
   // 이적한 선수가 어느 칸에도 안 잡혀 그 자리가 통째로 비어 버린다 (2026-08-07).
   const sideOfPid = {};
@@ -1022,7 +1030,7 @@ function fanRatingRows(match, setIndex) {
     if (!played.size) ps = ps.filter(Boolean);
     // 많이 나온 선수부터 — 교체로 한 세트만 뛴 선수가 주전 위에 오지 않게
     return ps.map(p => ({ p, s: fanSplitForPlayer(p.id, match.id, setIndex),
-                          sets: setsOf[p.id] || 0, totalSets }))
+                          sets: setsOf[p.id] || 0, totalSets, setsComplete }))
              .sort((x, y) => y.sets - x.sets);
   };
   const A = side("a"), B = side("b");
@@ -1504,26 +1512,28 @@ function canPostToTeam(teamId) {
 // ── 경기 상세 ──
 function getAllDetails() { return Cache.details; }
 function getDetails(matchId) { return Cache.details[matchId] || null; }
-function saveDetailSet(matchId, pos, setData) {
+// setIndex 는 **저장될 진짜 세트 번호**다 (0 = 1세트). 배열 위치가 아니다.
+// 예전에는 배열 위치를 받고 새 세트 번호를 max(_idx)+1 로 지어냈다. 그래서
+// 2세트만 수집된 경기에서 "1세트 저장"이 2세트를 덮어쓰고, "2세트 저장"은
+// 있지도 않은 3세트를 만들었다. 빠진 1세트는 손으로 넣을 방법조차 없었다.
+function saveDetailSet(matchId, setIndex, setData) {
   const d = Cache.details[matchId] = Cache.details[matchId] || { sets: [] };
-  let dbIdx;
-  if (d.sets[pos]) {
-    dbIdx = d.sets[pos]._idx;
-    d.sets[pos] = { _idx: dbIdx, ...setData };
-  } else {
-    dbIdx = d.sets.length ? Math.max(...d.sets.map(s => s._idx)) + 1 : 0;
-    d.sets.push({ _idx: dbIdx, ...setData });
+  const pos = d.sets.findIndex(s => (s._idx ?? -1) === setIndex);
+  if (pos >= 0) d.sets[pos] = { _idx: setIndex, ...setData };
+  else {
+    d.sets.push({ _idx: setIndex, ...setData });
+    d.sets.sort((x, y) => (x._idx ?? 0) - (y._idx ?? 0));   // 중간 세트를 채웠을 때 순서 유지
   }
-  sb.from("match_details").upsert({ match_id: matchId, set_index: dbIdx, win: setData.win, players: setData.players })
+  sb.from("match_details").upsert({ match_id: matchId, set_index: setIndex, win: setData.win, players: setData.players })
     .then(r => sbWriteFail(r.error, "saveDetailSet"));
 }
-function deleteDetailSet(matchId, pos) {
+function deleteDetailSet(matchId, setIndex) {
   const d = Cache.details[matchId];
-  if (!d || !d.sets[pos]) return;
-  const dbIdx = d.sets[pos]._idx;
+  const pos = d ? d.sets.findIndex(s => (s._idx ?? -1) === setIndex) : -1;
+  if (pos < 0) return;
   d.sets.splice(pos, 1);
   if (!d.sets.length) delete Cache.details[matchId];
-  sb.from("match_details").delete().eq("match_id", matchId).eq("set_index", dbIdx)
+  sb.from("match_details").delete().eq("match_id", matchId).eq("set_index", setIndex)
     .then(r => sbWriteFail(r.error, "deleteDetailSet"));
 }
 

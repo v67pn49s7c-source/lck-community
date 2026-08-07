@@ -43,7 +43,7 @@ const PAGE_SIZE = 500;
 //   1 = KDA·CS·골드까지 / 2 = 아이템·룬·스펠·딜량·시야 추가
 // 번호가 다르면 저장분을 버리고 새로 받는다 — 안 그러면 이어받기에서
 // 아이템이 있는 행과 없는 행이 섞인다.
-const RAW_VERSION = 2;
+const RAW_VERSION = 3;
 
 async function fetchRaw(page, deadline) {
   const ck = cacheKeyOf(page);
@@ -78,18 +78,84 @@ async function fetchRaw(page, deadline) {
     try { await saveSetting(ck, JSON.stringify({ v: RAW_VERSION, t: Date.now(), rows, games: null, done: false })); } catch {}
   }
 
-  // PlayerWin 칸이 없는 옛 대회면 경기표로 승패를 따로 받는다
+  // 세트(게임) 단위 기록 — 밴/픽 순서·타워·억제기·드래곤·바론·전령·팀 골드·경기 시간.
+  // 예전에는 PlayerWin 칸이 없는 옛 대회에서 승패를 채울 때만 받았는데,
+  // 이제는 스코어보드를 그리는 재료라서 **항상** 받는다.
+  // 세트 하나당 1행뿐이라(한 라운드 100행 남짓) 요청 한 번이면 충분하다.
   let games = null;
-  if (done && rows.length && val(rows[0], "PlayerWin") === "") {
-    games = await cargo({
-      tables: "ScoreboardGames=SG",
-      fields: "SG.MatchId,SG.GameId,SG.Team1,SG.Team2,SG.Winner,SG.DateTime_UTC,SG.N_GameInMatch",
-      where: "SG." + where, order_by: "SG.GameId ASC",
-    });
+  if (done && rows.length) {
+    try {
+      games = await cargo({
+        tables: "ScoreboardGames=SG",
+        fields: "SG.MatchId,SG.GameId,SG.Team1,SG.Team2,SG.Winner,SG.WinTeam,SG.DateTime_UTC,SG.N_GameInMatch,"
+          + "SG.Gamelength,SG.Team1Kills,SG.Team2Kills,SG.Team1Gold,SG.Team2Gold,"
+          + "SG.Team1Towers,SG.Team2Towers,SG.Team1Inhibitors,SG.Team2Inhibitors,"
+          + "SG.Team1Dragons,SG.Team2Dragons,SG.Team1Barons,SG.Team2Barons,"
+          + "SG.Team1RiftHeralds,SG.Team2RiftHeralds,SG.Team1Bans,SG.Team2Bans,SG.Team1Picks,SG.Team2Picks",
+        where: "SG." + where, order_by: "SG.GameId ASC", limit: "500",
+      });
+    } catch { games = null; }   // 이 표가 없어도 선수 기록 수집은 계속돼야 한다
   }
 
   try { await saveSetting(ck, JSON.stringify({ v: RAW_VERSION, t: Date.now(), rows, games, done })); } catch {}
   return { rows, games, cached: false, done, fetched };
+}
+
+// 세트 하나의 '경기 전체 기록'을 우리 모양으로 정리한다 (스코어보드 재료).
+//
+// ⚠ 여기서는 a/b 로 확정하지 않고 **팀 이름 그대로** 담는다.
+//   승패와 같은 이유다 — Leaguepedia 의 Team1 과 우리 matches.a 는 다를 수 있어서,
+//   저장 직전에 실제 경기의 a 와 대조해야 한다. (세트 승패가 통째로 뒤집혔던 그 문제)
+function sgStats(x, champKo) {
+  if (!x) return null;
+  const ko = typeof champKo === "function" ? champKo : (v => String(v || "").trim());
+  const t1 = String(val(x, "Team1") || "").trim();
+  const t2 = String(val(x, "Team2") || "").trim();
+  if (!t1 || !t2) return null;
+  const num = v => { const n = Number(v); return Number.isFinite(n) && String(v).trim() !== "" ? n : null; };
+  const side = i => ({
+    kills:   num(val(x, `Team${i}Kills`)),
+    gold:    num(val(x, `Team${i}Gold`)),
+    towers:  num(val(x, `Team${i}Towers`)),
+    inhib:   num(val(x, `Team${i}Inhibitors`)),
+    dragons: num(val(x, `Team${i}Dragons`)),
+    barons:  num(val(x, `Team${i}Barons`)),
+    heralds: num(val(x, `Team${i}RiftHeralds`)),
+    bans:    splitList(val(x, `Team${i}Bans`)).map(ko),
+    picks:   splitList(val(x, `Team${i}Picks`)).map(ko),
+  });
+  const len = String(val(x, "Gamelength") || "").trim();
+  const out = { len: len || null, byTeam: {} };
+  out.byTeam[t1] = side(1);
+  out.byTeam[t2] = side(2);
+  // 담긴 게 하나도 없으면(칸이 비어 있는 대회) 저장하지 않는다
+  const any = Object.values(out.byTeam).some(v =>
+    v.kills != null || v.gold != null || v.bans.length || v.picks.length);
+  return any || out.len ? out : null;
+}
+
+// 팀 이름 기준 기록을 **그 경기의 a/b** 기준으로 뒤집어 담는다.
+// blueName 은 그 세트에 블루 진영이었던 팀 이름 (진영 표시에 쓴다).
+function gameForSave(stats, blueName, teamMap, baseA) {
+  if (!stats || !baseA) return null;
+  const names = Object.keys(stats.byTeam);
+  const sideOf = {};                       // 팀 이름 → "a" | "b"
+  names.forEach(n => { const id = teamMap[n]; if (id) sideOf[n] = id === baseA ? "a" : "b"; });
+  if (Object.keys(sideOf).length < 2) return null;   // 한쪽이라도 못 알아보면 담지 않는다
+
+  const pair = key => {
+    const o = {};
+    names.forEach(n => { const v = stats.byTeam[n][key]; if (sideOf[n] && v != null) o[sideOf[n]] = v; });
+    return Object.keys(o).length ? o : null;
+  };
+  const out = {};
+  if (stats.len) out.len = stats.len;
+  ["kills", "gold", "towers", "inhib", "dragons", "barons", "heralds", "bans", "picks"].forEach(k => {
+    const v = pair(k);
+    if (v && !(Array.isArray(v.a) && !v.a.length && Array.isArray(v.b) && !v.b.length)) out[k] = v;
+  });
+  if (blueName && sideOf[blueName]) out.blue = sideOf[blueName];
+  return Object.keys(out).length ? out : null;
 }
 
 // 세트 번호: GameId 끝의 숫자 (…_Week 10_9_3 → 3)
@@ -173,7 +239,7 @@ module.exports = async (req, res) => {
       g.players.push(r);
     });
 
-    // 옛 방식이면 경기표에서 승패를 채운다
+    // 세트 단위 기록을 그 세트에 붙인다 (+ PlayerWin 칸이 없는 옛 대회는 승패도 여기서 채운다)
     if (games) {
       games.forEach(x => {
         const g = byGame[val(x, "GameId")];
@@ -184,6 +250,7 @@ module.exports = async (req, res) => {
         g.teams[t2] = g.teams[t2] || { side: "2", win: false };
         g.teams[winner].win = true;
         g.at = g.at || val(x, "DateTime UTC");
+        g.sg = x;                       // 스코어보드 재료 (밴픽·오브젝트·골드·시간)
       });
     }
 
@@ -220,6 +287,9 @@ module.exports = async (req, res) => {
           n: setNoOf(g.gid) || m.sets.length + 1,
           win: winIsA ? "a" : "b",
           winTeam: winnerName ? (teamMap[winnerName] || null) : null,
+          // 스코어보드 재료 — 팀 이름 기준. 저장 직전에 a/b 로 바꾼다.
+          stats: sgStats(g.sg, champKo),
+          blueName: blue,
           players: g.players.map(r => {
             const link = val(r, "Link");
             if (!playerMap[link]) {
@@ -340,7 +410,8 @@ module.exports = async (req, res) => {
             dmg: p.dmg, vs: p.vs, penta: p.penta,
             side: p.team && baseA ? (p.team === baseA ? "a" : "b") : null,
           }));
-          if (players.length) detailRows.push({ match_id: id, set_index: s.n - 1, win, players });
+          const game = gameForSave(s.stats, s.blueName, teamMap, baseA);
+          if (players.length) detailRows.push({ match_id: id, set_index: s.n - 1, win, players, game: game || {} });
         });
         return;
       }
@@ -367,7 +438,8 @@ module.exports = async (req, res) => {
           dmg: p.dmg, vs: p.vs, penta: p.penta,
           side: p.team && m.a ? (p.team === m.a ? "a" : "b") : null,
         }));
-        if (players.length) detailRows.push({ match_id: id, set_index: s.n - 1, win, players });
+        const game = gameForSave(s.stats, s.blueName, teamMap, m.a);
+        if (players.length) detailRows.push({ match_id: id, set_index: s.n - 1, win, players, game: game || {} });
       });
     });
 

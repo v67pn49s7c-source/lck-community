@@ -148,6 +148,9 @@ function numberCandidates() {
     const d = Cache.details[m.id];
     if (!d || !d.sets.length) return;
     const first = d.sets.slice().sort((x, y) => x._idx - y._idx)[0];
+    // 1세트가 수집되지 않은 경기는 세지 않는다. 2:1 경기는 1세트 승자와 2세트 승자가
+    // 반드시 다르므로, 1세트가 빠지면 이 통계가 정확히 거꾸로 집계된다.
+    if (!first || first._idx !== 0) return;
     if (first.win !== "a" && first.win !== "b") return;
     fsTot++;
     if ((first.win === "a") === (m.scoreA > m.scoreB)) fsWin++;

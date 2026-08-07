@@ -13,11 +13,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807p">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260807p">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807q">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260807q">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807p">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807q">
 </head>
 <body>
   <main class="page">
@@ -326,11 +326,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807p"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807p"></script>
-  <script src="assets/store.js?v=20260807p"></script>
-  <script src="assets/app.js?v=20260807p"></script>
-  <script src="assets/ddragon.js?v=20260807p"></script>
+  <script src="assets/data.js?v=20260807q"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807q"></script>
+  <script src="assets/store.js?v=20260807q"></script>
+  <script src="assets/app.js?v=20260807q"></script>
+  <script src="assets/ddragon.js?v=20260807q"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -673,15 +673,20 @@
       }
       const match = doneMatches.find(m => m.id === mSel.value) || doneMatches[0];
       const d = getDetails(match.id) || { sets: [] };
-      const setCount = Math.max(d.sets.length + 1, 1);
+      // 목록은 **진짜 세트 번호** 기준이다 (배열 위치가 아니다).
+      // 그래야 2세트만 수집된 경기에서 "1세트 (새로)"를 골라 빠진 세트를 채울 수 있다.
+      // 몇 세트까지 보일지는 실제 스코어(2:1이면 3세트)와 이미 있는 번호 중 큰 쪽으로.
+      const byScore = (match.scoreA || 0) + (match.scoreB || 0);
+      const byHave = d.sets.length ? Math.max(...d.sets.map(x => (x._idx ?? 0) + 1)) : 0;
+      const setCount = Math.min(Math.max(byScore, byHave, 1) + (byScore ? 0 : 1), 5);
       if (sSel.dataset.for !== match.id || !sSel.options.length) {
         sSel.dataset.for = match.id;
-        sSel.innerHTML = Array.from({ length: Math.min(setCount, 5) }, (_, i) =>
-          `<option value="${i}">${i + 1}세트${d.sets[i] ? " ✓" : " (새로)"}</option>`).join("");
+        sSel.innerHTML = Array.from({ length: setCount }, (_, n) =>
+          `<option value="${n}">${n + 1}세트${d.sets.some(x => (x._idx ?? -1) === n) ? " ✓" : " (새로)"}</option>`).join("");
         sSel.onchange = renderDetailEditor;
       }
       const setIdx = Number(sSel.value || 0);
-      const existing = d.sets[setIdx];
+      const existing = d.sets.find(x => (x._idx ?? -1) === setIdx);
       const starters = [...teamPlayers(match.a), ...teamPlayers(match.b)];
 
       document.getElementById("dt-grid").innerHTML = `
@@ -737,7 +742,7 @@
         alert("저장했습니다. 해당 경기 라이브 페이지에서 확인하세요.");
       });
       document.getElementById("dt-del")?.addEventListener("click", () => {
-        if (!confirm("이 세트 기록을 삭제할까요?")) return;
+        if (!confirm(`${setIdx + 1}세트 기록을 삭제할까요?`)) return;
         deleteDetailSet(match.id, setIdx);
         sSel.innerHTML = "";
         renderDetailEditor();
