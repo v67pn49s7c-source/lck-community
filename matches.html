@@ -17,10 +17,10 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807s">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260807s">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807t">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260807t">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807s">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807t">
 </head>
 <body>
   <main class="page">
@@ -60,10 +60,10 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807s"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807s"></script>
-  <script src="assets/store.js?v=20260807s"></script>
-  <script src="assets/app.js?v=20260807s"></script>
+  <script src="assets/data.js?v=20260807t"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807t"></script>
+  <script src="assets/store.js?v=20260807t"></script>
+  <script src="assets/app.js?v=20260807t"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("경기", null);
@@ -107,6 +107,11 @@
     renderTournamentSelect();
     renderStageTabs();
     renderMatches();
+
+    // 저장된 사본으로 먼저 그리고, 서버 자료가 도착하면 **한 번 더** 그린다.
+    // 이게 없으면 다시 찾아온 사람은 늘 '지난번 자료'를 본다 — 경기가 끝나도
+    // 순위·스코어가 그대로고, 이름을 바꿔도 옛 이름이 남는다. (2026-08-07)
+    storeFresh.then(() => { renderTournamentSelect(); renderStageTabs(); renderMatches(); }).catch(() => {});
     initSidebar();
     renderFooter();
   
