@@ -13,10 +13,10 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807q">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260807q">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807r">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260807r">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807q">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807r">
 </head>
 <body>
   <main class="page">
@@ -77,16 +77,17 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807q"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807q"></script>
-  <script src="assets/store.js?v=20260807q"></script>
-  <script src="assets/app.js?v=20260807q"></script>
+  <script src="assets/data.js?v=20260807r"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807r"></script>
+  <script src="assets/store.js?v=20260807r"></script>
+  <script src="assets/app.js?v=20260807r"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
     renderFooter();
 
-    if (Auth.session && Auth.profile) { location.href = "index.html"; return; }
+    // 이미 로그인·프로필까지 끝난 사람이 들어오면 내 기록으로 보낸다
+    if (Auth.session && Auth.profile) { location.href = "my.html"; return; }
 
     // 동의 확인 — 셋 다 체크해야 true (가입은 프로필 생성 시점에 서버가 다시 검사한다)
     const allAgreed = () => ["agree-age", "agree-terms", "agree-privacy"]
@@ -117,7 +118,7 @@
         const res = await completeProfile(nick, document.getElementById("auth-team").value, true);
         if (res.error) { alert("저장 실패: " + res.error.message); return; }
         alert(`환영합니다, ${nick}님!`);
-        location.href = "index.html";
+        location.href = "my.html";   // 로그인 직후엔 내 기록부터 보여 준다
       });
       return; // 아래 로그인/가입 로직은 사용하지 않음
     }
@@ -153,7 +154,7 @@
         const { error } = await sbSignIn(email, pw);
         btn.disabled = false;
         if (error) { alert("로그인 실패: " + error.message); return; }
-        location.href = "index.html";
+        location.href = "my.html";   // 로그인 직후엔 내 기록부터 보여 준다
       } else {
         if (!allAgreed()) {
           alert("가입 동의 항목(만 14세·이용약관·개인정보)에 모두 체크해 주세요.");
@@ -165,7 +166,7 @@
         if (res.error) { alert("가입 실패: " + res.error.message); return; }
         if (res.needConfirm) { alert("가입 확인 이메일이 발송되었습니다. 메일함을 확인해 주세요."); return; }
         alert(`환영합니다, ${nick}님!`);
-        location.href = "index.html";
+        location.href = "my.html";   // 로그인 직후엔 내 기록부터 보여 준다
       }
     });
   });

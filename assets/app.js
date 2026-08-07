@@ -184,15 +184,19 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807q")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807q")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807q")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807r")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807r")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807r")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_MENUS.map(([m, href]) => `<a href="${href}" class="${m === activeMenu ? "active" : ""}">${m}</a>`).join("")}
       </nav>
       <div class="header-actions">
         <button class="btn-icon" id="theme-toggle"></button>
+        <!-- 내 기록으로 가는 길. 예전에는 로그인한 사람의 닉네임 칩뿐이라,
+             데스크톱에서 비로그인 방문자는 마이페이지에 갈 방법이 아예 없었다.
+             비로그인도 예측·평점 기록이 이 브라우저에 쌓이므로 볼 것이 있다. (2026-08-07) -->
+        <a class="btn-login my-link ${activeMenu === "MY" ? "on" : ""}" href="my.html" title="내 기록 · 팬 여권">내 기록</a>
         ${Auth.session
           ? (Auth.profile
             ? `<a class="user-chip" href="my.html" title="팬 여권 보기">${esc(Auth.profile.nick)}</a>`
@@ -232,7 +236,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807q");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807r");
 
   renderTabBar(activeMenu);
 }
@@ -329,7 +333,10 @@ function renderFanHero() {
     el.innerHTML = `
       <div class="onboard-slim">
         <span>응원팀을 고르면 홈이 우리 팀 중심으로 바뀝니다</span>
-        <button type="button" class="btn-secondary" id="onboard-open">팀 고르기</button>
+        <span style="display:flex;gap:8px">
+          <a class="btn-secondary" href="my.html" style="text-decoration:none">내 기록</a>
+          <button type="button" class="btn-secondary" id="onboard-open">팀 고르기</button>
+        </span>
       </div>`;
     el.querySelector("#onboard-open").addEventListener("click", () => {
       fanHeroChoosing = true;

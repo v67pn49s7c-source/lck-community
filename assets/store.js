@@ -205,9 +205,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807q"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807q"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807q"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260807r"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260807r"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260807r"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -309,11 +309,14 @@ async function fetchAll() {
   (co.data || []).forEach(c => {
     (commentsByPost[c.post_id] = commentsByPost[c.post_id] || []).push({
       id: c.id, nick: c.nick, body: c.body, author_team: c.author_team || null, ts: Date.parse(c.created_at),
+      // 마이페이지에서 '내가 쓴 댓글'을 찾는 열쇠. 비회원 댓글은 null 이다.
+      author_id: c.author_id || null, post_id: c.post_id,
     });
   });
   Cache.posts = (po.data || []).map(x => ({
     id: x.id, team: x.team, cat: x.cat, title: x.title, body: x.body, nick: x.nick,
     author_team: x.author_team || null, match_id: x.match_id || null,
+    author_id: x.author_id || null,   // 마이페이지 '내가 쓴 글'. 비회원 글은 null.
     up: x.up, views: x.views, ts: Date.parse(x.created_at), comments: commentsByPost[x.id] || [],
   }));
 
@@ -1839,7 +1842,9 @@ async function sbSignOut() {
   Auth.session = null;
   Auth.profile = null;
   Cache.myVoter = null;
-  Cache.mine = { predictions: [], ratings: [], pollVotes: [], reactions: [], commentLikes: [] };
+  // ⚠ 키를 하나라도 빠뜨리면 그걸 읽는 코드가 그 자리에서 터진다
+  //   (postUpvotes 가 빠져 있어서 로그아웃 직후 글 추천을 누르면 오류가 났다 — 2026-08-07)
+  Cache.mine = { predictions: [], ratings: [], pollVotes: [], reactions: [], commentLikes: [], postUpvotes: [] };
   try { localStorage.removeItem(SNAP_KEY); } catch {}
   snapshotSave();
 }
@@ -1887,3 +1892,87 @@ storeFresh.then(pingScheduleSync).catch(() => {});
 
 // 페이지를 떠날 때 (투표·평점 등 방금 바꾼 내용까지) 스냅샷 갱신
 addEventListener("pagehide", snapshotSave);
+
+// ── 마이페이지: 내가 한 일 모아 보기 ─────────────────────────────
+//
+// 재료는 전부 **이미 받아 둔 것**이다 (Cache.mine + Cache.posts + Cache.polls …).
+// 서버에 새로 물어보지 않는다.
+//
+// ⚠ 정직성: 반응·추천·평점·투표에는 **누른 시각이 서버에 없다.**
+//   그래서 "최근 활동순"이라고 쓰면 거짓말이 된다. 경기 날짜순·글 최신순으로 정렬하고
+//   화면에도 그렇게 적는다. (내가 쓴 글·댓글만 진짜 작성 시각이 있다)
+
+/** 내가 준 선수 평점 — [{ player, match, setIndex, score }] 최신 경기순 */
+function myRatingList() {
+  const out = [];
+  (Cache.mine.ratings || []).forEach(r => {
+    const p = getPlayer(r.player_id), m = Cache.matches.find(x => x.id === r.match_id);
+    if (!p) return;
+    out.push({ player: p, match: m || null, setIndex: r.set_index, score: r.score });
+  });
+  return out.sort((a, b) => (b.match ? +new Date(b.match.at) : 0) - (a.match ? +new Date(a.match.at) : 0));
+}
+
+/** 내가 한 투표 — [{ poll, match, picked: ["2:1 승", …] }] 최신 경기순 */
+function myPollList() {
+  const out = [];
+  (Cache.mine.pollVotes || []).forEach(v => {
+    const poll = (Cache.polls || []).find(p => p.id === v.poll_id);
+    if (!poll) return;
+    const opts = poll.options || [];
+    const picked = (v.choices || []).map(i => opts[i]).filter(Boolean);
+    if (!picked.length) return;
+    out.push({ poll, match: Cache.matches.find(x => x.id === poll.match_id) || null, picked });
+  });
+  return out.sort((a, b) => (b.match ? +new Date(b.match.at) : 0) - (a.match ? +new Date(a.match.at) : 0));
+}
+
+/** 내가 추천하거나 반응한 글 — [{ post, up, kinds:[] }] 글 최신순.
+ *  추천과 반응을 따로 두면 양쪽 다 거의 비어 보여서 한 목록으로 합친다. */
+function myPostActivity() {
+  const by = {};
+  const touch = id => (by[id] = by[id] || { post: getPost(id), up: false, kinds: [] });
+  (Cache.mine.postUpvotes || []).forEach(x => { touch(x.post_id).up = true; });
+  (Cache.mine.reactions || []).forEach(x => { const t = touch(x.post_id); if (x.kind) t.kinds.push(x.kind); });
+  return Object.values(by).filter(x => x.post).sort((a, b) => b.post.ts - a.post.ts);
+}
+
+/** 내가 추천한 댓글 — [{ post, comment }] 글 최신순 */
+function myCommentLikeList() {
+  const liked = new Set((Cache.mine.commentLikes || []).map(x => x.comment_id));
+  const out = [];
+  (Cache.posts || []).forEach(p => (p.comments || []).forEach(c => {
+    if (c.id != null && liked.has(c.id)) out.push({ post: p, comment: c });
+  }));
+  return out.sort((a, b) => b.comment.ts - a.comment.ts);
+}
+
+/** 내가 쓴 글 / 댓글 — 회원만. 진짜 작성 시각이 있어 시간순으로 줄 세울 수 있다.
+ *  비회원 글은 주인을 가리키는 칸이 없어(닉네임도 글마다 새로 뽑힌다) 되찾을 수 없다. */
+function myWritten() {
+  const uid = Auth.session && Auth.session.user && Auth.session.user.id;
+  if (!uid) return { posts: [], comments: [] };
+  const posts = (Cache.posts || []).filter(p => p.author_id === uid).sort((a, b) => b.ts - a.ts);
+  const comments = [];
+  (Cache.posts || []).forEach(p => (p.comments || []).forEach(c => {
+    if (c.author_id === uid) comments.push({ post: p, comment: c });
+  }));
+  comments.sort((a, b) => b.comment.ts - a.comment.ts);
+  return { posts, comments };
+}
+
+/** 창립 팬으로 받은 번호 — [{ team, no }] (여러 팀에 등록했을 수도 있다) */
+function myFoundingNos() {
+  const uid = Auth.session && Auth.session.user && Auth.session.user.id;
+  if (!uid) return [];
+  return (Cache.founding || []).filter(f => f.user_id === uid)
+    .map(f => ({ team: f.team, no: f.no })).sort((a, b) => a.no - b.no);
+}
+
+/** 예측 랭킹에서 내 자리 — 회원 + 채점 5경기 이상일 때만 등재된다 */
+function myRankingRow() {
+  if (!Auth.profile) return null;
+  const list = predictRanking ? predictRanking() : [];
+  const i = list.findIndex(r => r.nick === Auth.profile.nick);
+  return i < 0 ? null : { rank: i + 1, total: list.length, row: list[i] };
+}

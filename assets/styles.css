@@ -60,7 +60,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260807q") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260807r") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -555,8 +555,11 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
   padding: 12px 14px;
   clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 0 100%);
 }
-.stat-card .k { font-size: var(--fs-xs); color: var(--text-dim); font-weight: 600; }
-.stat-card .v { font-size: 22px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+/* 세 줄(라벨·숫자·설명)은 반드시 세로로 쌓인다. display 를 안 정해 두면
+   <div> 로 쓴 화면은 멀쩡한데 <span> 으로 쓴 화면(팬 여권)은 한 줄로 붙어 버린다. */
+.stat-card .k { display: block; font-size: var(--fs-xs); color: var(--text-dim); font-weight: 600; }
+.stat-card .v { display: block; font-size: 22px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.stat-card .v em { display: inline; }
 .stat-card .v em { font-style: normal; color: var(--accent); }
 
 .predict-match {
@@ -1410,3 +1413,48 @@ table.award-table td a:hover b { color: var(--accent); }
   .sb-row { grid-template-columns: 40px 1fr 40px 1fr 40px; font-size: 11px; gap: 4px; }
   .sb-head { padding: 10px; gap: 6px; }
 }
+
+/* '내 기록' 헤더 버튼 — 지금 그 페이지에 있으면 강조 */
+.my-link { text-decoration: none; }
+.my-link.on { color: var(--accent); border-color: var(--accent); }
+/* 좁은 화면에는 하단 탭바에 MY 가 이미 있다 — 헤더에서는 감춘다 */
+@media (max-width: 760px) { .my-link { display: none; } }
+
+/* ── 마이페이지: 내 활동 (접이식) ── */
+.act-group { border-top: 1px solid var(--line); }
+.act-group:first-of-type { border-top: none; }
+.act-group > summary {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  padding: 11px 14px; font-weight: 700; font-size: var(--fs-md); list-style: none;
+}
+.act-group > summary::-webkit-details-marker { display: none; }
+.act-group > summary::before {
+  content: "▸"; color: var(--text-dim); font-size: 11px; transition: transform .12s;
+}
+.act-group[open] > summary::before { transform: rotate(90deg); }
+.act-group > summary:hover { background: var(--card-hover); }
+.act-name { flex: 1; min-width: 0; }
+.act-n {
+  font-size: var(--fs-sm); font-weight: 800; color: var(--text-dim);
+  background: var(--bg-soft); border: 1px solid var(--line);
+  padding: 1px 8px; border-radius: 999px; min-width: 26px; text-align: center;
+}
+.act-n.on { color: #fff; background: var(--accent-solid); border-color: var(--accent-solid); }
+.act-rows .post-row:first-of-type { border-top: 1px solid var(--line); }
+
+/* 창립 팬 번호 배지 */
+.pp-founding {
+  display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: 3px;
+  font-size: 11px; font-weight: 800; color: #fff; background: var(--accent-solid);
+}
+
+/* 응원팀 고르기 칩 */
+.fav-pick { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.fav-pick button {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 8px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line); background: transparent;
+  color: var(--text-sub); font-weight: 700; font-size: var(--fs-sm);
+}
+.fav-pick button.active { border-color: var(--pick-color); border-width: 2px; color: var(--text);
+  background: color-mix(in srgb, var(--pick-color) 14%, transparent); }

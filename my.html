@@ -13,10 +13,10 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807q">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260807q">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260807r">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260807r">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260807q">
+  <link rel="stylesheet" href="assets/styles.css?v=20260807r">
 </head>
 <body>
   <main class="page">
@@ -43,6 +43,19 @@
             <span class="card-more" id="pred-summary"></span>
           </div>
           <div id="pred-history"></div>
+        </section>
+
+        <!-- 내가 한 일 — 종류별로 접어 둔다. 제목에 개수가 보이고 누르면 펼쳐진다. -->
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">내 활동 <span class="sub">이 계정·이 브라우저 기준</span></h2>
+          </div>
+          <div id="activity-body"></div>
+          <div class="admin-note">
+            추천·반응·평점·투표는 <b>누른 시각이 서버에 남지 않습니다</b>.
+            그래서 "최근 순"이 아니라 경기 날짜순·글 최신순으로 보여 드립니다.
+            (내가 쓴 글·댓글만 실제 작성 시각 기준입니다)
+          </div>
         </section>
       </div>
 
@@ -74,10 +87,10 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260807q"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260807q"></script>
-  <script src="assets/store.js?v=20260807q"></script>
-  <script src="assets/app.js?v=20260807q"></script>
+  <script src="assets/data.js?v=20260807r"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260807r"></script>
+  <script src="assets/store.js?v=20260807r"></script>
+  <script src="assets/app.js?v=20260807r"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("MY", null);
@@ -88,13 +101,17 @@
       const nick = Auth.profile ? Auth.profile.nick : "익명 팬";
 
       // ── 여권 본문 ──
+      const founding = myFoundingNos();
+      const joined = Auth.session && Auth.session.user && Auth.session.user.created_at;
       document.getElementById("passport-body").innerHTML = `
         <div class="pp-hero" style="--team-color:${t ? t.color : "var(--accent)"}">
           <div class="pp-id">
             ${t ? teamLogoHTML(t, 44) : `<span class="player-avatar" style="--team-color:var(--accent)">?</span>`}
             <div>
               <b>${esc(nick)}</b>
-              <span>${t ? esc(t.name) + " 팬" : "응원팀 미설정"}${rec.bias ? ` · ${esc(rec.bias)}` : ""}</span>
+              ${founding.map(f => `<span class="pp-founding" title="창립 팬 100인">${esc((TEAM_MAP[f.team] || {}).abbr || f.team)} 창립 팬 #${f.no}</span>`).join("")}
+              <span>${t ? esc(t.name) + " 팬" : "응원팀 미설정"}${rec.bias ? ` · ${esc(rec.bias)}` : ""}
+                ${joined ? ` · ${esc(fmtMD(joined))} 가입` : Auth.session ? "" : " · 이 브라우저 기록"}</span>
             </div>
           </div>
           <span class="pp-season">2026 LCK 정규 시즌</span>
@@ -112,8 +129,17 @@
           <div class="stat-card"><span class="k">연속 참여</span><span class="v">${rec.streak}<em>경기</em></span>
             <span class="k">${rec.streak >= 3 ? "🔥 이어지는 중" : "다음 경기도 함께!"}</span></div>
         </div>
-        ${t ? "" : `<div class="admin-note">응원팀을 고르면 여권이 팀 색으로 바뀌고, 홈도 우리 팀 중심이 됩니다.
-          <a href="index.html" style="text-decoration:underline">홈에서 팀 고르기 →</a></div>`}`;
+        <div class="admin-note" style="padding-bottom:6px">
+          <b>응원팀</b> ${t ? "" : "— 고르면 여권이 팀 색으로 바뀌고 홈도 우리 팀 중심이 됩니다"}
+          <div class="fav-pick">${TEAMS.map(x =>
+            `<button data-fav="${esc(x.id)}" class="${t && t.id === x.id ? "active" : ""}" style="--pick-color:${x.color}"
+              title="${esc(x.name)}">${teamLogoHTML(x, 18)} ${esc(x.abbr)}</button>`).join("")}</div>
+          ${Auth.session ? "" : `<span style="color:var(--text-dim)">비회원 선택은 이 브라우저에만 남습니다</span>`}
+        </div>`;
+      document.querySelectorAll("[data-fav]").forEach(b => b.addEventListener("click", async () => {
+        await setFavTeam(b.dataset.fav === (rec.fav || "") ? "" : b.dataset.fav);
+        render();
+      }));
 
       // ── 배지 ──
       const next = []; // 다음 목표 안내
@@ -127,6 +153,14 @@
                 <span><b>${esc(b.name)}</b><em>${esc(b.desc)}</em></span></div>`).join("")}</div>`
           : `<div class="empty-note">아직 배지가 없어요. 경기에 참여하면 첫 배지를 받을 수 있습니다.</div>`)
         + (next.length ? `<div class="badge-next">다음 목표: ${next.map(esc).join(" · ")}</div>` : "");
+
+      // 예측 랭킹에서 내 자리 (회원 + 채점 5경기 이상이어야 등재된다)
+      const mr = myRankingRow();
+      if (mr) document.getElementById("badge-body").insertAdjacentHTML("afterbegin",
+        `<div class="badge-next" style="border-bottom:1px solid var(--line);border-top:none">
+           시즌 예측 랭킹 <b style="color:var(--accent)">${mr.rank}위</b>
+           <span style="color:var(--text-dim)">/ ${mr.total}명 · ${mr.row.hit}/${mr.row.total} 적중</span>
+           <a href="ranking.html" style="text-decoration:underline;margin-left:6px">전체 랭킹 →</a></div>`);
 
       // ── 예측 기록 ──
       document.getElementById("pred-summary").textContent =
@@ -146,7 +180,82 @@
         : `<div class="empty-note">아직 채점된 예측이 없습니다. 다음 경기를 예측해 보세요!</div>`;
 
       document.getElementById("guest-note-card").style.display = Auth.session ? "none" : "";
+
+      renderActivity();
     }
+
+    // ── 내 활동 (접이식) ───────────────────────────────────────
+    // 비어 있는 칸은 "아직 없어요 + 하러 가기"로 채운다. 빈 카드만 쌓이면 초라해 보인다.
+    function renderActivity() {
+      const uid = Auth.session && Auth.session.user && Auth.session.user.id;
+      const rateList = myRatingList();
+      const pollList = myPollList();
+      const postAct  = myPostActivity();
+      const cmtLikes = myCommentLikeList();
+      const written  = myWritten();
+      const kindLabel = k => (REACTION_KINDS.find(x => x.kind === k) || {}).emoji || "";
+
+      const rowLink = (href, left, right) =>
+        `<a class="post-row" href="${href}"><span class="post-title">${left}</span>
+           <span class="post-meta">${right}</span></a>`;
+
+      const groups = [
+        { key: "poll", name: "내가 한 투표", n: pollList.length,
+          empty: ["아직 투표한 경기가 없습니다", "오늘의 경기 보러 가기", "live.html"],
+          rows: () => pollList.map(x => rowLink(
+            x.match ? `/match/${q(x.match.id)}` : "#",
+            `${esc(x.poll.question || "투표")} <span style="color:var(--text-dim)">→ ${esc(x.picked.join(", "))}</span>`,
+            x.match ? esc(fmtMD(x.match.at)) : "")) },
+
+        { key: "rate", name: "내가 준 선수 평점", n: rateList.length,
+          empty: ["아직 평점을 준 선수가 없습니다", "끝난 경기에서 평점 주기", "matches.html"],
+          rows: () => rateList.map(x => rowLink(
+            `player.html?id=${q(x.player.id)}`,
+            `<b>${esc(x.player.nick)}</b> <span style="color:var(--text-dim)">${esc(x.player.pos)}</span>
+             <b style="color:var(--accent)">${x.score}점</b>`,
+            x.match ? `${esc(fmtMD(x.match.at))} ${(x.setIndex ?? -1) >= 0 ? (x.setIndex + 1) + "세트" : ""}` : "")) },
+
+        { key: "post", name: "내가 추천·반응한 글", n: postAct.length,
+          empty: ["아직 추천하거나 반응한 글이 없습니다", "커뮤니티 둘러보기", "community.html"],
+          rows: () => postAct.map(x => rowLink(
+            `post.html?id=${q(x.post.id)}`,
+            `${x.up ? "▲ " : ""}${x.kinds.map(kindLabel).join("")} ${esc(x.post.title)}`,
+            esc(fmtMD(x.post.ts)))) },
+
+        { key: "clike", name: "내가 추천한 댓글", n: cmtLikes.length,
+          empty: ["아직 추천한 댓글이 없습니다", "커뮤니티 둘러보기", "community.html"],
+          rows: () => cmtLikes.map(x => rowLink(
+            `post.html?id=${q(x.post.id)}`,
+            `<span style="color:var(--text-dim)">${esc(x.post.title)}</span> — ${esc(x.comment.body.slice(0, 40))}`,
+            esc(fmtMD(x.comment.ts)))) },
+      ];
+
+      // 내가 쓴 글·댓글은 회원만 (비회원 글은 주인을 가리키는 칸이 아예 없다)
+      if (uid) groups.unshift({
+        key: "write", name: "내가 쓴 글 · 댓글", n: written.posts.length + written.comments.length,
+        empty: ["아직 쓴 글이 없습니다", "첫 글 쓰러 가기", "write.html"],
+        rows: () => written.posts.map(p => rowLink(`post.html?id=${q(p.id)}`,
+                      `<b>${esc(p.title)}</b>${p.comments.length ? ` <span style="color:var(--text-dim)">[${p.comments.length}]</span>` : ""}`,
+                      esc(fmtMD(p.ts))))
+                 .concat(written.comments.map(x => rowLink(`post.html?id=${q(x.post.id)}`,
+                      `<span style="color:var(--text-dim)">${esc(x.post.title)}</span> — ${esc(x.comment.body.slice(0, 40))}`,
+                      esc(fmtMD(x.comment.ts))))) });
+
+      document.getElementById("activity-body").innerHTML = groups.map(g => `
+        <details class="act-group" ${g.n ? "" : ""}>
+          <summary><span class="act-name">${esc(g.name)}</span>
+            <span class="act-n ${g.n ? "on" : ""}">${g.n}</span></summary>
+          <div class="act-rows">${g.n ? g.rows().join("")
+            : `<div class="empty-note">${esc(g.empty[0])}<br>
+                 <a href="${g.empty[2]}" style="text-decoration:underline;font-weight:700">${esc(g.empty[1])} →</a>
+               </div>`}</div>
+        </details>`).join("")
+        + (uid ? "" : `<div class="admin-note" style="border-top:1px solid var(--line)">
+            <b>내가 쓴 글·댓글</b>은 회원만 모아 볼 수 있습니다. 비회원 글은 글마다 닉네임이 새로 만들어져
+            나중에 "내 글"로 찾아낼 방법이 없기 때문입니다.
+            <a href="login.html" style="text-decoration:underline;font-weight:700">회원가입 →</a></div>`);
+    }
+    window.__render = render;   // 개발 중 화면 확인용
     render();
     // 스냅샷으로 먼저 그렸다면, 서버 데이터가 도착한 뒤 한 번 더 (내 기록은 지연되면 안 된다)
     storeFresh.then(() => render()).catch(() => {});
