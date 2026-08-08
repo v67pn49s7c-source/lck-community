@@ -17,10 +17,10 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260808h">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260808h">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260808i">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260808i">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260808h">
+  <link rel="stylesheet" href="assets/styles.css?v=20260808i">
 </head>
 <body>
   <main class="page">
@@ -30,7 +30,6 @@
           <h1 class="page-title">경기 <span class="sub">일정 · 결과</span></h1>
           <div style="display:flex; gap:8px; align-items:center">
             <select id="tournament-select" style="min-width:200px"></select>
-            <a class="btn-secondary" id="bracket-link" href="bracket.html">대진표</a>
           </div>
         </div>
         <section class="card">
@@ -60,10 +59,10 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260808h"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260808h"></script>
-  <script src="assets/store.js?v=20260808h"></script>
-  <script src="assets/app.js?v=20260808h"></script>
+  <script src="assets/data.js?v=20260808i"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260808i"></script>
+  <script src="assets/store.js?v=20260808i"></script>
+  <script src="assets/app.js?v=20260808i"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("경기", null);
@@ -83,8 +82,11 @@
       updateBracketLink();
     }
 
+    // 대진표는 이제 위쪽 하위 메뉴에 있다. 지금 고른 대회를 그대로 들고 가도록
+    // 그 링크의 주소에 대회 번호를 붙여 준다 — 안 붙이면 늘 마지막 대회로 간다.
     function updateBracketLink() {
-      document.getElementById("bracket-link").href = "bracket.html?t=" + (state.tid || "");
+      const a = document.querySelector('.sub-nav-inner a[href^="bracket.html"]');
+      if (a) a.href = "bracket.html?t=" + encodeURIComponent(state.tid || "");
     }
 
     function renderStageTabs() {

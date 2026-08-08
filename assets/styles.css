@@ -185,6 +185,28 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
 }
 
 /* ── 팀 스트립 ── */
+/* ── 하위 메뉴 (묶음 안의 갈래) ──────────────────────────────
+   위 줄에서 묶음을 고르면 이 줄에서 갈래를 고른다.
+   윗줄과 헷갈리지 않게 생김새를 일부러 다르게 했다 — 위는 밑줄, 여기는 알약. */
+.sub-nav { background: var(--bg); border-bottom: 1px solid var(--line); }
+.sub-nav-inner {
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 0;
+  overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.sub-nav-inner::-webkit-scrollbar { display: none; }
+/* ⚠ 안쪽 카드에도 알약 모양 거르개(시즌 누적·라운드 1-2 …)가 있다.
+   둘이 똑같이 생기면 "어느 쪽이 화면을 바꾸는 건지" 헷갈린다.
+   그래서 여기 안 고른 것은 테두리도 배경도 없는 맨 글씨로 둔다. */
+.sub-nav-inner a {
+  flex-shrink: 0; white-space: nowrap;
+  padding: 6px 13px; border-radius: 999px;
+  font-size: var(--fs-sm); font-weight: 600;
+  color: var(--text-sub);
+}
+.sub-nav-inner a:hover { color: var(--text); background: var(--bg-soft); transition: color .15s, background .15s; }
+.sub-nav-inner a.active { color: #fff; background: var(--accent-solid); }
+
 .team-strip { background: var(--bg-soft); border-bottom: 1px solid var(--line); }
 .team-strip-inner {
   display: flex; align-items: stretch; justify-content: space-between;
@@ -1217,8 +1239,19 @@ a.bracket-match:hover { border-color: var(--accent); }
   table.board-table td, table.board-table th { padding: 8px 5px; }
   /* 팀 게시판 메뉴: 슬라이드 대신 5개씩 2줄 그리드 (전 팀 노출) */
   .team-strip-inner { display: grid; grid-template-columns: repeat(5, 1fr); overflow: visible; }
-  .team-link { min-width: 0; padding: 7px 2px 5px; }
+  .team-link { min-width: 0; padding: 6px 2px 4px; }
   .team-link .team-abbr { font-size: 10px; }
+  /* 팀 줄이 두 줄이라 머리가 두껍다. 하위 메뉴는 좁은 화면에서 얇게. */
+  .sub-nav-inner { padding: 6px 0; gap: 4px; }
+  .sub-nav-inner a { padding: 5px 11px; font-size: var(--fs-xs); }
+
+  /* ⚠ 제목 줄은 한 줄짜리 flex 라, 옆에 붙은 대회 고르개(최소 200px)가
+     좁은 화면에서 제목을 짓눌러 "경 / 기" 처럼 글자를 세로로 쪼갠다.
+     좁으면 제목과 조작칸을 위아래로 나눈다. (2026-08-08) */
+  .page-title-row { flex-wrap: wrap; gap: 10px; }
+  .page-title { flex: 1 0 100%; min-width: 0; }
+  .page-title-row > div { flex: 1 1 100%; }
+  .page-title-row select { flex: 1 1 auto; min-width: 0 !important; }
 }
 
 /* 좁은 화면: 팬심 평점 좌우 배치 유지 + 내용 간략화 (라벨 숨기고 점·숫자만) */

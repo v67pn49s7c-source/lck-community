@@ -117,11 +117,51 @@ function applyTheme(theme) {
 }
 
 // ── 헤더 / 푸터 ──
-const NAV_MENUS = [
-  ["홈", "index.html"], ["경기", "matches.html"], ["순위", "standings.html"], ["경우의 수", "race.html"],
-  ["승부예측", "predict.html"], ["오늘의 경기", "live.html"], ["커뮤니티", "community.html"], ["팀", "teams.html"],
-  ["선수", "players.html"], ["수상", "awards.html"], ["랭킹", "ranking.html"],
+// 메뉴는 여섯 묶음. 묶음 안의 갈래는 두 번째 줄(하위 탭)에서 고른다.
+//
+// ⚠ 예전에는 열한 개가 한 줄에 있었다. 그러면 좁은 화면에 다 못 들어가서
+//   뒤쪽 절반(선수·수상·랭킹)은 옆으로 밀어야만 보였다 — 사실상 없는 메뉴였다.
+//   게다가 겹치는 것이 셋이었다:
+//     · 경기 / 오늘의 경기      → 목록과 그 상세가 나란히 최상위에
+//     · 승부예측 / 랭킹         → 주간 랭킹은 여기, 시즌 랭킹은 저기
+//     · 순위(팀) / 랭킹(회원)   → 이름만 봐서는 구분이 안 됨
+//   묶은 뒤에도 페이지는 하나도 안 없앴다. 주소가 그대로라 기존 링크·검색 노출이 산다.
+//   (2026-08-08)
+const NAV_GROUPS = [
+  { menu: "홈", href: "index.html" },
+  { menu: "경기", href: "matches.html", subs: [
+    ["일정·결과", "matches.html"], ["오늘의 경기", "live.html"], ["대진표", "bracket.html"]] },
+  { menu: "순위", href: "standings.html", subs: [
+    ["순위표", "standings.html"], ["경우의 수", "race.html"]] },
+  { menu: "승부예측", href: "predict.html", subs: [
+    ["예측하기", "predict.html"], ["예측 랭킹", "ranking.html"]] },
+  { menu: "커뮤니티", href: "community.html" },
+  { menu: "선수·팀", href: "players.html", subs: [
+    ["선수", "players.html"], ["팀", "teams.html"], ["수상", "awards.html"]] },
 ];
+
+// 옛 메뉴 이름 → 새 묶음. 페이지들이 renderHeader("수상") 처럼 예전 이름으로 부르고 있어서,
+// 그 호출을 전부 고치는 대신 여기서 옮겨 준다. 고칠 곳이 한 군데면 틀릴 곳도 한 군데다.
+const NAV_ALIAS = {
+  "오늘의 경기": "경기", "경우의 수": "순위", "랭킹": "승부예측",
+  "팀": "선수·팀", "선수": "선수·팀", "수상": "선수·팀",
+};
+
+/** 지금 보고 있는 파일 이름으로 묶음과 갈래를 찾는다.
+ *  넘겨받은 메뉴 이름보다 이쪽을 먼저 믿는다 — 호출부가 17군데라 어긋나기 쉽다. */
+function navHere() {
+  let file = (location.pathname.split("/").pop() || "").toLowerCase();
+  // 뿌리 주소(/)만 홈으로 친다. 확장자 없는 다른 주소(/match/… 같은)까지 홈으로 치면
+  // 엉뚱한 메뉴에 불이 켜진다 — 그런 주소는 넘겨받은 이름에 맡긴다.
+  if (!file) file = "index.html";
+  if (!file.endsWith(".html")) return null;
+  for (const g of NAV_GROUPS) {
+    if (g.href.toLowerCase() === file) return { group: g, sub: g.href };
+    const hit = (g.subs || []).find(([, h]) => h.toLowerCase() === file);
+    if (hit) return { group: g, sub: hit[1] };
+  }
+  return null;
+}
 
 // ?id= 처럼 **내용이 갈리는 주소**는 canonical·og:url 도 그 주소여야 한다.
 // 고정 canonical 이면 검색엔진이 131개 글과 50명 선수를 한 장으로 합쳐 버린다.
@@ -186,17 +226,30 @@ function noIndex() {
 function renderHeader(activeMenu, activeTeamId) {
   document.body.classList.add("app-ready"); // 데이터 로드 완료 → 화면 표시
   window.__readyMs = Math.round(performance.now()); // 로딩 체감 측정용
+
+  const here = navHere();
+  const groupName = here ? here.group.menu : (NAV_ALIAS[activeMenu] || activeMenu);
+  const group = NAV_GROUPS.find(g => g.menu === groupName);
+  const subNavHTML = group && group.subs ? `
+  <nav class="sub-nav" aria-label="${esc(group.menu)} 하위 메뉴">
+    <div class="container sub-nav-inner">
+      ${group.subs.map(([label, href]) => `
+        <a href="${href}" class="${here && here.sub === href ? "active" : ""}"
+           ${here && here.sub === href ? 'aria-current="page"' : ""}>${label}</a>`).join("")}
+    </div>
+  </nav>` : "";
+
   const header = document.createElement("div");
   header.innerHTML = `
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260808h")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260808h")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260808h")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260808i")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260808i")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260808i")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
-        ${NAV_MENUS.map(([m, href]) => `<a href="${href}" class="${m === activeMenu ? "active" : ""}">${m}</a>`).join("")}
+        ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
       </nav>
       <div class="header-actions">
         <button class="btn-icon" id="theme-toggle"></button>
@@ -213,6 +266,7 @@ function renderHeader(activeMenu, activeTeamId) {
       </div>
     </div>
   </header>
+  ${subNavHTML}
   <div class="team-strip">
     <div class="container team-strip-inner">
       ${TEAMS.map(t => `
@@ -234,18 +288,17 @@ function renderHeader(activeMenu, activeTeamId) {
     location.reload();
   });
 
-  // 좁은 화면에서 메뉴가 가로로 밀려 있을 때, 지금 보고 있는 메뉴를 보이게
-  const activeLink = header.querySelector(".main-nav a.active");
-  if (activeLink) {
-    const nav = header.querySelector(".main-nav");
-    nav.scrollLeft = Math.max(0, activeLink.offsetLeft - (nav.clientWidth - activeLink.offsetWidth) / 2);
-  }
+  // 좁은 화면에서 줄이 밀려 있을 때, 지금 보고 있는 곳을 보이게
+  header.querySelectorAll(".main-nav, .sub-nav-inner").forEach(nav => {
+    const on = nav.querySelector("a.active");
+    if (on) nav.scrollLeft = Math.max(0, on.offsetLeft - (nav.clientWidth - on.offsetWidth) / 2);
+  });
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260808h");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260808i");
 
-  renderTabBar(activeMenu);
+  renderTabBar(groupName);
 }
 
 // ── 선수 지표 육각형 (SVG 직접 그리기, 라이브러리 없음) ─────
@@ -558,18 +611,18 @@ async function renderTeamVideos(teamId) {
 }
 
 // ── 모바일 하단 탭바 ──────────────────────────────────────
-// 휴대폰에서는 위쪽 가로 메뉴가 손이 닿기 불편하고 10개가 밀려 있어 잘 안 보인다.
-// 자주 쓰는 다섯 곳만 엄지 닿는 자리에 고정한다.
+// 휴대폰에서는 위쪽 가로 메뉴가 엄지에서 멀다. 자주 쓰는 다섯 곳을 아래에 고정한다.
+// alt 는 "이 탭에 불을 켜 둘 다른 묶음" — 여섯 묶음을 다섯 칸에 넣느라 둘이 겹쳐 산다.
 const TAB_BAR = [
   { menu: "홈", href: "index.html", label: "홈",
     icon: `<path d="M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>` },
-  { menu: "경기", href: "matches.html", label: "경기", alt: ["오늘의 경기", "순위", "경우의 수"],
+  { menu: "경기", href: "matches.html", label: "경기", alt: ["순위"],
     icon: `<rect x="3" y="4.5" width="18" height="17" rx="2"/><path d="M8 2.5v4M16 2.5v4M3 10h18"/>` },
-  { menu: "승부예측", href: "predict.html", label: "예측", alt: ["랭킹"],
+  { menu: "승부예측", href: "predict.html", label: "예측",
     icon: `<path d="M12 3l2.6 5.6 6.4.8-4.7 4.3 1.3 6.3L12 17l-5.6 3 1.3-6.3L3 9.4l6.4-.8z"/>` },
-  { menu: "커뮤니티", href: "community.html", label: "커뮤니티", alt: ["팀"],
+  { menu: "커뮤니티", href: "community.html", label: "커뮤니티", alt: ["선수·팀"],
     icon: `<path d="M21 12a8 8 0 1 1-3.2-6.4L21 4l-1 4.2A8 8 0 0 1 21 12z"/><path d="M8 11h8M8 14.5h5"/>` },
-  { menu: "MY", href: "my.html", label: "MY", alt: ["선수", "수상"],
+  { menu: "MY", href: "my.html", label: "MY",
     icon: `<circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/>` },
 ];
 
