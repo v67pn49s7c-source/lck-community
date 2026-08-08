@@ -1,18 +1,22 @@
 // ── LCK 경우의 수 엔진 ──────────────────────────────────────
-// 잔여 경기의 승패 조합을 전부 나열해(2^n) 각 팀의 "자력 확보선"과
-// "산술 가능선"을 계산한다. race.html(화면)과 cards.html(카드 스튜디오)이 같이 쓴다.
+// race.html(화면)·cards.html(공유 카드)·경기 카드의 "경우의 수 한 줄"이 같이 쓴다.
+//
+// 무엇을 돌리나 — 2026 LCK 대회 규정집 2.7.2.2 의 순위 규칙을 그대로 따른다:
+//     ① 승리 경기 수  ② 세트 득실(승점)  ③ 상대 전적(2팀 동률에만)  ④ 타이브레이커 경기
+//   경기마다 승자 2가지 × 세트 마진 2가지(2:0·2:1)를 전부 세운다 → 실현 4^n 개.
+//   ①②③ 은 그 안에서 **정확히** 갈리고, ④(타이브레이커 경기)만 우리가 알 수 없다.
+//   잔여가 많아 4^n 이 RACE_EXACT_MAX 를 넘으면 상한·하한 근사로 내려간다.
+//   그 근사는 '없는 불가를 만들지 않는' 쪽으로만 틀리게 짜여 있다.
 //
 // 정직성 규칙 — 발행물의 신뢰가 여기 달려 있다:
-//   · 승수만 전수 계산한다. 미래 경기의 세트 득실은 폭이 너무 커서 단정할 수 없다.
-//   · 그래서 "자력 확보"는 승수 동률조차 걸치지 않는 경우만 인정한다.
-//     (동률이면 세트득실·규정으로 갈리는데, 그건 아직 결정되지 않았다)
-//   · 동률로 갈리는 조합의 비율(tiePct)을 함께 돌려줘 화면이 그대로 밝히게 한다.
+//   · "확정"은 못 가르는 자리(타이브레이커)가 **전부 반대로 나와도** 되는 경우만.
+//   · "불가"는 못 가르는 자리가 **전부 내 편이어도** 안 되는 경우만.
+//     이 둘은 서로의 부정이 아니다 — 가운데(아직 모름)가 있다.
 //
 // 내부 용어 (화면에는 이 말을 그대로 쓰지 않는다 — raceSay() 가 사람 말로 바꾼다):
-//   safe = 남은 경기에서 그만큼만 이기면 **다른 경기 결과와 무관하게** 그 순위 안이
-//          보장되는 최소 승수. null 이면 우리 힘만으로는 불가.
-//   hope = 다른 경기 결과가 전부 따라줄 때 그 순위 안(동률 없이)이 되는 최소 승수.
-//          null 이면 산술상 불가.
+//   safe = 그만큼 이기면 **다른 경기 결과와 무관하게** 그 순위 안이 보장되는 최소 승수.
+//   hope = 승수 동률조차 없이 그 순위 안이 되는 최소 승수.
+//   live = 동률을 거쳐서라도 그 순위 안이 될 수 있는 최소 승수 (hope 보다 작거나 같다).
 
 // ⚠ 마스크는 32비트 정수다. n 이 31 이면 1<<n 이 **음수**가 되어 루프가 한 번도 안 돌고,
 //   모든 팀이 조용히 "확정"으로 뒤집힌다. 이 상한을 30 이상으로 올리지 마라.
@@ -83,16 +87,33 @@ function raceCompute(teams, base, remain, cutsIn, opts) {
   const pts = new Array(nt);
   // 정확 계산을 할 수 있는가 — 세트 스코어까지 4^n 을 다 돌린다.
   const exact = Math.pow(4, n) <= RACE_EXACT_MAX;
+  // 상대 전적 재료 (raceFromCache 가 넘겨준다). 없으면 상대 전적을 안 보고 넘어간다.
+  const h2hP = (opts && opts.h2hPast) || null;
+  const pA = (opts && opts.pairA) || null, pB = (opts && opts.pairB) || null;
+  const hasH2H = !!(h2hP && pA && pB);
+  // 32비트 정수의 1 비트 개수 (맞대결 승수 세기용)
+  const popcnt = v => { v = v - ((v >> 1) & 0x55555555);
+    v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
+    return (((v + (v >> 4)) & 0x0f0f0f0f) * 0x01010101) >> 24; };
 
-  /** 한 조합(승패)에서 각 팀의 판정을 담는다.
-   *  inCut  : 그 컷 안에 드는가 (정확 계산이면 세트 득실까지 본 결과)
-   *  cleanIn: 승수 동률에 기대지 않고 드는가 → '동률 승부만 남음'과 가르는 기준 */
-  function record(bA, bB, i, k, ci, inCut, cleanIn) {
+  /** 한 조합에서 각 팀의 판정을 담는다.
+   *
+   *  ⚠ '가능'과 '확정'은 **서로 반대가 아니다.** 못 가르는 자리(타이브레이커 경기 등)를
+   *    가능 쪽에서는 내 편으로, 확정 쪽에서는 반대편으로 쳐야 한다.
+   *    예전에 '가능'의 부정을 '확정'으로 썼다가, 실제로는 확정이 아닌 자리를
+   *    "플레이오프 직행 확정"이라고 잘못 말했다 (2026-08-09).
+   *
+   *  possible : 못 가르는 것이 전부 내 편이라 쳐도 컷 안인가
+   *  cleanPos : 승수 동률조차 없이 컷 안인가 → '동률 승부만 남음'과 가르는 기준
+   *  guaranteed: 못 가르는 것이 전부 반대라 쳐도 컷 안인가
+   */
+  function record(bA, bB, i, k, ci, possible, cleanPos, guaranteed) {
     const p = i * nc + ci;
-    if (inCut) {
+    if (possible) {
       posA[p] |= bA; posB[p] |= bB; anyPos[p] = 1; anyLoose[i][ci][k] = true;
-      if (cleanIn) { strA[p] |= bA; strB[p] |= bB; anyStr[p] = 1; anyIn[i][ci][k] = true; }
-    } else {
+      if (cleanPos) { strA[p] |= bA; strB[p] |= bB; anyStr[p] = 1; anyIn[i][ci][k] = true; }
+    }
+    if (!guaranteed) {
       nsA[p] |= bA; nsB[p] |= bB; anyNs[p] = 1;
       nsKA[p * MK + k] |= bA; nsKB[p * MK + k] |= bB;
       allSafe[i][ci][k] = false;
@@ -118,17 +139,36 @@ function raceCompute(teams, base, remain, cutsIn, opts) {
           pts[w] += d; pts[l] -= d;
         }
         for (let i = 0; i < nt; i++) {
-          let better = 0, wtie = 0;
+          // 규정집 2.7.2.2 — 승리 경기 수 → 세트 득실 → 상대 전적(2팀 동률에만) → 타이브레이커.
+          //   better  = 어떤 경우에도 나보다 위인 팀 수
+          //   murky   = 아직 못 가르는 팀 수 (3팀 이상 동률 → 타이브레이커 경기라 결과를 모른다)
+          let better = 0, murky = 0, wtie = 0, dead = 0;
           for (let j = 0; j < nt; j++) {
             if (j === i) continue;
-            // 순위 규칙: 승수 → 세트 득실 (store.js 의 standingsSort 와 같아야 한다)
-            if (wins[j] > wins[i] || (wins[j] === wins[i] && pts[j] > pts[i])) better++;
             if (wins[j] === wins[i]) wtie++;
+            if (wins[j] > wins[i] || (wins[j] === wins[i] && pts[j] > pts[i])) { better++; continue; }
+            if (wins[j] < wins[i] || pts[j] < pts[i]) continue;      // 내가 위
+            dead++;                                                   // 승수·세트 득실까지 완전 동점
+          }
+          if (dead === 1 && hasH2H) {
+            // 2팀 동률 → 상대 전적으로 **경기 없이** 갈린다 (2.8.5).
+            // 승률 50% 초과인 쪽이 위. 딱 반반이면 타이브레이커 경기라 결과를 모른다.
+            let j = -1;
+            for (let x = 0; x < nt; x++) if (x !== i && wins[x] === wins[i] && pts[x] === pts[i]) { j = x; break; }
+            const myW = h2hP[i][j] + popcnt(mask & pA[i][j]) + popcnt(~mask & full & pB[i][j]);
+            const opW = h2hP[j][i] + popcnt(mask & pA[j][i]) + popcnt(~mask & full & pB[j][i]);
+            if (opW > myW) better++;
+            else if (opW === myW) murky++;                            // 상대 전적도 동률 → 경기로 가림
+          } else {
+            murky += dead;                                            // 3팀 이상 동률 → 타이브레이커 경기
           }
           const k = wins[i] - baseW[i];
           for (let ci = 0; ci < nc; ci++) {
             const k1 = K1[ci];
-            record(bA, bB, i, k, ci, better <= k1, better + wtie <= k1);
+            record(bA, bB, i, k, ci,
+              better <= k1,                    // 가능   — 못 가른 자리가 전부 내 편
+              better + wtie <= k1,             // 깨끗   — 승수 동률조차 없음
+              better + murky <= k1);           // 확정   — 못 가른 자리가 전부 반대
           }
         }
       }
@@ -159,7 +199,8 @@ function raceCompute(teams, base, remain, cutsIn, opts) {
         const k = wins[i] - baseW[i];
         for (let ci = 0; ci < nc; ci++) {
           const k1 = K1[ci];
-          record(bA, bB, i, k, ci, blocked <= k1, above + tie <= k1);
+          // 근사 갈래에서는 동률을 가릴 재료가 없다 → 확정은 '승수 동률조차 없을 때'만
+          record(bA, bB, i, k, ci, blocked <= k1, above + tie <= k1, above + tie <= k1);
         }
       }
     }
@@ -292,7 +333,32 @@ function raceFromCache(stageId, opts) {
     unfinished(m) && inTotal(m) && (teams.includes(m.a) || teams.includes(m.b))).length;
   if (touching !== remain.length) return null;
 
-  const res = raceCompute(teams, base, remain, cutDefs, opts);
+  // ── 상대 전적 재료 (2026 LCK 규정집 2.7.2.2 / 2.8.5) ──────────────
+  // 정규 라운드 최종 순위: 승리 경기 수 → 세트 득실 → **상대 전적**(2팀 동률에만) → 타이브레이커.
+  // 맞대결 결과는 이미 계산 안(잔여 조합)에 들어 있으니 그대로 쓸 수 있다.
+  //   h2hPast[i][j] = 이미 치른 경기에서 i 가 j 를 이긴 수
+  //   pairA[i][j]   = 잔여 경기 중 'i 가 a쪽' 인 자리의 비트 (그 비트가 1이면 i 승)
+  //   pairB[i][j]   = 잔여 경기 중 'j 가 a쪽' 인 자리의 비트 (그 비트가 0이면 i 승)
+  const idx = {}; teams.forEach((t, i) => { idx[t] = i; });
+  const nt0 = teams.length;
+  const h2hPast = Array.from({ length: nt0 }, () => new Int32Array(nt0));
+  Cache.matches.forEach(m => {
+    if (!inTotal(m)) return;
+    const wSide = matchWinner(m); if (!wSide) return;
+    const i = idx[wSide === "a" ? m.a : m.b], j = idx[wSide === "a" ? m.b : m.a];
+    if (i == null || j == null) return;
+    h2hPast[i][j]++;
+  });
+  const pairA = Array.from({ length: nt0 }, () => new Int32Array(nt0));
+  const pairB = Array.from({ length: nt0 }, () => new Int32Array(nt0));
+  remain.forEach((m, g) => {
+    const a = idx[m.a], b = idx[m.b];
+    if (a == null || b == null) return;
+    pairA[a][b] |= (1 << g);   // 이 비트가 1 이면 a 승
+    pairB[b][a] |= (1 << g);   // b 입장에서는 같은 비트가 0 이어야 b 승
+  });
+
+  const res = raceCompute(teams, base, remain, cutDefs, { ...(opts || {}), h2hPast, pairA, pairB });
   if (!res) return null;
   // 경기 id → 비트 자리. 화면이 배열 위치를 다시 세지 않게 여기서 한 번만 만든다.
   // (화면들이 remain 을 날짜순으로 다시 정렬하는 곳이 있어, 위치로 찾으면 다른 경기의 결과가 붙는다)
