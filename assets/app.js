@@ -244,9 +244,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260808j")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260808j")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260808j")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260808r")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260808r")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260808r")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -296,7 +296,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260808j");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260808r");
 
   renderTabBar(groupName);
 }
@@ -848,12 +848,25 @@ function scheduleHTML(matches, opts) {
         </div>
         <div class="match-right">${right}</div>
         <span class="match-arrow">›</span>
+        ${stakesHTML(m)}
       </a>`;
     }).join("")}`;
   }).join("");
 }
 function shortStage(stage) {
   return (stage || "").replace("라운드 ", "R").replace(" 그룹", "");
+}
+
+/** 경기 카드에 붙는 "이기면 무엇이 달라지는가" 한두 줄.
+ *  race.js 가 없는 화면(예전 페이지)에서도 안 깨지게 함수 존재를 먼저 확인한다.
+ *  붙일 말이 없으면 **아무것도 안 붙인다** — 빈 줄이 억지 문장보다 낫다. */
+function stakesHTML(m) {
+  if (typeof matchStakes !== "function" || !m || m.status === "done") return "";
+  let s = null;
+  try { s = matchStakes(m.id); } catch (e) { return ""; }
+  if (!s || !s.lines.length) return "";
+  return `<div class="match-stakes">${s.lines.map(l =>
+    `<span class="stake stake-${l.tone}">${esc(l.text)}</span>`).join("")}</div>`;
 }
 
 // ── 팬심지수 투표 위젯 (경기·게시글·홈 공용) ──────────────

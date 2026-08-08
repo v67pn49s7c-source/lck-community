@@ -14,46 +14,94 @@
 //   hope = 다른 경기 결과가 전부 따라줄 때 그 순위 안(동률 없이)이 되는 최소 승수.
 //          null 이면 산술상 불가.
 
-// teams: 그룹 팀 id 5개 · base: {id:{w,l,sw,sl}} 현재 누적 · remain: [{a,b}] 잔여 경기
-// cuts: [{k:2, label:"2위 안"}, …]
-function raceCompute(teams, base, remain, cuts) {
+// ⚠ 마스크는 32비트 정수다. n 이 31 이면 1<<n 이 **음수**가 되어 루프가 한 번도 안 돌고,
+//   모든 팀이 조용히 "확정"으로 뒤집힌다. 이 상한을 30 이상으로 올리지 마라.
+//   (실무 상한은 어차피 속도다 — 20경기 약 0.4초, 22경기부터 2초를 넘는다)
+const RACE_MAX_N = 20;
+
+/** 컷 하나에 대한 팀의 처지를 **넷**으로 나눈다.
+ *
+ *  왜 셋이 아니라 넷인가 — 예전 코드는 "동률 없이 컷 안(above+tie<=k-1)" 하나로
+ *  가능/불가를 갈랐다. 그러면 **승수로는 못 닿지만 동률까지는 가는** 처지가
+ *  통째로 "불가"로 넘어간다. 실제로 그런 자리가 있다:
+ *    KT 가 DK 를 이기면 → DK 의 2위 안은 승수만으로는 막히지만,
+ *    17승 4팀 동률로 세트 득실 승부까지는 갈 수 있다.
+ *  그걸 "불가능합니다" 라고 쓰면 거짓말이다. 그래서 네 번째 칸이 필요하다.
+ *
+ *    lock  모든 조합에서 above+tie <= k-1   → 확정 (동률조차 없음)
+ *    clean above+tie <= k-1 인 조합이 있음   → 승수만으로 가능
+ *    tie   above <= k-1 인 조합은 있는데
+ *          above+tie <= k-1 인 조합은 없음  → 동률(세트 득실) 승부만 남음
+ *    dead  above <= k-1 인 조합이 없음      → 진짜 불가
+ *
+ *  ⚠ 두 시험은 **여집합이 아니다.** 가운데 띠(above<=k-1 이면서 above+tie>k-1)는
+ *    양쪽에 걸친다. 그래서 if/else 로 갈라 담으면 안 되고 독립된 if 두 개여야 한다.
+ */
+const RACE_STATE_ORDER = { dead: 0, tie: 1, clean: 2, lock: 3 };
+
+// teams: 그룹 팀 id · base: {id:{w,l,sw,sl}} 현재 누적 · remain: [{id,a,b}] 잔여 경기
+// cuts: [{k:2, label:"2위 안", what:"…"}, …]
+function raceCompute(teams, base, remain, cutsIn) {
   const n = remain.length;
-  // 한 그룹(5팀 더블 라운드 로빈)은 20경기다. 라운드가 막 시작하면 잔여가 딱 20이라,
-  // 예전 상한(18)이면 라운드 초반 내내 페이지가 빈 채로 있었다.
-  // 실측: 18경기 110ms · 20경기 약 0.4초 (22경기부터는 2초를 넘어 거부한다).
-  if (n > 20) return null;
-  const total = 1 << n;
+  if (!(n >= 0 && n <= RACE_MAX_N)) return null;
+  const nt = teams.length;
+  // 정원이 팀 수 이상인 컷은 뜻이 없다 (4팀에 "4위 안" → 전원 확정으로 도배된다)
+  const cuts = (cutsIn || []).filter(c => c.k >= 1 && c.k < nt);
+  if (nt < 2 || !cuts.length) return null;
+
+  const total = 1 << n, full = total - 1, nc = cuts.length;
   const ti = {}; teams.forEach((t, i) => { ti[t] = i; });
-  const baseW = teams.map(t => (base[t] || { w: 0 }).w);
+  const baseW = teams.map(t => (base[t] || { w: 0 }).w | 0);
   const remT = teams.map(t => remain.filter(m => m.a === t || m.b === t).length);
   const A = remain.map(m => ti[m.a]), B = remain.map(m => ti[m.b]);
+  const K1 = cuts.map(c => c.k - 1);
+  const MK = Math.max(0, ...remT) + 1;
 
-  // allSafe[i][ci][k] : 팀 i 가 잔여 k승일 때 **모든** 조합에서 K위 안(동률 없이)인가
-  // anyIn [i][ci][k] : 팀 i 가 잔여 k승으로 K위 안(동률 없이)이 되는 조합이 **하나라도** 있는가
-  const allSafe = teams.map((_, i) => cuts.map(() => Array(remT[i] + 1).fill(true)));
-  const anyIn   = teams.map((_, i) => cuts.map(() => Array(remT[i] + 1).fill(false)));
+  // 잔여 승수(k)별 — 화면의 "몇 승이면 되는가"
+  const allSafe  = teams.map((_, i) => cuts.map(() => Array(remT[i] + 1).fill(true)));   // 모든 조합에서 엄격 안
+  const anyIn    = teams.map((_, i) => cuts.map(() => Array(remT[i] + 1).fill(false)));  // 엄격 안 조합 존재
+  const anyLoose = teams.map((_, i) => cuts.map(() => Array(remT[i] + 1).fill(false)));  // 관대 안 조합 존재
+
+  // 경기 하나를 못 박았을 때를 알기 위한 비트마스크. 비트 g = 1 이면 remain[g] 에서 a팀 승.
+  // 한 번의 순회로 **모든 경기·모든 팀**의 조건부 판정을 함께 얻는다.
+  const P = nt * nc, Z = () => new Int32Array(P);
+  const posA = Z(), posB = Z();          // above <= k-1        (관대 가능)
+  const strA = Z(), strB = Z();          // above+tie <= k-1    (엄격 가능)
+  const nsA  = Z(), nsB  = Z();          // above+tie >  k-1    (엄격 위반)
+  const nsKA = new Int32Array(P * MK), nsKB = new Int32Array(P * MK);   // 위를 k별로
+  const anyPos = new Uint8Array(P), anyStr = new Uint8Array(P), anyNs = new Uint8Array(P);
+
   const tieCnt = cuts.map(() => 0);
-
-  const wins = new Array(teams.length);
+  const wins = new Array(nt);
   for (let mask = 0; mask < total; mask++) {
-    for (let i = 0; i < wins.length; i++) wins[i] = baseW[i];
+    for (let i = 0; i < nt; i++) wins[i] = baseW[i];
     for (let g = 0; g < n; g++) wins[(mask >> g) & 1 ? A[g] : B[g]]++;
 
     const sorted = wins.slice().sort((x, y) => y - x);
-    cuts.forEach((c, ci) => { if (sorted[c.k - 1] === sorted[c.k]) tieCnt[ci]++; });
+    for (let ci = 0; ci < nc; ci++) if (sorted[cuts[ci].k - 1] === sorted[cuts[ci].k]) tieCnt[ci]++;
 
-    for (let i = 0; i < wins.length; i++) {
+    const bA = mask, bB = ~mask & full;   // ~ 는 32비트 부호값이지만 & full 로 하위 n비트만 남는다
+    for (let i = 0; i < nt; i++) {
       let above = 0, tie = 0;
-      for (let j = 0; j < wins.length; j++) {
+      for (let j = 0; j < nt; j++) {
         if (j === i) continue;
         if (wins[j] > wins[i]) above++;
         else if (wins[j] === wins[i]) tie++;
       }
-      const k = wins[i] - baseW[i];             // 이 조합에서 팀 i 의 잔여 승수
-      cuts.forEach((c, ci) => {
-        if (above + tie <= c.k - 1) anyIn[i][ci][k] = true;   // 동률 없이 K위 안
-        else allSafe[i][ci][k] = false;
-      });
+      const k = wins[i] - baseW[i];
+      for (let ci = 0; ci < nc; ci++) {
+        const p = i * nc + ci, k1 = K1[ci];
+        if (above <= k1) {                 // ── 독립 if ① 관대 (동률을 살려 둔다)
+          posA[p] |= bA; posB[p] |= bB; anyPos[p] = 1; anyLoose[i][ci][k] = true;
+        }
+        if (above + tie <= k1) {           // ── 독립 if ② 엄격
+          strA[p] |= bA; strB[p] |= bB; anyStr[p] = 1; anyIn[i][ci][k] = true;
+        } else {
+          nsA[p] |= bA; nsB[p] |= bB; anyNs[p] = 1;
+          nsKA[p * MK + k] |= bA; nsKB[p * MK + k] |= bB;
+          allSafe[i][ci][k] = false;
+        }
+      }
     }
   }
 
@@ -66,15 +114,60 @@ function raceCompute(teams, base, remain, cuts) {
         for (let k = w; k <= remT[i]; k++) if (!allSafe[i][ci][k]) { ok = false; break; }
         if (ok) safe = w;
       }
-      let hope = null;
+      let hope = null, live = null;
       for (let w = 0; w <= remT[i] && hope == null; w++) if (anyIn[i][ci][w]) hope = w;
-      return { k: c.k, label: c.label, safe, hope };
+      for (let w = 0; w <= remT[i] && live == null; w++) if (anyLoose[i][ci][w]) live = w;
+      return { k: c.k, label: c.label, what: c.what, short: c.short,
+               endsSeason: !!c.endsSeason, safe, hope, live };
     });
     return { team: t, w: r.w, l: r.l, pt: (r.sw || 0) - (r.sl || 0), remaining: remT[i], cuts: per };
   }).sort(standingsSort);
 
-  return { rows, scenarioCount: total, remainCount: n,
-           tiePct: tieCnt.map(c => Math.round((c / total) * 100)) };
+  const idx = {}; teams.forEach((t, i) => { idx[t] = i; });
+  const bit = (arr, p, g) => (arr[p] >>> g) & 1;      // >>> 로 부호 오염 차단
+
+  // 아무 조건 없는 지금 처지
+  function stateNow(teamId, ci) {
+    const i = idx[teamId];
+    if (i == null || !(ci >= 0 && ci < nc)) return null;
+    const p = i * nc + ci;
+    if (!anyPos[p]) return "dead";
+    if (!anyNs[p]) return "lock";
+    return anyStr[p] ? "clean" : "tie";
+  }
+  // 잔여 g번째 경기를 side("a"|"b") 로 못 박았을 때의 처지
+  // ⚠ g 검사는 반드시 있어야 한다. JS 는 시프트 수를 32로 나눈 나머지를 쓰므로
+  //   x >>> -1 은 x >>> 31 이고, 그러면 같은 칸이 "불가"이자 "확정"으로 읽힌다.
+  function stateAt(g, side, teamId, ci) {
+    const i = idx[teamId];
+    if (i == null || !(ci >= 0 && ci < nc) || !(Number.isInteger(g) && g >= 0 && g < n)) return null;
+    const p = i * nc + ci, a = side === "a";
+    if (!bit(a ? posA : posB, p, g)) return "dead";
+    if (!bit(a ? nsA : nsB, p, g)) return "lock";
+    return bit(a ? strA : strB, p, g) ? "clean" : "tie";
+  }
+  /** 그 경기를 못 박았을 때의 **자력 확보선** — 그 경기 이후 몇 승이면 확정인가.
+   *  ⚠ 경기 뒤 기준(k')으로 봐야 한다. 경기 전 기준(k)으로 세면, 그 조건에서
+   *    일어날 수 없는 승수 칸이 "위반 없음"으로 읽혀 **지는 쪽이 더 유리해 보인다.**
+   *    (실제로 그렇게 나왔다 — DK 가 지는데 자력 확보선이 생기는 모순) */
+  function safeAt(g, side, teamId, ci) {
+    const i = idx[teamId];
+    if (i == null || !(ci >= 0 && ci < nc) || !(Number.isInteger(g) && g >= 0 && g < n)) return null;
+    const p = i * nc + ci, arr = side === "a" ? nsKA : nsKB;
+    const plays = A[g] === i || B[g] === i;
+    const won = plays && ((side === "a") === (A[g] === i));
+    const rem2 = remT[i] - (plays ? 1 : 0), shift = won ? 1 : 0;
+    for (let w = 0; w <= rem2; w++) {
+      let ok = true;
+      for (let k2 = w; k2 <= rem2; k2++) if ((arr[p * MK + k2 + shift] >>> g) & 1) { ok = false; break; }
+      if (ok) return w;
+    }
+    return null;
+  }
+
+  return { rows, cuts, scenarioCount: total, remainCount: n,
+           tiePct: tieCnt.map(c => Math.round((c / total) * 100)),
+           stateNow, stateAt, safeAt, teamOrder: teams };
 }
 
 // 2026 LCK 공식 규정 기준 — 정규 라운드 3-4 가 끝나면 **그룹별 순위**로 다음이 갈린다.
@@ -90,22 +183,32 @@ function raceCompute(teams, base, remain, cuts) {
 // 공유 카드는 한 번 나가면 회수가 안 된다. (2026-08-07)
 const RACE_GROUP = { r34L: "레전드 그룹", r34R: "라이즈 그룹" };
 
+// short 는 경기 카드처럼 좁은 자리에서 쓰는 짧은 이름 (영문 약어는 쓰지 않는다).
+// endsSeason 은 "여기 못 들면 시즌 종료"인 컷 — 문구를 세게 쓸지 판단하는 데 쓴다.
 const RACE_CUTS = {
   r34L: [
-    { k: 2, label: "2위 안", what: "플레이오프 2라운드 직행", why: "1·2번 시드. 첫 경기를 건너뛰고 위에서 시작한다" },
-    { k: 4, label: "4위 안", what: "플레이오프 직행", why: "플레이-인을 거치지 않고 바로 플레이오프" },
+    { k: 2, label: "2위 안", short: "2라운드 직행", what: "플레이오프 2라운드 직행",
+      why: "1·2번 시드. 첫 경기를 건너뛰고 위에서 시작한다", endsSeason: false },
+    { k: 4, label: "4위 안", short: "플레이오프 직행", what: "플레이오프 직행",
+      why: "플레이-인을 거치지 않고 바로 플레이오프", endsSeason: false },
   ],
   r34R: [
-    { k: 1, label: "1위", what: "플레이-인 1라운드", why: "한 번만 이겨도 플레이오프. 2·3위는 두 번 이겨야 한다" },
-    { k: 3, label: "3위 안", what: "플레이-인 진출", why: "여기 못 들면 시즌이 끝난다 (최종 9·10위)" },
+    { k: 1, label: "1위", short: "플레이-인 1라운드", what: "플레이-인 1라운드",
+      why: "한 번만 이겨도 플레이오프. 2·3위는 두 번 이겨야 한다", endsSeason: false },
+    { k: 3, label: "3위 안", short: "플레이-인 진출", what: "플레이-인 진출",
+      why: "여기 못 들면 시즌이 끝난다 (최종 9·10위)", endsSeason: true },
   ],
 };
+
+// 같은 자료로 두 번 계산하지 않는다. 화면은 저장본·서버본으로 두 번 그리고,
+// 경기 카드는 경기마다 결과를 묻는다 — 메모가 없으면 잔여 20경기(0.4초)에서 화면이 멈춘다.
+const _raceMemo = {};
 
 // Cache(store.js)에서 재료를 꺼내 그룹 하나를 계산한다
 function raceFromCache(stageId) {
   const stage = Cache.records.find(s => s.id === stageId);
-  const cuts = RACE_CUTS[stageId];
-  if (!stage || !cuts) return null;
+  const cutDefs = RACE_CUTS[stageId];
+  if (!stage || !cutDefs) return null;
   const teams = (stage.records || []).map(r => r.team).filter(t => TEAM_MAP[t]);
   if (teams.length < 2) return null;
 
@@ -114,12 +217,43 @@ function raceFromCache(stageId) {
 
   const key = x => String(x || "").trim().toLowerCase();
   const names = new Set(Cache.records.filter(stageInTotal).map(s => key(s.name)));
+  const inTotal = m => names.has(key(m.stage)) && TEAM_MAP[m.a] && TEAM_MAP[m.b];
+  // ⚠ "아직 안 끝난 경기"의 기준을 전적 집계와 **똑같이** 맞춘다.
+  //   전적은 matchWinner(승자를 가릴 수 있는 경기)만 센다. 여기서 status!=="done" 을 쓰면
+  //   'done 인데 점수가 비었거나 1:1' 인 경기가 전적에도 잔여에도 안 들어가 증발한다.
+  const unfinished = m => !matchWinner(m);
   const remain = Cache.matches.filter(m =>
-    m.status !== "done" && names.has(key(m.stage)) &&
-    teams.includes(m.a) && teams.includes(m.b));
+    unfinished(m) && inTotal(m) && teams.includes(m.a) && teams.includes(m.b));
 
-  const res = raceCompute(teams, base, remain, cuts);
-  return res && { ...res, remain, cuts, stageId, stageName: stage.name };
+  // 정합성 게이트 — 전제가 깨졌으면 조용히 틀리는 대신 아무 말도 하지 않는다.
+  // 전수 계산은 "이 5팀의 최종 승수 상한이 잔여 경기로 완전히 정해진다"를 깔고 있다.
+  // 그룹 팀이 낀 미종료 경기가 remain 밖에 하나라도 있으면 그 전제가 깨진다.
+  const touching = Cache.matches.filter(m =>
+    unfinished(m) && inTotal(m) && (teams.includes(m.a) || teams.includes(m.b))).length;
+  if (touching !== remain.length) return null;
+
+  const res = raceCompute(teams, base, remain, cutDefs);
+  if (!res) return null;
+  // 경기 id → 비트 자리. 화면이 배열 위치를 다시 세지 않게 여기서 한 번만 만든다.
+  // (화면들이 remain 을 날짜순으로 다시 정렬하는 곳이 있어, 위치로 찾으면 다른 경기의 결과가 붙는다)
+  const bitOf = new Map(remain.map((m, g) => [m.id, g]));
+  return { ...res, remain, bitOf, cuts: res.cuts, stageId, stageName: stage.name };
+}
+
+/** 위와 같지만 같은 자료면 다시 계산하지 않는다. 경기 카드처럼 여러 번 묻는 쪽이 쓴다.
+ *  지문에는 **계산에 실제로 쓰이는 것만** 넣는다 — 경기의 승패·스테이지, 그리고 전적표.
+ *  조회수·득표수까지 넣으면 아무것도 안 바뀌었는데 매번 다시 계산한다. */
+function raceFingerprint() {
+  return Cache.matches.map(m => `${m.id}|${m.stage}|${m.status}|${m.scoreA}|${m.scoreB}`).join(",")
+    + "#" + Cache.records.map(s => `${s.id}:${(s.records || []).map(r => `${r.team}${r.w}-${r.l}`).join("")}`).join(",");
+}
+function raceCached(stageId) {
+  const fp = raceFingerprint();
+  const hit = _raceMemo[stageId];
+  if (hit && hit.fp === fp) return hit.val;
+  const val = raceFromCache(stageId);
+  _raceMemo[stageId] = { fp, val };
+  return val;
 }
 
 // "이 경기를 이기면/지면" — 경기 하나의 결과를 못 박고 다시 계산한다
@@ -137,6 +271,96 @@ function raceWhatIf(stageId, matchId, side) {
   const remain = r0.remain.filter(x => x.id !== matchId);
   const teams = r0.rows.map(r => r.team);
   return raceCompute(teams, base, remain, r0.cuts);
+}
+
+// ── 경기 하나에 붙는 "경우의 수 한 줄" ─────────────────────
+//
+// 나무위키 LCK 문서처럼 "KT 승리 시: DK 플레이오프 R2 직행 불가" 같은 줄을 만든다.
+// 두 가지 규율을 지킨다:
+//
+//  ① **대조가 있어야만 쓴다.** 양쪽 결과에서 판정이 같으면 그 경기와 무관한 사실이다.
+//     예: DNS 는 이미 탈락이라 누가 이겨도 불가인데, 그걸 "BRO 승리 시 DNS 탈락"이라고
+//     쓰면 인과가 없는데 있는 것처럼 읽힌다. 실측에서 라이즈 '불가' 줄의 88%가 이런 것이었다.
+//  ② **확정과 가능은 기준이 다르다.** 확정은 엄격(동률조차 없음), 불가는 관대(동률 포함).
+//     섞으면 한쪽은 과대주장, 다른 쪽은 거짓 사망선고가 된다.
+//
+// tone 은 좋은 소식·나쁜 소식이 짝을 이룬다. 한쪽만 만들면 "이기면 이렇다"는 나오는데
+// "지면 저렇다"가 안 나와서 경우의 수가 반쪽이 된다 (실제로 그랬다).
+//   lock ↔ dead   확정 ↔ 완전 무산
+//   tie  ↔ revive 동률 승부만 남음 ↔ 승수만으로 다시 가능
+//   self ↔ keep   자력 상실 ↔ 자력 유지
+//   magic         확정까지 남은 승수가 줄어듦
+const RACE_TONE_RANK = { lock: 6, dead: 6, tie: 4, revive: 4, self: 3, keep: 3, magic: 1 };
+
+/** 경기 id 하나에 붙일 줄들. 없으면 null.
+ *  { group, lines: [{ side, winner, team, tone, text }] }  side 는 "a"|"b" */
+function matchStakes(matchId, opts) {
+  const max = (opts && opts.max) || 2;
+  for (const sid of Object.keys(RACE_CUTS)) {
+    const r = raceCached(sid);
+    if (!r || !r.bitOf.has(matchId)) continue;
+    const g = r.bitOf.get(matchId);
+    const m = r.remain[g];
+    const nm = t => (TEAM_MAP[t] ? TEAM_MAP[t].abbr : t);
+    const cand = [];
+
+    r.teamOrder.forEach(team => r.cuts.forEach((c, ci) => {
+      const sA = r.stateAt(g, "a", team, ci), sB = r.stateAt(g, "b", team, ci);
+      const fA = r.safeAt(g, "a", team, ci), fB = r.safeAt(g, "b", team, ci);
+      if (sA == null || sB == null) return;
+      if (sA === sB && fA === fB) return;                       // ① 대조가 없으면 버린다
+      const inMatch = team === m.a || team === m.b;
+      const what = c.short || c.what || c.label;
+
+      // 조사를 붙여야 한다. "1라운드을" 같은 말이 나오면 자동 생성 티가 확 난다.
+      const eun = typeof josa === "function" ? josa(what, "은는") : what + "은";
+      const eul = typeof josa === "function" ? josa(what, "을를") : what + "을";
+
+      // 양쪽을 각각 문장으로. 더 센 쪽만 남긴다.
+      [["a", m.a, sA, fA, sB, fB], ["b", m.b, sB, fB, sA, fA]].forEach(([side, winner, st, sf, ost, osf]) => {
+        let tone = null, text = null;
+        // 이긴 팀 자신의 이야기면 이름을 두 번 부르지 않는다 ("KT 승리 시 — KT, …" 는 어색하다)
+        const head = team === winner ? `${nm(winner)} 승리 시 — ` : `${nm(winner)} 승리 시 — ${nm(team)}, `;
+        if (st === "lock" && ost !== "lock") {
+          tone = "lock"; text = head + `${what} 확정`;
+        } else if (st === "dead" && ost !== "dead") {
+          tone = "dead"; text = head + `${eun} 완전히 무산`;
+        } else if (st === "tie" && (ost === "clean" || ost === "lock")) {
+          tone = "tie"; text = head + `${eun} 승수로는 막히고 동률 승부만 남음`;
+        } else if (st === "clean" && ost === "tie") {
+          tone = "revive"; text = head + `${eun} 승수만으로 다시 가능`;
+        } else if (sf == null && osf != null) {
+          tone = "self"; text = head + `${eul} 스스로 정하지 못하고 남의 결과에 달림`;
+        } else if (sf != null && osf == null) {
+          tone = "keep";
+          text = head + (sf === 0 ? `${what} 확정` : `${what} 자력 유지 (${sf}승 남음)`);
+        } else if (sf != null && osf != null && sf < osf) {
+          tone = "magic";
+          text = head + (sf === 0 ? `${what} 확정` : `${what}까지 ${sf}승 남음`);
+        }
+        if (tone) cand.push({ side, winner, team, tone, text, inMatch, k: c.k });
+      });
+    }));
+
+    if (!cand.length) return null;
+    // 뛰는 두 팀 이야기가 하나라도 있으면 그것만 쓴다.
+    // 안 그러면 "DNS vs NS" 카드에 BFX·KRX 이야기만 뜨는 일이 생긴다 — 사실이긴 해도
+    // 그 경기를 보러 온 사람이 찾는 말이 아니다. 뛰는 팀 이야기가 없을 때만 남을 빌린다.
+    // ⚠ own 이 비면 pool 이 cand **와 같은 배열**이 된다. 예전에 여기서 cand 를
+    //   비우고 다시 채웠더니 자기 자신을 비워 줄이 통째로 사라졌다 (DNS vs NS).
+    //   그래서 원본을 건드리지 않고 사본으로만 고른다.
+    const own = cand.filter(c => c.inMatch);
+    const pool = (own.length ? own : cand).slice()
+      .sort((x, y) => RACE_TONE_RANK[y.tone] - RACE_TONE_RANK[x.tone] || x.k - y.k);
+
+    // 되도록 **양쪽 결과를 한 줄씩** 보여 준다 — "이기면 이렇고 지면 저렇다"가
+    // 한눈에 읽혀야 경우의 수다. 한쪽에만 할 말이 있으면 그쪽에서 두 줄을 쓴다.
+    const bestA = pool.find(c => c.side === "a"), bestB = pool.find(c => c.side === "b");
+    const out = (bestA && bestB) ? [bestA, bestB] : pool.slice(0, max);
+    if (!out.length) return null;
+    return { group: RACE_GROUP[sid] || r.stageName, lines: out.slice(0, max) };
+  }
+  return null;
 }
 
 // 커뮤니티 게시용 텍스트 표 — 그 글만 봐도 완결되게, 링크 없이
@@ -177,8 +401,18 @@ function raceSay(row, c) {
       : `우리가 ${hope}승 이상 하고, 다른 경기 결과도 따라줘야 합니다`;
     return { tone: "hope", head, line, sub: "우리 경기만 이겨서는 확정되지 않습니다" };
   }
+  // ⚠ 여기서 곧장 "불가능"이라고 하면 **거짓말이 된다.**
+  //   hope 는 '동률조차 없이' 드는 경우만 센다. 승수로는 못 닿아도 동률까지 가서
+  //   세트 득실로 갈리는 자리가 남아 있을 수 있고, 그건 아직 열려 있는 문이다.
+  //   미래 세트 득실은 계산하지 않기로 했으므로(이 파일 맨 위 정직성 규칙),
+  //   할 수 있는 말은 "승수로는 안 되고 동률 승부만 남았다"까지다. (2026-08-08)
+  if (c.live != null) {
+    return { tone: "tie", head: "동률 승부",
+             line: `${L} 승수만으로는 닿지 않습니다`,
+             sub: "같은 승수까지 간 뒤 세트 득실로 갈리는 경우만 남았습니다" };
+  }
   return { tone: "none", head: "불가", line: `${L} 이제 불가능합니다`,
-           sub: "남은 경기를 다 이겨도 닿지 않습니다" };
+           sub: "남은 경기를 다 이겨도 순위가 모자랍니다" };
 }
 
 function raceCopyText(stageId) {
@@ -199,9 +433,12 @@ function raceCopyText(stageId) {
     out += `\n■ ${c.label} = ${c.what} — 몇 승이면 확정인가\n`;
     r.rows.forEach(row => {
       const x = row.cuts[ci], s = raceSay(row, x);
+      // ⚠ 새 상태(tie)를 빠뜨리면 "불가능"으로 떨어진다. 이 글은 커뮤니티에 붙여넣는
+      //   완성 문장이라 한 번 나가면 회수가 안 된다. 상태마다 말을 반드시 정해 둘 것.
       const t = s.tone === "done" ? "확정"
         : s.tone === "safe" ? `${x.safe}승이면 확정 (잔여 ${row.remaining})`
         : s.tone === "hope" ? `우리 힘만으론 불가 · ${x.hope}승+ 이고 남의 도움 필요`
+        : s.tone === "tie" ? "승수로는 불가 · 동률 뒤 세트 득실 승부만 남음"
         : "불가능";
       out += `  ${nm(row.team)}  ${t}\n`;
     });

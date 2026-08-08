@@ -17,10 +17,10 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260808j">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260808j">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260808r">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260808r">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260808j">
+  <link rel="stylesheet" href="assets/styles.css?v=20260808r">
   <style>
     /* ── 우리 팀 카드 — 이 페이지에서 가장 먼저 읽혀야 하는 것 ── */
     .my-race { padding: 16px; }
@@ -40,6 +40,8 @@
     .goal-mark.done { background: #14713f; color: #fff; }
     .goal-mark.safe { background: var(--accent-solid); color: #fff; }
     .goal-mark.hope { background: #8a6100; color: #fff; }
+    /* 승수로는 못 닿고 동률(세트 득실) 승부만 남은 상태 — '불가'와 다르다 */
+    .goal-mark.tie  { background: #7a4a12; color: #fff; }
     .goal-mark.none { background: #5a6270; color: #fff; }
 
     .goal-text { flex: 1; min-width: 0; }
@@ -146,11 +148,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260808j"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260808j"></script>
-  <script src="assets/store.js?v=20260808j"></script>
-  <script src="assets/app.js?v=20260808j"></script>
-  <script src="assets/race.js?v=20260808j"></script>
+  <script src="assets/data.js?v=20260808r"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260808r"></script>
+  <script src="assets/store.js?v=20260808r"></script>
+  <script src="assets/app.js?v=20260808r"></script>
+  <script src="assets/race.js?v=20260808r"></script>
   <script>
   storeReady.then(() => {
     renderHeader("경우의 수", null);
@@ -239,13 +241,15 @@
     // ── ② 그룹 전체 표 ───────────────────────────────────────
     function cellHTML(row, c) {
       const s = raceSay(row, c);
-      const tone = { done: "var(--ok)", safe: "var(--text)", hope: "var(--warn)", none: "var(--text-dim)" }[s.tone];
+      const tone = { done: "var(--ok)", safe: "var(--text)", hope: "var(--warn)",
+                     tie: "var(--warn)", none: "var(--text-dim)" }[s.tone];
       return `<td style="text-align:center">
         <b style="color:${tone}">${esc(s.head)}</b>
         <br><span style="font-size:11px;color:var(--text-dim)">${esc(
           s.tone === "safe" ? `잔여 ${row.remaining}경기 중` :
           s.tone === "hope" ? "이상 + 남의 도움" :
-          s.tone === "done" ? "결과 무관" : "닿지 않음")}</span></td>`;
+          s.tone === "done" ? "결과 무관" :
+          s.tone === "tie" ? "세트 득실 승부" : "닿지 않음")}</span></td>`;
     }
 
     function render() {
