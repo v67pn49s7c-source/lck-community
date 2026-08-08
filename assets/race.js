@@ -53,6 +53,8 @@ function raceCompute(teams, base, remain, cutsIn) {
   const ti = {}; teams.forEach((t, i) => { ti[t] = i; });
   const baseW = teams.map(t => (base[t] || { w: 0 }).w | 0);
   const remT = teams.map(t => remain.filter(m => m.a === t || m.b === t).length);
+  // 지금까지의 세트 득실. 아래 "따라잡을 수 있는가" 판정에 쓴다.
+  const baseP = teams.map(t => { const r = base[t] || {}; return (r.sw || 0) - (r.sl || 0); });
   const A = remain.map(m => ti[m.a]), B = remain.map(m => ti[m.b]);
   const K1 = cuts.map(c => c.k - 1);
   const MK = Math.max(0, ...remT) + 1;
@@ -72,7 +74,7 @@ function raceCompute(teams, base, remain, cutsIn) {
   const anyPos = new Uint8Array(P), anyStr = new Uint8Array(P), anyNs = new Uint8Array(P);
 
   const tieCnt = cuts.map(() => 0);
-  const wins = new Array(nt);
+  const wins = new Array(nt), ptHi = new Array(nt), ptLo = new Array(nt);
   for (let mask = 0; mask < total; mask++) {
     for (let i = 0; i < nt; i++) wins[i] = baseW[i];
     for (let g = 0; g < n; g++) wins[(mask >> g) & 1 ? A[g] : B[g]]++;
@@ -81,17 +83,36 @@ function raceCompute(teams, base, remain, cutsIn) {
     for (let ci = 0; ci < nc; ci++) if (sorted[cuts[ci].k - 1] === sorted[cuts[ci].k]) tieCnt[ci]++;
 
     const bA = mask, bB = ~mask & full;   // ~ 는 32비트 부호값이지만 & full 로 하위 n비트만 남는다
+    // 이 조합에서 각 팀이 낼 수 있는 세트 득실의 **천장과 바닥**.
+    // Bo3 라 한 경기가 득실을 최대 ±2 만 움직인다 (2:0 이면 ±2, 2:1 이면 ±1).
+    //   천장 = 이긴 건 전부 2:0, 진 건 전부 1:2  →  기존 + 3·승 − 잔여
+    //   바닥 = 이긴 건 전부 2:1, 진 건 전부 0:2  →  기존 + 3·승 − 2·잔여
     for (let i = 0; i < nt; i++) {
-      let above = 0, tie = 0;
+      const w = wins[i] - baseW[i];
+      ptHi[i] = baseP[i] + 3 * w - remT[i];
+      ptLo[i] = baseP[i] + 3 * w - 2 * remT[i];
+    }
+    for (let i = 0; i < nt; i++) {
+      let above = 0, tie = 0, blocked = 0;
       for (let j = 0; j < nt; j++) {
         if (j === i) continue;
-        if (wins[j] > wins[i]) above++;
-        else if (wins[j] === wins[i]) tie++;
+        if (wins[j] > wins[i]) { above++; blocked++; }
+        else if (wins[j] === wins[i]) {
+          tie++;
+          // ⚠ 승수가 같아도 **세트 득실로 절대 못 넘는** 상대가 있다.
+          //   내 천장이 상대 바닥보다 낮으면, 어떤 결과가 나와도 상대가 나보다 위다.
+          //   (실제 사례: DK 는 득실 +7 이라 다 이겨도 +14. T1 의 바닥은 +16 이라 못 넘는다.)
+          //
+          //   ⚠⚠ 부등호는 반드시 **<** 다. <= 로 하면 '천장 == 바닥' 인 상대까지
+          //   가로막는 것으로 세는데, 그건 **똑같아질 수 있다**는 뜻이지 진다는 뜻이 아니다.
+          //   실제로 <= 로 했다가 DK 2위 안을 '완전 무산'이라고 잘못 말했다 (2026-08-08).
+          if (ptHi[i] < ptLo[j]) blocked++;
+        }
       }
       const k = wins[i] - baseW[i];
       for (let ci = 0; ci < nc; ci++) {
         const p = i * nc + ci, k1 = K1[ci];
-        if (above <= k1) {                 // ── 독립 if ① 관대 (동률을 살려 둔다)
+        if (blocked <= k1) {               // ── 독립 if ① 관대 (넘을 여지가 있는 동률은 살려 둔다)
           posA[p] |= bA; posB[p] |= bB; anyPos[p] = 1; anyLoose[i][ci][k] = true;
         }
         if (above + tie <= k1) {           // ── 독립 if ② 엄격
