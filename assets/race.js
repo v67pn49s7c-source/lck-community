@@ -41,7 +41,12 @@ const RACE_STATE_ORDER = { dead: 0, tie: 1, clean: 2, lock: 3 };
 
 // teams: 그룹 팀 id · base: {id:{w,l,sw,sl}} 현재 누적 · remain: [{id,a,b}] 잔여 경기
 // cuts: [{k:2, label:"2위 안", what:"…"}, …]
-function raceCompute(teams, base, remain, cutsIn) {
+/** 세트 스코어까지 전부 돌리는 "정확 계산"의 상한.
+ *  경기마다 승자 2가지 × 마진 2가지(2:0·2:1) = 4가지라 실현이 4^ن 개다.
+ *  잔여 11경기 = 419만(약 1.2초). 12경기부터는 초 단위를 넘어 근사로 내려간다. */
+const RACE_EXACT_MAX = 5e6;
+
+function raceCompute(teams, base, remain, cutsIn, opts) {
   const n = remain.length;
   if (!(n >= 0 && n <= RACE_MAX_N)) return null;
   const nt = teams.length;
@@ -75,6 +80,25 @@ function raceCompute(teams, base, remain, cutsIn) {
 
   const tieCnt = cuts.map(() => 0);
   const wins = new Array(nt), ptHi = new Array(nt), ptLo = new Array(nt);
+  const pts = new Array(nt);
+  // 정확 계산을 할 수 있는가 — 세트 스코어까지 4^n 을 다 돌린다.
+  const exact = Math.pow(4, n) <= RACE_EXACT_MAX;
+
+  /** 한 조합(승패)에서 각 팀의 판정을 담는다.
+   *  inCut  : 그 컷 안에 드는가 (정확 계산이면 세트 득실까지 본 결과)
+   *  cleanIn: 승수 동률에 기대지 않고 드는가 → '동률 승부만 남음'과 가르는 기준 */
+  function record(bA, bB, i, k, ci, inCut, cleanIn) {
+    const p = i * nc + ci;
+    if (inCut) {
+      posA[p] |= bA; posB[p] |= bB; anyPos[p] = 1; anyLoose[i][ci][k] = true;
+      if (cleanIn) { strA[p] |= bA; strB[p] |= bB; anyStr[p] = 1; anyIn[i][ci][k] = true; }
+    } else {
+      nsA[p] |= bA; nsB[p] |= bB; anyNs[p] = 1;
+      nsKA[p * MK + k] |= bA; nsKB[p * MK + k] |= bB;
+      allSafe[i][ci][k] = false;
+    }
+  }
+
   for (let mask = 0; mask < total; mask++) {
     for (let i = 0; i < nt; i++) wins[i] = baseW[i];
     for (let g = 0; g < n; g++) wins[(mask >> g) & 1 ? A[g] : B[g]]++;
@@ -83,44 +107,59 @@ function raceCompute(teams, base, remain, cutsIn) {
     for (let ci = 0; ci < nc; ci++) if (sorted[cuts[ci].k - 1] === sorted[cuts[ci].k]) tieCnt[ci]++;
 
     const bA = mask, bB = ~mask & full;   // ~ 는 32비트 부호값이지만 & full 로 하위 n비트만 남는다
-    // 이 조합에서 각 팀이 낼 수 있는 세트 득실의 **천장과 바닥**.
-    // Bo3 라 한 경기가 득실을 최대 ±2 만 움직인다 (2:0 이면 ±2, 2:1 이면 ±1).
-    //   천장 = 이긴 건 전부 2:0, 진 건 전부 1:2  →  기존 + 3·승 − 잔여
-    //   바닥 = 이긴 건 전부 2:1, 진 건 전부 0:2  →  기존 + 3·승 − 2·잔여
-    for (let i = 0; i < nt; i++) {
-      const w = wins[i] - baseW[i];
-      ptHi[i] = baseP[i] + 3 * w - remT[i];
-      ptLo[i] = baseP[i] + 3 * w - 2 * remT[i];
-    }
-    for (let i = 0; i < nt; i++) {
-      let above = 0, tie = 0, blocked = 0;
-      for (let j = 0; j < nt; j++) {
-        if (j === i) continue;
-        if (wins[j] > wins[i]) { above++; blocked++; }
-        else if (wins[j] === wins[i]) {
-          tie++;
-          // ⚠ 승수가 같아도 **세트 득실로 절대 못 넘는** 상대가 있다.
-          //   내 천장이 상대 바닥보다 낮으면, 어떤 결과가 나와도 상대가 나보다 위다.
-          //   (실제 사례: DK 는 득실 +7 이라 다 이겨도 +14. T1 의 바닥은 +16 이라 못 넘는다.)
-          //
-          //   ⚠⚠ 부등호는 반드시 **<** 다. <= 로 하면 '천장 == 바닥' 인 상대까지
-          //   가로막는 것으로 세는데, 그건 **똑같아질 수 있다**는 뜻이지 진다는 뜻이 아니다.
-          //   실제로 <= 로 했다가 DK 2위 안을 '완전 무산'이라고 잘못 말했다 (2026-08-08).
-          if (ptHi[i] < ptLo[j]) blocked++;
+
+    if (exact) {
+      // ── 정확: 이 승패 조합 안에서 세트 마진(2:0 이냐 2:1 이냐)까지 전부 돌린다 ──
+      for (let sm = 0; sm < total; sm++) {
+        for (let i = 0; i < nt; i++) pts[i] = baseP[i];
+        for (let g = 0; g < n; g++) {
+          const w = (mask >> g) & 1 ? A[g] : B[g], l = (mask >> g) & 1 ? B[g] : A[g];
+          const d = ((sm >> g) & 1) ? 2 : 1;      // 2:0 이면 ±2, 2:1 이면 ±1
+          pts[w] += d; pts[l] -= d;
+        }
+        for (let i = 0; i < nt; i++) {
+          let better = 0, wtie = 0;
+          for (let j = 0; j < nt; j++) {
+            if (j === i) continue;
+            // 순위 규칙: 승수 → 세트 득실 (store.js 의 standingsSort 와 같아야 한다)
+            if (wins[j] > wins[i] || (wins[j] === wins[i] && pts[j] > pts[i])) better++;
+            if (wins[j] === wins[i]) wtie++;
+          }
+          const k = wins[i] - baseW[i];
+          for (let ci = 0; ci < nc; ci++) {
+            const k1 = K1[ci];
+            record(bA, bB, i, k, ci, better <= k1, better + wtie <= k1);
+          }
         }
       }
-      const k = wins[i] - baseW[i];
-      for (let ci = 0; ci < nc; ci++) {
-        const p = i * nc + ci, k1 = K1[ci];
-        if (blocked <= k1) {               // ── 독립 if ① 관대 (넘을 여지가 있는 동률은 살려 둔다)
-          posA[p] |= bA; posB[p] |= bB; anyPos[p] = 1; anyLoose[i][ci][k] = true;
+    } else {
+      // ── 근사: 세트 스코어를 다 돌리기엔 너무 크다. 대신 **상한·하한**으로 가른다.
+      //    Bo3 라 한 경기가 득실을 ±2 이상 못 움직이는 것이 근거다.
+      //      천장 = 이긴 건 전부 2:0, 진 건 전부 1:2  →  기존 + 3·승 − 잔여
+      //      바닥 = 이긴 건 전부 2:1, 진 건 전부 0:2  →  기존 + 3·승 − 2·잔여
+      //    이 갈래는 '불가'를 놓칠 수는 있어도 **없는 불가를 만들지는 않는다**.
+      for (let i = 0; i < nt; i++) {
+        const w = wins[i] - baseW[i];
+        ptHi[i] = baseP[i] + 3 * w - remT[i];
+        ptLo[i] = baseP[i] + 3 * w - 2 * remT[i];
+      }
+      for (let i = 0; i < nt; i++) {
+        let above = 0, tie = 0, blocked = 0;
+        for (let j = 0; j < nt; j++) {
+          if (j === i) continue;
+          if (wins[j] > wins[i]) { above++; blocked++; }
+          else if (wins[j] === wins[i]) {
+            tie++;
+            // ⚠ 부등호는 반드시 **<** 다. <= 로 하면 '천장 == 바닥' 인 상대까지
+            //   가로막는 것으로 세는데, 그건 **똑같아질 수 있다**는 뜻이지 진다는 뜻이 아니다.
+            //   실제로 <= 로 했다가 DK 2위 안을 '완전 무산'이라고 잘못 말했다 (2026-08-08).
+            if (ptHi[i] < ptLo[j]) blocked++;
+          }
         }
-        if (above + tie <= k1) {           // ── 독립 if ② 엄격
-          strA[p] |= bA; strB[p] |= bB; anyStr[p] = 1; anyIn[i][ci][k] = true;
-        } else {
-          nsA[p] |= bA; nsB[p] |= bB; anyNs[p] = 1;
-          nsKA[p * MK + k] |= bA; nsKB[p * MK + k] |= bB;
-          allSafe[i][ci][k] = false;
+        const k = wins[i] - baseW[i];
+        for (let ci = 0; ci < nc; ci++) {
+          const k1 = K1[ci];
+          record(bA, bB, i, k, ci, blocked <= k1, above + tie <= k1);
         }
       }
     }
@@ -186,7 +225,7 @@ function raceCompute(teams, base, remain, cutsIn) {
     return null;
   }
 
-  return { rows, cuts, scenarioCount: total, remainCount: n,
+  return { rows, cuts, scenarioCount: total, remainCount: n, exact,
            tiePct: tieCnt.map(c => Math.round((c / total) * 100)),
            stateNow, stateAt, safeAt, teamOrder: teams };
 }
@@ -226,7 +265,7 @@ const RACE_CUTS = {
 const _raceMemo = {};
 
 // Cache(store.js)에서 재료를 꺼내 그룹 하나를 계산한다
-function raceFromCache(stageId) {
+function raceFromCache(stageId, opts) {
   const stage = Cache.records.find(s => s.id === stageId);
   const cutDefs = RACE_CUTS[stageId];
   if (!stage || !cutDefs) return null;
@@ -253,7 +292,7 @@ function raceFromCache(stageId) {
     unfinished(m) && inTotal(m) && (teams.includes(m.a) || teams.includes(m.b))).length;
   if (touching !== remain.length) return null;
 
-  const res = raceCompute(teams, base, remain, cutDefs);
+  const res = raceCompute(teams, base, remain, cutDefs, opts);
   if (!res) return null;
   // 경기 id → 비트 자리. 화면이 배열 위치를 다시 세지 않게 여기서 한 번만 만든다.
   // (화면들이 remain 을 날짜순으로 다시 정렬하는 곳이 있어, 위치로 찾으면 다른 경기의 결과가 붙는다)
@@ -268,13 +307,46 @@ function raceFingerprint() {
   return Cache.matches.map(m => `${m.id}|${m.stage}|${m.status}|${m.scoreA}|${m.scoreB}`).join(",")
     + "#" + Cache.records.map(s => `${s.id}:${(s.records || []).map(r => `${r.team}${r.w}-${r.l}`).join("")}`).join(",");
 }
+const _raceExactMemo = {};
+
+/** 화면이 쓰는 입구.
+ *  정확본이 이미 만들어져 있으면 그걸 주고, 아니면 **빠른 근사본**을 준다.
+ *  정확본은 세트 스코어까지 419만 가지를 돌려 1초를 넘기므로, 첫 그리기를 붙잡으면 안 된다.
+ *  (근사본도 '없는 불가'를 만들지 않으니, 잠깐 근사본이 보여도 거짓말은 아니다) */
 function raceCached(stageId) {
   const fp = raceFingerprint();
+  const ex = _raceExactMemo[stageId];
+  if (ex && ex.fp === fp) return ex.val;
   const hit = _raceMemo[stageId];
   if (hit && hit.fp === fp) return hit.val;
-  const val = raceFromCache(stageId);
+  const val = raceFromCache(stageId, { exact: false });
   _raceMemo[stageId] = { fp, val };
   return val;
+}
+
+/** 유휴 시간에 정확본을 만들어 둔다. 다 되면 done(바뀐 게 있나) 를 부른다.
+ *  화면은 이걸 받아 한 번 더 그리면 된다 — 저장본 → 서버본 과 같은 방식이다. */
+function raceWarmExact(done) {
+  const fp = raceFingerprint();
+  const todo = Object.keys(RACE_CUTS)
+    .filter(s => !(_raceExactMemo[s] && _raceExactMemo[s].fp === fp));
+  if (!todo.length) { if (done) done(false); return; }
+  const idle = window.requestIdleCallback ? window.requestIdleCallback.bind(window)
+                                          : (f => setTimeout(f, 60));
+  let changed = false;
+  const step = () => {
+    const sid = todo.shift();
+    if (sid) {
+      try {
+        const val = raceFromCache(sid, { exact: true });
+        // 정확 계산이 불가능한 크기면(잔여가 많으면) 근사본이 돌아온다. 그건 저장하지 않는다.
+        if (val && val.exact) { _raceExactMemo[sid] = { fp, val }; changed = true; }
+      } catch (e) { /* 한 그룹이 실패해도 나머지는 계속 */ }
+    }
+    if (todo.length) idle(step);
+    else if (done) done(changed);
+  };
+  idle(step);
 }
 
 // "이 경기를 이기면/지면" — 경기 하나의 결과를 못 박고 다시 계산한다
