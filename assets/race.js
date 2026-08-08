@@ -95,6 +95,12 @@ function raceCompute(teams, base, remain, cutsIn, opts) {
   const popcnt = v => { v = v - ((v >> 1) & 0x55555555);
     v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
     return (((v + (v >> 4)) & 0x0f0f0f0f) * 0x01010101) >> 24; };
+  // 동률 팀 목록을 담는 재사용 버퍼 (조합마다 새 배열을 만들면 419만 번 할당한다)
+  const tiedBuf = new Int32Array(nt);
+  // 이 조합에서 x 가 y 를 이긴 횟수 = 이미 치른 것 + 잔여 조합에서의 결과
+  let curMask = 0;
+  const h2w = (x, y) => h2hP[x][y]
+    + popcnt(curMask & pA[x][y]) + popcnt(~curMask & full & pB[x][y]);
 
   /** 한 조합에서 각 팀의 판정을 담는다.
    *
@@ -121,6 +127,7 @@ function raceCompute(teams, base, remain, cutsIn, opts) {
   }
 
   for (let mask = 0; mask < total; mask++) {
+    curMask = mask;                       // h2w() 가 보는 조합
     for (let i = 0; i < nt; i++) wins[i] = baseW[i];
     for (let g = 0; g < n; g++) wins[(mask >> g) & 1 ? A[g] : B[g]]++;
 
@@ -148,19 +155,43 @@ function raceCompute(teams, base, remain, cutsIn, opts) {
             if (wins[j] === wins[i]) wtie++;
             if (wins[j] > wins[i] || (wins[j] === wins[i] && pts[j] > pts[i])) { better++; continue; }
             if (wins[j] < wins[i] || pts[j] < pts[i]) continue;      // 내가 위
-            dead++;                                                   // 승수·세트 득실까지 완전 동점
+            tiedBuf[dead++] = j;                                     // 승수·세트 득실까지 완전 동점
           }
-          if (dead === 1 && hasH2H) {
-            // 2팀 동률 → 상대 전적으로 **경기 없이** 갈린다 (2.8.5).
-            // 승률 50% 초과인 쪽이 위. 딱 반반이면 타이브레이커 경기라 결과를 모른다.
-            let j = -1;
-            for (let x = 0; x < nt; x++) if (x !== i && wins[x] === wins[i] && pts[x] === pts[i]) { j = x; break; }
-            const myW = h2hP[i][j] + popcnt(mask & pA[i][j]) + popcnt(~mask & full & pB[i][j]);
-            const opW = h2hP[j][i] + popcnt(mask & pA[j][i]) + popcnt(~mask & full & pB[j][i]);
-            if (opW > myW) better++;
-            else if (opW === myW) murky++;                            // 상대 전적도 동률 → 경기로 가림
-          } else {
-            murky += dead;                                            // 3팀 이상 동률 → 타이브레이커 경기
+          if (!hasH2H || dead >= 3) {
+            // 4팀 이상 동률은 규정 2.8.7~ 대로 타이브레이커 **경기**를 치른다 → 결과를 모른다
+            murky += dead;
+          } else if (dead === 1) {
+            // 2팀 동률 (2.8.5) — 상대 전적 승률 50% 초과면 **경기 없이** 그 팀이 위.
+            // 딱 반반이면 그다음(상대 전적 세트 득실 → 경기)이라 우리는 모른다.
+            const j = tiedBuf[0];
+            const d = h2w(i, j) - h2w(j, i);
+            if (d < 0) better++; else if (d === 0) murky++;
+          } else if (dead === 2) {
+            // ⚠ 반드시 dead === 2 로 못 박는다. 그냥 else 로 두면 **동률이 하나도 없는**
+            //   가장 흔한 경우까지 여기로 떨어져, 버퍼에 남은 옛 팀 번호를 읽는다.
+            // 3팀 동률 (2.8.6) — 세 팀 간 **종합** 상대 전적으로 가른다.
+            const j = tiedBuf[0], k = tiedBuf[1];
+            const ai = (h2w(i, j) - h2w(j, i)) + (h2w(i, k) - h2w(k, i));
+            const aj = (h2w(j, i) - h2w(i, j)) + (h2w(j, k) - h2w(k, j));
+            const ak = (h2w(k, i) - h2w(i, k)) + (h2w(k, j) - h2w(j, k));
+            if (ai !== aj && ai !== ak && aj !== ak) {
+              better += (aj > ai ? 1 : 0) + (ak > ai ? 1 : 0);        // 2.8.6.1 셋 다 다름
+            } else if (aj === ak && ai !== aj) {
+              // 2.8.6.2 / 2.8.6.3 — 나만 다르면 나는 맨 위 아니면 맨 아래
+              if (ai < aj) better += 2;
+            } else if (ai === aj && ai === ak) {
+              murky += 2;                                            // 2.8.6.4 셋 다 같음 → 경기
+            } else if (ai === aj || ai === ak) {
+              // 나와 한 팀이 같고 나머지 하나가 다르다 → 그 하나가 위/아래로 빠지고,
+              // 남은 둘은 2팀 동률(2.8.5)로 가린다
+              const same = (ai === aj) ? j : k, odd = (ai === aj) ? k : j;
+              const aOdd = (ai === aj) ? ak : aj;
+              if (aOdd > ai) better++;                                // 다른 하나가 맨 위
+              const d = h2w(i, same) - h2w(same, i);
+              if (d < 0) better++; else if (d === 0) murky++;
+            } else {
+              murky += 2;                                             // 2.8.6.4 셋 다 같음 → 경기
+            }
           }
           const k = wins[i] - baseW[i];
           for (let ci = 0; ci < nc; ci++) {
