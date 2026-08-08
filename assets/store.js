@@ -205,9 +205,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260808i"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260808i"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260808i"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260808j"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260808j"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260808j"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -1001,6 +1001,37 @@ function playedPidsForMatch(matchId) {
   }));
   return played;
 }
+/** 아직 세트 기록이 없을 때 쓰는 **주전 5명 추정**.
+ *
+ *  왜 필요한가 — 경기가 끝나면 그 자리에서 POM 투표를 만든다. 그런데 누가 뛰었는지는
+ *  다음 새벽 수집 때나 들어온다. 그 사이를 "팀 명단 전체"로 때우면 후보가 6명이 되고
+ *  벤치 선수까지 올라간다 (2026-08-08 HLE 전: 서폿이 Delight·Bluffing 둘 다 올라갔다).
+ *
+ *  그래서 **직전 경기들에 실제로 나온 사람**으로 포지션마다 한 명씩 고른다.
+ *  beforeAt 이전 경기만 본다 — 나중 경기 기록으로 과거를 추정하면 안 된다.
+ *  포지션 5칸을 못 채우면 빈 배열을 준다. 그때는 추측하지 말고 기다리는 게 맞다.
+ */
+function likelyStarters(teamId, beforeAt) {
+  const lastSeen = {};                       // pid → 마지막 출전 경기 시각
+  sortedMatches().forEach(m => {
+    if (m.status !== "done" || (m.a !== teamId && m.b !== teamId)) return;
+    if (beforeAt && !(m.at < beforeAt)) return;
+    const det = Cache.details[m.id];
+    ((det && det.sets) || []).forEach(s => (s.players || []).forEach(p => {
+      if (!p.pid || !(p.champ || "").trim()) return;
+      if (!lastSeen[p.pid] || m.at > lastSeen[p.pid]) lastSeen[p.pid] = m.at;
+    }));
+  });
+  const byPos = {};
+  teamPlayers(teamId).forEach(p => {
+    const at = lastSeen[p.id];
+    if (!at) return;
+    if (!byPos[p.pos] || at > byPos[p.pos].at) byPos[p.pos] = { p, at };
+  });
+  const picked = Object.values(byPos).map(v => v.p);
+  return picked.length === 5 ? picked : [];
+}
+
 // 이 세트에 실제로 나온 선수 (챔피언이 기록된 사람만)
 // setIndex 는 **저장된 진짜 세트 번호**(match_details.set_index) 다.
 // sets 배열은 DB 에 행이 있는 세트만 담은 압축 배열이라, 위치로 꺼내면
