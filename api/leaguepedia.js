@@ -513,6 +513,7 @@ module.exports = async (req, res) => {
 
     // ── 저장 (한 번에 묶어서) ──
     const matchRows = [], detailRows = [];
+    const prevInfoById = {};   // 기존 경기의 status·스코어 (정합성 검사가 신규뿐 아니라 기존도 보게)
     const pickers = {};
     matches.forEach(m => {
       const prev = byLpMatch[m.lpMatchId];
@@ -524,6 +525,9 @@ module.exports = async (req, res) => {
       // 아직 없는 경기는, 그 대회를 **끝까지 받았을 때만** 만든다.
       // (덜 받은 상태로 만들면 세트를 덜 세어 스코어가 1:0 처럼 틀리게 들어간다)
       if (prev || !doneOf[pg]) {
+        // 이 경기가 종료 상태로 저장돼 있으면 정합성 검사 대상에 넣는다 (아래 블록).
+        // 여기서 안 담으면 m8류(기존 경기 재수집에서 win 뒤집힘)를 수집 단계가 통째로 놓친다.
+        if (prev) prevInfoById[id] = prev;
         // 기존 경기라도 **대회가 틀렸으면** 그것만 바로잡는다.
         //   예전에는 이미 있는 경기의 tid 를 아예 안 건드려서, 한 번 잘못 들어간 대회가
         //   재수집을 몇 번 해도 그대로 굳었다. (Road to MSI 5경기가 정규 라운드 3-4 에
@@ -595,16 +599,21 @@ module.exports = async (req, res) => {
     // 세트 승수가 최종 스코어와 안 맞으면(예: BFX 0:2 BRO 인데 두 세트가 a 승)
     // 저장은 하되 **경고에 올려** 관리자가 바로 본다. 화면 쪽(live.html)은
     // 같은 판정으로 세트 승 배지를 숨기므로 잘못된 표시는 나가지 않는다.
+    //
+    // ⚠ 이번 수집이 세트를 건드린 **모든** 경기를 본다 — 신규(matchRowsU)뿐 아니라
+    //   기존(prevInfoById)까지. m8 사고가 바로 기존 경기의 win 뒤집힘이라, 신규만
+    //   보던 예전 검사는 그 계열을 구조적으로 못 잡았다 (적대적 검토 발견 2·5).
     {
       const setsByMatch = {};
       detailRows.forEach(r =>
         (setsByMatch[r.match_id] = setsByMatch[r.match_id] || []).push({ win: r.win, _idx: r.set_index }));
-      matchRowsU.forEach(mr => {
-        if (mr.status !== "done" || !setsByMatch[mr.id]) return;
+      Object.keys(setsByMatch).forEach(mid => {
+        const mr = dedup.get(mid) || prevInfoById[mid];
+        if (!mr || mr.status !== "done") return;   // 아직 종료 아니면 부분 수집 — 검사 보류
         const bad = finishedMatchViolations(
           { status: "done", score_a: mr.score_a, score_b: mr.score_b },
-          setsByMatch[mr.id].sort((x, y) => x._idx - y._idx));
-        if (bad.length) warnings.push(`정합성 ${mr.id}: ${bad[0]} — 관리자 확인 필요`);
+          setsByMatch[mid].slice().sort((x, y) => x._idx - y._idx));
+        if (bad.length) warnings.push(`정합성 ${mid}: ${bad[0]} — 관리자 확인 필요`);
       });
     }
 

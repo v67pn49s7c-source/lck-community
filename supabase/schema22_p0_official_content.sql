@@ -26,8 +26,22 @@
 -- ── ① 공식 토론방 표시 칸 ──────────────────────────────────────────
 alter table posts add column if not exists is_official boolean not null default false;
 
--- ── ② 회원 투표: 직접 INSERT 금지, RPC 로만 ───────────────────────
+-- ── ② 회원 투표: 정책 강화 + RPC ─────────────────────────────────
+-- 정책을 **지우지 않고 강화**한다. 지우면, 아직 옛 코드가 도는 과도기에
+-- 회원 투표(직접 INSERT)가 통째로 막힌다. 강화하면 배포 순서와 무관하게
+-- 옛 코드의 정상 투표(match_id 없음)는 통과하고, 흉내(match_id 있음)만 막힌다.
+-- RPC(아래)는 그 위에 얹는 이중 방어이자 새 코드의 주 경로다.
 drop policy if exists "member_insert_polls" on polls;
+create policy "member_insert_polls" on polls for insert to authenticated with check (
+  post_id is not null
+  and phase is null
+  and match_id is null                    -- ★ 공식 경기(match_id)에 못 건다
+  and id ~ '^[A-Za-z0-9_-]{1,80}$'
+  and char_length(question) <= 200
+  and jsonb_array_length(options) between 2 and 10
+  and exists (select 1 from posts where posts.id = polls.post_id
+                and posts.author_id = auth.uid())   -- ★ 자기 글에만
+);
 
 create or replace function create_member_poll(
   p_id text, p_post_id text, p_question text, p_options jsonb,
@@ -134,8 +148,8 @@ select case
   when exists (select 1 from information_schema.columns
                 where table_name = 'posts' and column_name = 'is_official')
    and exists (select 1 from pg_proc where proname = 'create_member_poll')
-   and not exists (select 1 from pg_policies
-                    where tablename = 'polls' and policyname = 'member_insert_polls')
-  then 'schema22 OK — 회원투표 RPC화 · 비관리자 match_id 차단 · is_official 신설'
+   and exists (select 1 from pg_policies where tablename = 'polls'
+                and policyname = 'member_insert_polls' and with_check like '%match_id is null%')
+  then 'schema22 OK — 회원투표 정책강화+RPC · 비관리자 match_id 차단 · is_official 신설'
   else '실패 — 위 문장들이 전부 돌았는지 확인해 주세요'
 end as "결과";

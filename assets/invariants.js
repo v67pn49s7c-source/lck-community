@@ -25,17 +25,28 @@ function finishedMatchViolations(match, sets) {
 
   if (!Array.isArray(sets) || !sets.length) return v;   // 세트 기록이 아직 없으면 여기까지
 
+  const total = sa + sb;
   let winA = 0, winB = 0;
+  const seen = new Set();
   sets.forEach((s, i) => {
     if (s.win === "a") winA++;
     else if (s.win === "b") winB++;
     else v.push(`${(s._idx ?? i) + 1}세트 승자가 a/b 가 아님 (${JSON.stringify(s.win)})`);
+    // ⚠ 세트 번호까지 본다. 개수만 세면 2:0 인데 _idx 가 0·2 인 유령 세트가
+    //   개수(2)만 맞아 "전 세트 수집"으로 통과한다. 번호가 스코어 범위를 벗어나거나
+    //   겹치면 그것도 손상이다. (_idx 없으면 배열 위치로 폴백 — 옛 fixture 호환)
+    const n = s._idx ?? i;
+    if (n >= total) v.push(`${n + 1}세트는 최종 스코어 ${sa}:${sb} 상 존재할 수 없음`);
+    if (seen.has(n)) v.push(`${n + 1}세트가 중복 저장됨`);
+    seen.add(n);
   });
   // 세트가 일부만 수집됐을 수 있으므로 "많다"만 잡는다. (적은 건 수집 중일 수 있다)
   if (winA > sa) v.push(`A팀 세트 승 ${winA}개가 최종 스코어 ${sa}보다 많음`);
   if (winB > sb) v.push(`B팀 세트 승 ${winB}개가 최종 스코어 ${sb}보다 많음`);
-  // 전 세트가 수집됐으면 정확히 일치해야 한다
-  if (sets.length === sa + sb) {
+  // 0..total-1 번호가 전부 모였을 때만 "전 세트 수집"으로 보고 정확히 대조한다.
+  // (개수만 맞고 번호가 빠진 경우는 아직 수집 중으로 간주 — 오탐 방지)
+  const complete = sets.length >= total && Array.from({ length: total }, (_, k) => k).every(k => seen.has(k));
+  if (complete) {
     if (winA !== sa) v.push(`전 세트 수집 완료인데 A팀 세트 승 ${winA} ≠ 스코어 ${sa}`);
     if (winB !== sb) v.push(`전 세트 수집 완료인데 B팀 세트 승 ${winB} ≠ 스코어 ${sb}`);
   }

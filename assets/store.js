@@ -686,6 +686,9 @@ function addPost(p, pw) {
   p.author_team = Auth.profile?.fav_team || null;
   p.id = "p" + Date.now();
   p.ts = Date.now(); p.views = 0; p.up = 0; p.comments = [];
+  // 공식 경기방 표시를 서버(create_post)와 **같은 조건**으로 로컬에도 낙관적으로 건다.
+  // 안 하면 관리자 sync 가드(official 기준)가 방금 만든 글을 못 보고 매번 다시 만든다.
+  p.official = !!(Auth.profile?.is_admin && p.match_id && /^\[경기 토론\]/.test(p.title || ""));
   Cache.posts.unshift(p);
   // 저장 완료를 기다려야 하는 호출자를 위해 프로미스를 노출
   // ⚠ 인자를 늘리지 않는다. RPC 는 이름 인자가 하나라도 어긋나면 함수를 못 찾아서,
@@ -1668,20 +1671,20 @@ function createMemberPoll(p) {
   });
   return p.id;
 }
-// 경기 토론 글 — 관리자 화면이 경기마다 자동 생성하는 "[경기 토론]" 글.
-// 경기 페이지(경기방)의 댓글이 이 글에 달린다. 글과 경기방은 같은 대화를 공유한다.
+// 경기 토론 글 — 관리자가 경기마다 만드는 "공식 경기방" 글.
+// 경기 페이지의 댓글이 이 글에 달린다. 글과 경기방은 같은 대화를 공유한다.
 //
-// ⚠ 예전에는 "match_id + 제목이 [경기 토론]으로 시작"으로 찾았다. 제목은 누구나 흉내
-//   낼 수 있고 목록이 최신순이라, 아무나 나중에 글을 쓰면 공식 토론방을 **가로챌 수
-//   있었다** (P0-1). 이제 관리자만 켤 수 있는 official 표시를 1순위로 본다.
-//   운영 DB 에 schema22/23 이 아직 안 돌았으면 official 이 전부 false 라, 그동안은
-//   제목 규칙으로 되돌아가되 **가장 오래된 글**을 잡는다 — 관리자 자동 생성 글이
-//   항상 먼저 만들어지므로, 나중에 온 흉내 글은 잡히지 않는다.
+// ⚠ **오직 official(관리자만 켤 수 있는 표시)만 믿는다.** 제목("[경기 토론]…")은
+//   누구나 흉내 낼 수 있어서, 예전처럼 제목으로 폴백하면 공격자가 관리자보다 먼저
+//   흉내 글을 올려 경기방을 **가로챌 수 있었다** (적대적 검토 발견 1).
+//   관리 토론방은 관리자가 sync 를 돌릴 때 **지연 생성**되므로 "관리자 글이 항상
+//   먼저"라는 가정도 거짓이었다. official 이 없으면 '경기방 없음'으로 두는 편이
+//   흉내 글을 노출하는 것보다 안전하다.
+//   (schema22/23 배포 → 백필로 기존 관리 토론방이 official=true 가 된 뒤 코드가
+//    배포되므로, 정상 경기방은 그대로 보인다. 배포 순서는 docs/P0_DEPLOY.md)
 function matchTalkPost(matchId) {
   const officials = Cache.posts.filter(p => p.match_id === matchId && p.official);
-  if (officials.length) return officials.reduce((a, b) => (a.ts <= b.ts ? a : b));
-  const legacy = Cache.posts.filter(p => p.match_id === matchId && /^\[경기 토론\]/.test(p.title));
-  return legacy.length ? legacy.reduce((a, b) => (a.ts <= b.ts ? a : b)) : null;
+  return officials.length ? officials.reduce((a, b) => (a.ts <= b.ts ? a : b)) : null;
 }
 
 // 투표 질문·마감 고치기 (관리자 전용 — RLS admin_all_polls).

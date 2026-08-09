@@ -31,28 +31,30 @@
 
 ---
 
-## 적용 순서 (승인 후)
+## 적용 순서 (승인 후) — **DB 먼저, 코드 나중**
 
-1. **코드 배포 먼저, DB 나중** — 순서가 중요하다.
-   클라이언트는 schema22 전에도 안전하게 동작하도록 폴백을 넣었다:
-   - `createMemberPoll`: RPC 없으면 옛 직접 INSERT (옛 정책이 아직 살아 있어 통과)
-   - `matchTalkPost`: is_official 없으면 제목+**가장 오래된** 글
-   반대로 DB를 먼저 바꾸면, 옛 코드(`createPoll` 직접 INSERT로 회원 투표)가
-   삭제된 정책에 막혀 회원 투표가 잠깐 죽는다. **코드 → DB 순서 유지.**
+적대적 검토(발견 1)에서 "코드 먼저"가 과도기 창을 연다는 것이 확인돼 순서를 뒤집었다.
+`schema22`는 회원 투표 정책을 **삭제하지 않고 강화**(match_id NULL + 자기 글)하므로,
+DB를 먼저 적용해도 옛 코드의 정상 회원 투표(match_id 없음)는 그대로 통과한다.
 
-2. `bash tests/check.sh` 통과 확인 → `p0-hardening`을 Vercel Preview로 확인
-   → 승인 → main 병합 → 자동 배포.
+1. `bash tests/check.sh` 통과 확인 → `p0-hardening` Preview 확인 (아직 main 병합 X).
 
-3. 배포 안정 후 **staging 또는 운영**에서:
-   - `audit_p0_read_only.sql` 실행 → ①② 결과 확보
+2. **staging 또는 운영 DB에서 순서대로:**
+   - `audit_p0_read_only.sql` → ①②③④ 오염 파악, ⑤ 정책 드리프트, ⑥⑦ 정합성
    - 오염이 있으면 `cleanup_p0_manual.sql`에 id를 채워 **한 줄씩** 실행
-   - `schema22_p0_official_content.sql` 실행 (여러 번 안전)
-   - `schema23_official_backfill.sql` 실행 (②가 깨끗해야 인덱스 성공)
-   - `supabase/tests/p0_rls_test.sql` 실행 → 전부 `PASS` 확인 (BEGIN…ROLLBACK)
+   - `schema22_p0_official_content.sql` (여러 번 안전) — 이 순간부터 신규 흉내 유입 차단
+   - `schema23_official_backfill.sql` — 관리 토론방이 `is_official=true`가 된다
+   - `supabase/tests/p0_rls_test.sql` → 전부 `PASS` (BEGIN…ROLLBACK, 흔적 없음)
 
-4. P0-2 데이터 백필(선택): 관리자 화면 '데이터 검수' 목록을 보고
-   경기별로 재수집(데이터 수집 버튼) 또는 경기 상세 입력에서 세트 승자 수정.
-   **자동 backfill SQL은 만들지 않았다** — 어느 쪽이 진짜 승자인지 원본 없이 단정 불가.
+3. **그다음** main 병합 → Vercel 자동 배포.
+   이 시점엔 이미 `is_official`이 켜져 있어 `matchTalkPost`(official만 신뢰)가
+   정상 경기방을 그대로 보여 준다. 순서를 지키면 경기방 미표시 창이 없다.
+
+   ⚠ 만약 코드를 먼저 배포하게 되면, schema23 적용 전까지 `official`이 없어
+   **기존 경기방 토론이 잠깐 안 보인다**(가로채기 노출보다는 안전한 실패). 순서 준수 권장.
+
+4. P0-2 데이터 백필(선택): 관리자 '데이터 검수' 카드 목록을 보고
+   경기별 재수집 또는 세트 승자 수정. **자동 backfill SQL은 만들지 않았다.**
 
 ---
 
@@ -75,6 +77,19 @@
   백필한 `is_official=true`는 `update posts set is_official=false;`로 초기화 가능.
 
 ---
+
+## 적대적 검토에서 잡아 반영한 것 (커밋 후 self-review)
+
+3렌즈(우회·정합성·회귀) + 반증 워크플로로 커밋 `7cedad7`을 자체 검증해 5건 확정, 전부 수정:
+
+1. **[보통] matchTalkPost 가로채기** — "관리자 글이 항상 먼저"라는 내 가정이 거짓이었다
+   (관리 토론방은 admin sync 때 지연 생성). 제목 폴백을 **완전 제거**(official만 신뢰),
+   admin sync 가드도 official 기준으로, 회원 투표 정책은 삭제 대신 강화 → 배포 순서 뒤집음.
+2·5. **[보통] 수집 정합성 검사가 신규 경기만 봄** — m8류(기존 경기 win 뒤집힘)를 구조적으로
+   놓쳤다. `setsByMatch` 키 순회 + `prevInfoById`로 기존 경기까지 검사.
+3. **[낮음] 유령 세트** — `_idx`를 무시해 2:0 인데 세트 번호 0·2가 통과. 번호 범위·중복·
+   완전집합 검사 추가.
+4. **[낮음] pomPollViolations 미배선** — 함수만 있고 호출처 없음. admin 검수 카드에 배선.
 
 ## 미해결 위험 (P1/P2 백로그로 넘김)
 

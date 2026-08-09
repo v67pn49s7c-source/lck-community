@@ -57,6 +57,17 @@ truthy("종료 경기 빈 스코어를 잡는다",
 empty("예정 경기는 통과",
   finishedMatchViolations({ status: "upcoming", score_a: null, score_b: null }, []));
 
+// ── ⑧-b 유령 세트: 2:0 인데 _idx 가 0·2 (개수만 맞음) ── (검토 발견 3)
+truthy("스코어상 존재할 수 없는 세트 번호를 잡는다",
+  finishedMatchViolations({ status: "done", score_a: 2, score_b: 0 },
+    [{ win: "a", _idx: 0 }, { win: "a", _idx: 2 }]).length >= 1);
+truthy("세트 번호 중복을 잡는다",
+  finishedMatchViolations({ status: "done", score_a: 2, score_b: 1 },
+    [{ win: "a", _idx: 0 }, { win: "a", _idx: 0 }, { win: "b", _idx: 1 }]).length >= 1);
+empty("정상 연속 _idx(0,1,2)는 통과",
+  finishedMatchViolations({ status: "done", score_a: 2, score_b: 1 },
+    [{ win: "a", _idx: 0 }, { win: "b", _idx: 1 }, { win: "a", _idx: 2 }]));
+
 // ── ⑨ POM 후보: 승리팀 아닌 선수·미출전 선수 ──
 truthy("POM 후보에 패배팀 선수가 섞이면 잡는다",
   pomPollViolations({ options: ["Zeus (HLE 탑)", "Faker (T1 미드)"] }, "HLE", new Set(["Zeus"])).length >= 1);
