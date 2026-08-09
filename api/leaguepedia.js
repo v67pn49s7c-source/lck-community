@@ -14,6 +14,7 @@
 // 데이터 출처: Leaguepedia (CC-BY-SA 3.0) — 푸터에 출처를 표기하고 있다.
 
 const { ok, fail, sb, requireAdmin } = require("./_lib");
+const { finishedMatchViolations } = require("../assets/invariants");
 const { val, wait, cargo, loadSetting, saveSetting, matchIdOf, stagePicker, autoLinkPlayers, checkAliases, resolveTid, buildNewPlayers, normNick, loadNameMaps, splitList, canonStage, posOf } = require("./_lp");
 
 const CACHE_MINUTES = 10;
@@ -589,6 +590,23 @@ module.exports = async (req, res) => {
     const dedup = new Map();
     matchRows.forEach(r => dedup.set(r.id, r));
     const matchRowsU = [...dedup.values()];
+
+    // ── 수집 직후 정합성 검사 (P0-2) ─────────────────────────────
+    // 세트 승수가 최종 스코어와 안 맞으면(예: BFX 0:2 BRO 인데 두 세트가 a 승)
+    // 저장은 하되 **경고에 올려** 관리자가 바로 본다. 화면 쪽(live.html)은
+    // 같은 판정으로 세트 승 배지를 숨기므로 잘못된 표시는 나가지 않는다.
+    {
+      const setsByMatch = {};
+      detailRows.forEach(r =>
+        (setsByMatch[r.match_id] = setsByMatch[r.match_id] || []).push({ win: r.win, _idx: r.set_index }));
+      matchRowsU.forEach(mr => {
+        if (mr.status !== "done" || !setsByMatch[mr.id]) return;
+        const bad = finishedMatchViolations(
+          { status: "done", score_a: mr.score_a, score_b: mr.score_b },
+          setsByMatch[mr.id].sort((x, y) => x._idx - y._idx));
+        if (bad.length) warnings.push(`정합성 ${mr.id}: ${bad[0]} — 관리자 확인 필요`);
+      });
+    }
 
     // return=minimal — 이게 없으면 저장한 만큼(수백 KB)을 응답으로 그대로 되받아 읽는다.
     const PREF = { prefer: "resolution=merge-duplicates,return=minimal" };

@@ -1369,6 +1369,11 @@ function setScoreboardHTML(match, set) {
   if (!A || !B) return "";
 
   const wonA = set.win === "a";
+  // 정합성 검사 (P0-2) — 세트 승수가 최종 스코어와 어긋난 경기는 승/패 표시를 감춘다.
+  // 잘못 저장된 진영(m8: 0:2 인데 두 세트 다 a 승)이 그대로 공개되는 걸 막는다.
+  const sets = (typeof getDetails === "function" && (getDetails(match.id) || {}).sets) || [];
+  const suspect = typeof finishedMatchViolations === "function"
+    && finishedMatchViolations(match, sets).length > 0;
   const sideChip = s => g.blue ? (g.blue === s ? `<span class="sb-side blue">블루</span>`
                                               : `<span class="sb-side red">레드</span>`) : "";
   const head = (t, s, won) => `
@@ -1376,7 +1381,8 @@ function setScoreboardHTML(match, set) {
       ${teamLogoHTML(t, 22)}
       <b class="team-text" style="--team-color:${t.color}">${esc(t.abbr)}</b>
       ${sideChip(s)}
-      <span class="sb-wl ${won ? "w" : "l"}">${won ? "승" : "패"}</span>
+      ${suspect ? `<span class="sb-wl l" title="세트 기록이 최종 스코어와 달라 확인 중입니다">검수 중</span>`
+                : `<span class="sb-wl ${won ? "w" : "l"}">${won ? "승" : "패"}</span>`}
     </div>`;
 
   // 밴·픽 — 순서 그대로. 밴은 흐리게 + 사선.

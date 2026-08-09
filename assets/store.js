@@ -321,6 +321,7 @@ async function fetchAll() {
     id: x.id, team: x.team, cat: x.cat, title: x.title, body: x.body, nick: x.nick,
     author_team: x.author_team || null, match_id: x.match_id || null,
     author_id: x.author_id || null,   // 마이페이지 '내가 쓴 글'. 비회원 글은 null.
+    official: !!x.is_official,        // 공식 경기 토론방 (schema22 — 관리자만 켤 수 있다)
     up: x.up, views: x.views, ts: Date.parse(x.created_at), comments: commentsByPost[x.id] || [],
   }));
 
@@ -687,6 +688,9 @@ function addPost(p, pw) {
   p.ts = Date.now(); p.views = 0; p.up = 0; p.comments = [];
   Cache.posts.unshift(p);
   // 저장 완료를 기다려야 하는 호출자를 위해 프로미스를 노출
+  // ⚠ 인자를 늘리지 않는다. RPC 는 이름 인자가 하나라도 어긋나면 함수를 못 찾아서,
+  //   마이그레이션 전·후 어느 한쪽에서 글쓰기가 통째로 죽는다. 공식 토론방 표시는
+  //   서버(create_post)가 "관리자 + match_id + [경기 토론] 제목"으로 스스로 판정한다.
   addPost.lastSave = sb.rpc("create_post", {
     p_id: p.id, p_team: p.team || null, p_cat: p.cat, p_title: p.title, p_body: p.body,
     p_nick: p.nick, p_match_id: p.match_id || null, p_pw: pw || null,
@@ -1618,10 +1622,16 @@ function deleteDetailSet(matchId, setIndex) {
 
 // ── 팬심지수: 투표 ──
 function getPolls() { return Cache.polls; }
-function pollsForMatch(matchId) { return Cache.polls.filter(p => p.match_id === matchId); }
+// 경기 화면의 공식 팬심지수. **phase 가 있는 투표만** 공식이다 (pre / post_pom / post_key —
+// 전부 관리자 화면이 만든다). phase 없이 match_id 만 단 투표는 회원이 끼워 넣은 것일 수
+// 있으므로 공식 화면에 올리지 않는다. (2026-08-09 P0-1)
+function pollsForMatch(matchId) {
+  return Cache.polls.filter(p => p.match_id === matchId && p.phase);
+}
 function getPollByPost(postId) { return Cache.polls.find(p => p.post_id === postId); }
 function pollOpen(poll) { return !poll.closes_at || new Date(poll.closes_at) > new Date(); }
 
+// 관리자 공식 투표 (팬심지수 pre/post_pom/post_key). RLS admin_all_polls 로만 통과한다.
 function createPoll(p) {
   p.id = p.id || "poll" + Date.now() + Math.random().toString(36).slice(2, 6);
   Cache.polls.push(p);
@@ -1631,10 +1641,47 @@ function createPoll(p) {
   }).then(r => { sbErr(r.error, "createPoll"); return r; });
   return p.id;
 }
+
+/** 회원이 자기 글에 붙이는 자유 투표 — RPC 로만 만든다 (schema22).
+ *  match_id·phase 는 서버가 강제로 NULL 로 두므로 여기서 받지도 않는다.
+ *  예전처럼 직접 INSERT 를 하면, 정책이 검사하지 않는 칸(match_id)에 값을 실어
+ *  공식 경기 화면에 투표를 끼워 넣을 수 있었다 (P0-1). */
+function createMemberPoll(p) {
+  p.id = p.id || "poll" + Date.now() + Math.random().toString(36).slice(2, 6);
+  p.match_id = null; p.phase = null;
+  Cache.polls.push(p);
+  createMemberPoll.lastSave = sb.rpc("create_member_poll", {
+    p_id: p.id, p_post_id: p.post_id, p_question: p.question,
+    p_options: p.options, p_multi: !!p.multi, p_closes_at: p.closes_at || null,
+  }).then(r => {
+    // 서버에 함수가 아직 없으면(schema22 미적용) 예전 직접 INSERT 로 한 번 더 —
+    // 그때는 옛 정책(member_insert_polls)이 아직 살아 있어 통과한다.
+    // match_id 는 여기서도 절대 싣지 않는다.
+    if (r.error && /create_member_poll/.test(r.error.message || "")) {
+      return sb.from("polls").insert({
+        id: p.id, match_id: null, phase: null, post_id: p.post_id,
+        question: p.question, options: p.options, multi: !!p.multi, closes_at: p.closes_at || null,
+      }).then(r2 => { sbErr(r2.error, "createMemberPoll(구버전)"); return r2; });
+    }
+    sbErr(r.error, "createMemberPoll");
+    return r;
+  });
+  return p.id;
+}
 // 경기 토론 글 — 관리자 화면이 경기마다 자동 생성하는 "[경기 토론]" 글.
 // 경기 페이지(경기방)의 댓글이 이 글에 달린다. 글과 경기방은 같은 대화를 공유한다.
+//
+// ⚠ 예전에는 "match_id + 제목이 [경기 토론]으로 시작"으로 찾았다. 제목은 누구나 흉내
+//   낼 수 있고 목록이 최신순이라, 아무나 나중에 글을 쓰면 공식 토론방을 **가로챌 수
+//   있었다** (P0-1). 이제 관리자만 켤 수 있는 official 표시를 1순위로 본다.
+//   운영 DB 에 schema22/23 이 아직 안 돌았으면 official 이 전부 false 라, 그동안은
+//   제목 규칙으로 되돌아가되 **가장 오래된 글**을 잡는다 — 관리자 자동 생성 글이
+//   항상 먼저 만들어지므로, 나중에 온 흉내 글은 잡히지 않는다.
 function matchTalkPost(matchId) {
-  return Cache.posts.find(p => p.match_id === matchId && /^\[경기 토론\]/.test(p.title)) || null;
+  const officials = Cache.posts.filter(p => p.match_id === matchId && p.official);
+  if (officials.length) return officials.reduce((a, b) => (a.ts <= b.ts ? a : b));
+  const legacy = Cache.posts.filter(p => p.match_id === matchId && /^\[경기 토론\]/.test(p.title));
+  return legacy.length ? legacy.reduce((a, b) => (a.ts <= b.ts ? a : b)) : null;
 }
 
 // 투표 질문·마감 고치기 (관리자 전용 — RLS admin_all_polls).

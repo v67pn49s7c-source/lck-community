@@ -13,11 +13,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260808i">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260808i">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260809d">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260809d">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260808i">
+  <link rel="stylesheet" href="assets/styles.css?v=20260809d">
 </head>
 <body>
   <main class="page">
@@ -301,6 +301,14 @@
         </div>
       </section>
 
+      <!-- 데이터 검수 (P0-2 — 세트 승수·스코어 정합성) -->
+      <section class="card admin-panel" data-tab="audit">
+        <div class="card-head">
+          <h2 class="card-title">데이터 검수 <span class="sub">세트 기록이 최종 스코어와 맞는지 (어긋나면 공개 화면은 승 배지를 숨깁니다)</span></h2>
+        </div>
+        <div id="integrity-body" class="admin-note" style="border-top:none">검사 중…</div>
+      </section>
+
       <!-- 참여 점검 (부정 투표 감지) -->
       <section class="card admin-panel" data-tab="audit">
         <div class="card-head">
@@ -330,12 +338,13 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260808i"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260808i"></script>
-  <script src="assets/store.js?v=20260808i"></script>
-  <script src="assets/app.js?v=20260808i"></script>
-  <script src="assets/ddragon.js?v=20260808i"></script>
-  <script src="assets/brackets.js?v=20260808i"></script>
+  <script src="assets/data.js?v=20260809d"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260809d"></script>
+  <script src="assets/invariants.js?v=20260809d"></script>
+  <script src="assets/store.js?v=20260809d"></script>
+  <script src="assets/app.js?v=20260809d"></script>
+  <script src="assets/ddragon.js?v=20260809d"></script>
+  <script src="assets/brackets.js?v=20260809d"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -1569,7 +1578,7 @@
               made++;
             }
           } else if (played.size && pomOpts.length &&
-                     pomPoll.options.join(" ") !== pomOpts.join(" ")) {
+                     pomPoll.options.join(" ") !== pomOpts.join(" ")) {
             // 뒤늦게 세트 기록이 들어와 **진짜 출전 명단**을 알게 된 경우 — 보기를 바로잡는다.
             // ⚠ 표는 보기의 **번호**로 저장된다 (poll_votes.choices = [0] 같은 배열).
             //   보기를 갈아끼우면 이미 나온 표가 다른 선수에게 옮겨 붙는다.
@@ -1601,8 +1610,34 @@
       if (made) console.log(`[팬심지수] ${made}개 투표·토론 글 자동 생성`);
     }
 
+    // ── 데이터 검수 (P0-2) — 종료 경기의 세트 승수·스코어 정합성 ──
+    // 공개 화면(live.html)이 같은 판정으로 승 배지를 숨기므로, 여기 뜬 경기는
+    // "지금 잘못 보이는 중"이 아니라 "재수집·수정이 필요한" 경기다.
+    function renderIntegrity() {
+      const el = document.getElementById("integrity-body");
+      if (!el || typeof finishedMatchViolations !== "function") return;
+      const bad = [];
+      getMatches().filter(m => m.status === "done").forEach(m => {
+        const sets = (getDetails(m.id) || {}).sets || [];
+        if (!sets.length) return;                    // 아직 미수집 — 검사 대상 아님
+        const v = finishedMatchViolations(m, sets);
+        if (v.length) bad.push({ m, v });
+      });
+      el.innerHTML = bad.length
+        ? `<b style="color:var(--accent)">${bad.length}개 경기의 세트 기록이 최종 스코어와 다릅니다.</b>
+           데이터 수집을 다시 돌리거나, 경기 상세 입력에서 세트 승자를 바로잡아 주세요.<br><br>` +
+          bad.map(({ m, v }) => {
+            const A = TEAM_MAP[m.a], B = TEAM_MAP[m.b];
+            return `· <a href="/match/${esc(m.id)}" target="_blank" style="text-decoration:underline">
+              <b>${esc(A ? A.abbr : m.a)} ${m.scoreA}:${m.scoreB} ${esc(B ? B.abbr : m.b)}</b></a>
+              (${esc(m.id)}) — ${esc(v[0])}`;
+          }).join("<br>")
+        : `모든 종료 경기의 세트 기록이 최종 스코어와 일치합니다 ✓`;
+    }
+
     function renderAll() {
       syncFanPulse();
+      renderIntegrity();
       renderTournamentList();
       fillMatchForm();
       renderMatchList();
