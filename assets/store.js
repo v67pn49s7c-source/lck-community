@@ -207,9 +207,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260811g"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260811g"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811g"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260811h"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260811h"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811h"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -2071,7 +2071,10 @@ function streamsForMatch(matchId) {
 function getSetting(key) { return Cache.settings[key] || ""; }
 function setSetting(key, value) {
   Cache.settings[key] = value;
-  sb.from("site_settings").upsert({ key, value }).then(r => sbErr(r.error, "setSetting"));
+  return sb.from("site_settings").upsert({ key, value }).then(r => {
+    sbErr(r.error, "setSetting");
+    return r;
+  });
 }
 // 서버가 바꾼 설정을 다시 읽어 온다.
 // 수집기(api/leaguepedia.js)가 lp_aliases 에 자동 연결을 덧붙이므로, 수집 직후에는
