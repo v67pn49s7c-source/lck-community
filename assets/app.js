@@ -244,9 +244,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260811a")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260811a")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811a")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260811b")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260811b")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811b")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -296,7 +296,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811a");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811b");
 
   renderTabBar(groupName);
 }
@@ -588,27 +588,66 @@ function sharePredictionCard(match, side) {
   });
 }
 
-// ── 팀 공식 유튜브 최신 영상 ───────────────────────────────
-// 서버 함수(/api/team-feed)가 유튜브 RSS를 대신 받아 정리해 준다.
-// (브라우저에서 유튜브를 직접 부르면 보안 정책에 막힌다)
-async function renderTeamVideos(teamId) {
-  const card = document.getElementById("yt-card");
-  const box = document.getElementById("yt-feed");
+// ── 팀 공식 SNS 최신 콘텐츠 ────────────────────────────────
+// 서버 함수가 YouTube RSS와, 설정된 경우 Instagram·X 공식 API를 같은 형태로 합친다.
+function contentPlatformIcon(platform) {
+  if (platform === "youtube") return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.6 7.2a2.8 2.8 0 0 0-2-2C17.8 4.7 12 4.7 12 4.7s-5.8 0-7.6.5a2.8 2.8 0 0 0-2 2A29 29 0 0 0 2 12a29 29 0 0 0 .4 4.8 2.8 2.8 0 0 0 2 2c1.8.5 7.6.5 7.6.5s5.8 0 7.6-.5a2.8 2.8 0 0 0 2-2A29 29 0 0 0 22 12a29 29 0 0 0-.4-4.8ZM10 15.2V8.8l5.5 3.2-5.5 3.2Z"/></svg>`;
+  if (platform === "instagram") return `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.5" cy="6.6" r="1"/></svg>`;
+  return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.7 3h3.7l-8.1 9.3L23.8 21h-7.5l-5.9-7.7L3.7 21H0l8.7-10L-.4 3h7.7l5.3 7 6.1-7Zm-1.3 16h2L6.2 4.9H4.1L17.4 19Z"/></svg>`;
+}
+
+const CONTENT_PLATFORM_NAME = { youtube: "YouTube", instagram: "Instagram", x: "X" };
+
+async function renderTeamContent(teamId) {
+  const card = document.getElementById("content-card");
+  const box = document.getElementById("content-feed");
   if (!card || !box) return;
   try {
     const r = await fetch("/api/team-feed?team=" + encodeURIComponent(teamId));
-    if (!r.ok) return;                       // 서버 함수가 아직 없으면 조용히 넘어간다
+    if (!r.ok) return;
     const j = await r.json();
-    const list = (j.videos || []).slice(0, 6);
+    const list = ((j.items && j.items.length) ? j.items : (j.videos || []).map(v => ({ ...v, platform: "youtube" })))
+      .slice(0, 18);
     if (!list.length) return;
     card.style.display = "";
-    box.innerHTML = list.map(v => `
-      <a class="yt-row" href="${esc(v.url)}" target="_blank" rel="noopener noreferrer">
-        <img src="${esc(v.thumb)}" alt="" width="96" height="54" loading="lazy" decoding="async">
-        <span class="yt-title">${esc(v.title)}</span>
-      </a>`).join("");
-  } catch (e) { /* 영상은 없어도 그만 */ }
+    let index = 0;
+    const prev = document.getElementById("content-prev");
+    const next = document.getElementById("content-next");
+    const counter = document.getElementById("content-counter");
+    const paint = () => {
+      const item = list[index];
+      const platform = CONTENT_PLATFORM_NAME[item.platform] || "SNS";
+      const published = Date.parse(item.published || "");
+      const media = item.thumb
+        ? `<img src="${esc(item.thumb)}" alt="" loading="lazy" decoding="async">`
+        : `<span class="content-placeholder-mark">${contentPlatformIcon(item.platform)}</span>`;
+      box.innerHTML = `
+        <a class="content-slide platform-${esc(item.platform)}" href="${esc(item.url)}"
+          target="_blank" rel="noopener noreferrer" aria-label="${esc(platform)}에서 콘텐츠 열기">
+          <span class="content-media">${media}
+            <span class="content-platform">${contentPlatformIcon(item.platform)} ${esc(platform)}</span>
+          </span>
+          <span class="content-copy">
+            <strong>${esc(item.title || `${platform} 새 콘텐츠`)}</strong>
+            <span>${Number.isFinite(published) ? fmtAgo(published) : "공식 계정"} · ${esc(platform)}</span>
+          </span>
+        </a>`;
+      counter.textContent = `${index + 1} / ${list.length}`;
+    };
+    const move = delta => { index = (index + delta + list.length) % list.length; paint(); };
+    prev.disabled = next.disabled = list.length < 2;
+    prev.onclick = () => move(-1);
+    next.onclick = () => move(1);
+    card.onkeydown = event => {
+      if (event.key === "ArrowLeft") { event.preventDefault(); move(-1); }
+      if (event.key === "ArrowRight") { event.preventDefault(); move(1); }
+    };
+    paint();
+  } catch (e) { /* SNS 카드가 없어도 게시판은 정상 동작해야 한다 */ }
 }
+
+// 오래된 호출 이름을 쓰는 캐시된 페이지와의 호환.
+const renderTeamVideos = renderTeamContent;
 
 // ── 모바일 하단 탭바 ──────────────────────────────────────
 // 휴대폰에서는 위쪽 가로 메뉴가 엄지에서 멀다. 자주 쓰는 다섯 곳을 아래에 고정한다.

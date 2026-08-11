@@ -71,6 +71,7 @@ node tests/race.golden.test.js || bad "race.golden.test 실패"
 node tests/admin-save-order.test.js || bad "admin-save-order.test 실패"
 node tests/snapshot-refresh.test.js || bad "snapshot-refresh.test 실패"
 node tests/detail-ui.test.js || bad "detail-ui.test 실패"
+node tests/team-content.test.js || bad "team-content.test 실패"
 
 # ── ⑥ vercel.json 이 유효한 JSON 인가 (_comment 키가 배포를 깬 전력) ──
 python3 -c "import json; json.load(open('vercel.json'))" || bad "vercel.json 파싱 실패"

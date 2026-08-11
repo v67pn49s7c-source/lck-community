@@ -63,7 +63,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260811a") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260811b") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -1434,14 +1434,49 @@ a.bracket-match:hover { border-color: var(--accent); }
   .day-label { padding: 6px 10px 3px; }
 }
 
-/* ── 팀 공식 유튜브 최신 영상 ── */
-.yt-row { display: flex; gap: 10px; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--line); }
-.yt-row:last-child { border-bottom: none; }
-.yt-row:hover { background: var(--card-hover); }
-.yt-row img { width: 96px; height: 54px; object-fit: cover; border: 1px solid var(--line); flex-shrink: 0; }
-.yt-title {
-  font-size: var(--fs-sm); font-weight: 600; line-height: 1.4;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+/* ── 팀 공식 SNS 최신 콘텐츠 캐러셀 ── */
+.content-nav { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; }
+.content-nav button {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 29px; height: 29px; border: 1px solid var(--line); background: var(--bg-soft);
+  color: var(--text); font-size: 22px; line-height: 1; font-weight: 500;
+}
+.content-nav button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.content-nav button:disabled { opacity: .35; cursor: default; }
+.content-nav span { min-width: 34px; text-align: center; color: var(--text-dim); font-size: 10px; font-variant-numeric: tabular-nums; }
+.content-slide { display: block; color: inherit; }
+.content-media {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: 100%; aspect-ratio: 16 / 9; overflow: hidden;
+  background: linear-gradient(135deg, #171a22, #252a37);
+}
+.content-media > img { width: 100%; height: 100%; object-fit: cover; transition: transform .25s ease; }
+.content-slide:hover .content-media > img { transform: scale(1.025); }
+.content-platform {
+  position: absolute; left: 10px; bottom: 9px; display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 8px; background: rgba(9, 10, 14, .84); color: #fff;
+  font-size: 10px; font-weight: 800; backdrop-filter: blur(5px);
+}
+.content-platform svg, .content-placeholder-mark svg { width: 15px; height: 15px; fill: currentColor; stroke: currentColor; stroke-width: 1.7; }
+.platform-youtube .content-platform { color: #ff4b5f; }
+.platform-instagram .content-platform { color: #ff70b7; }
+.platform-x .content-platform { color: #fff; }
+.content-placeholder-mark { color: #fff; opacity: .72; }
+.content-placeholder-mark svg { width: 54px; height: 54px; }
+.content-copy { display: block; padding: 11px 13px 13px; border-top: 1px solid var(--line); }
+.content-copy strong {
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  color: var(--text); font-size: var(--fs-sm); line-height: 1.45; font-weight: 750;
+}
+.content-copy > span { display: block; margin-top: 6px; color: var(--text-dim); font-size: 10px; }
+.content-slide:hover .content-copy strong { color: var(--accent); }
+.team-channel-admin { align-items: flex-start; }
+.team-channel-fields { display: grid; grid-template-columns: repeat(2, minmax(180px, 1fr)); gap: 7px; flex: 1; }
+.team-channel-fields label { display: grid; grid-template-columns: 82px minmax(0, 1fr); align-items: center; gap: 6px; color: var(--text-dim); font-size: 10px; font-weight: 700; }
+.team-channel-fields input { width: 100%; min-width: 0; }
+@media (max-width: 760px) {
+  .content-media { aspect-ratio: 16 / 8.6; }
+  .team-channel-fields { grid-template-columns: 1fr; }
 }
 
 /* ── 응원팀 온보딩 + 내 팀 홈 히어로 ── */

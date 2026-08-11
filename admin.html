@@ -13,11 +13,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260811a">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260811a">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260811b">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260811b">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260811a">
+  <link rel="stylesheet" href="assets/styles.css?v=20260811b">
 </head>
 <body>
   <main class="page">
@@ -264,12 +264,13 @@
         </div>
 
         <div class="card-head" style="border-top:1px solid var(--line); margin-top:14px">
-          <h2 class="card-title">팀 채널 <span class="sub">팀별 공식 유튜브 채널 id</span></h2>
+          <h2 class="card-title">팀 공식 채널 <span class="sub">최신 콘텐츠 자동 수집</span></h2>
         </div>
         <div class="admin-list" id="yt-list"></div>
         <div class="admin-note">
-          유튜브 채널 주소가 <code>youtube.com/channel/UCxxxx</code> 형태면 뒤의 <b>UC…</b>가 채널 id입니다.
-          <code>@이름</code> 형태라면 채널 페이지 소스에서 찾거나, 영상 하나를 열어 채널을 눌러 확인하세요.
+          YouTube는 채널 ID만 저장하면 RSS로 즉시 수집됩니다. X는 핸들과 Vercel의 <code>X_BEARER_TOKEN</code>,
+          Instagram은 핸들·승인된 사용자 ID와 팀별 <code>INSTAGRAM_ACCESS_TOKEN_팀ID</code>가 필요합니다.
+          비밀 토큰은 이 화면이나 DB에 입력하지 말고 Vercel 환경변수에만 저장하세요.
         </div>
       </section>
 
@@ -338,13 +339,13 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260811a"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260811a"></script>
-  <script src="assets/invariants.js?v=20260811a"></script>
-  <script src="assets/store.js?v=20260811a"></script>
-  <script src="assets/app.js?v=20260811a"></script>
-  <script src="assets/ddragon.js?v=20260811a"></script>
-  <script src="assets/brackets.js?v=20260811a"></script>
+  <script src="assets/data.js?v=20260811b"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260811b"></script>
+  <script src="assets/invariants.js?v=20260811b"></script>
+  <script src="assets/store.js?v=20260811b"></script>
+  <script src="assets/app.js?v=20260811b"></script>
+  <script src="assets/ddragon.js?v=20260811b"></script>
+  <script src="assets/brackets.js?v=20260811b"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -1426,24 +1427,36 @@
 
     // 팀별 유튜브 채널 id
     function renderYoutubeAdmin() {
-      let cfg = {};
+      let cfg = {}, social = {};
       try { cfg = JSON.parse(getSetting("team_youtube") || "{}"); } catch {}
+      try { social = JSON.parse(getSetting("team_social") || "{}"); } catch {}
       const el = document.getElementById("yt-list");
       if (!el) return;
-      el.innerHTML = TEAMS.map(t => `
-        <div class="admin-item" data-ytteam="${esc(t.id)}">
-          <span style="width:110px; font-weight:700">${teamLogoHTML(t, 18)} ${esc(t.abbr)}</span>
-          <input class="yt-ch" value="${esc(cfg[t.id] || "")}" placeholder="UCxxxxxxxxxxxxxxxxxxxxxx" style="flex:1; min-width:220px">
-        </div>`).join("")
-        + `<div class="admin-item"><button class="btn-primary" type="button" id="yt-save">채널 저장</button></div>`;
+      el.innerHTML = TEAMS.map(t => {
+        const s = social[t.id] || {};
+        return `<div class="admin-item team-channel-admin" data-ytteam="${esc(t.id)}">
+          <span style="width:94px; font-weight:700">${teamLogoHTML(t, 18)} ${esc(t.abbr)}</span>
+          <div class="team-channel-fields">
+            <label>YouTube ID<input class="yt-ch" value="${esc(cfg[t.id] || "")}" placeholder="UCxxxxxxxx…"></label>
+            <label>Instagram<input class="ig-handle" value="${esc(s.instagram || "")}" placeholder="@공식계정"></label>
+            <label>Instagram ID<input class="ig-id" value="${esc(s.instagramUserId || "")}" placeholder="API 사용자 ID"></label>
+            <label>X<input class="x-handle" value="${esc(s.x || "")}" placeholder="@공식계정"></label>
+          </div>
+        </div>`;
+      }).join("") + `<div class="admin-item"><button class="btn-primary" type="button" id="yt-save">공식 채널 저장</button></div>`;
       document.getElementById("yt-save").addEventListener("click", () => {
-        const next = {};
+        const next = {}, nextSocial = {};
         el.querySelectorAll("[data-ytteam]").forEach(row => {
           const v = row.querySelector(".yt-ch").value.trim();
           if (v) next[row.dataset.ytteam] = v;
+          const instagram = row.querySelector(".ig-handle").value.trim().replace(/^@/, "");
+          const instagramUserId = row.querySelector(".ig-id").value.trim();
+          const x = row.querySelector(".x-handle").value.trim().replace(/^@/, "");
+          if (instagram || instagramUserId || x) nextSocial[row.dataset.ytteam] = { instagram, instagramUserId, x };
         });
         setSetting("team_youtube", JSON.stringify(next));
-        alert("저장했습니다. 팀 페이지에 최신 영상이 표시됩니다.");
+        setSetting("team_social", JSON.stringify(nextSocial));
+        alert("저장했습니다. 연결 가능한 공식 채널 콘텐츠가 팀 페이지에 최신순으로 표시됩니다.");
       });
     }
 
