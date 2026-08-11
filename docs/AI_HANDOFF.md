@@ -3,6 +3,89 @@
 에이전트가 바뀔 때 이 문서만 읽고 이어받을 수 있게 유지합니다.
 **작업을 마친 에이전트가 반드시 갱신합니다.**
 
+> **현재 최우선(2026-08-09):** `p0-hardening`은 로컬에서 배포 준비 보완 중이며 아직
+> GitHub push·Vercel 배포·운영 DB SQL 실행을 하지 않았다. 운영 적용 전에 반드시
+> `docs/P0_DEPLOY.md`의 단계별 순서를 따른다.
+
+## 2026-08-09 — P0 하드닝 배포 준비 재감사·보완 (로컬 전용)
+
+### 기준과 적용 상태
+
+- 브랜치: `p0-hardening`
+- 기준 HEAD: `2798987` (`origin/main` `23030e9`보다 5커밋 앞선 로컬 브랜치)
+- 이 절의 추가 보완은 기준 HEAD 위 미커밋 변경이다.
+- 운영 DB, GitHub 원격, Vercel에는 아무것도 적용하지 않았다.
+- 10개 팀 게시판 구조는 변경하지 않았다.
+
+### 이번에 막은 재발 원인
+
+- `api/leaguepedia.js`의 기존 경기 조회에 `a,b`가 빠져 `prev.a`가 늘 비었던 문제 수정.
+- 세트 `win`, `players.side`, 밴픽·오브젝트를 실제 저장 경기 A/B 기준으로만 변환한다.
+  모르는 팀을 상대편으로 추정하지 않는다.
+- 선수 연결 누락·중복·5:5 미완성 세트는 저장하지 않는다.
+- 종료 경기는 이번 요청에 최종 스코어와 같은 수의 `0..N-1` 전 세트가 있고 승수가
+  일치할 때만 상세를 저장한다. 모순 경기의 상세는 경기 단위로 전부 격리한다.
+- 경기 행·세트 상세·대회 교정을 경기별 `persist_leaguepedia_match` RPC 한 번으로 저장한다.
+  실패 시 경기 묶음 전체가 롤백되며 직접 REST fallback은 없다. done 재수집은 유령 세트를
+  제거하고, `game` 키가 생략되면 기존 스코어보드 JSON을 보존한다.
+- `updateMatch()`가 실제 DB 저장 결과를 반환하며, 관리자 화면은 저장 성공 뒤에만
+  POM과 순위 반영을 시작한다. 서버 거부·통신 실패 시 낙관 캐시를 되돌린다.
+- 수정 자산 캐시 버전을 전 HTML에서 `?v=20260809e`로 올리고, 핵심 자산 변경 시
+  `origin/main`과 버전이 같으면 테스트가 실패하도록 했다.
+
+### SQL 구조와 정확한 순서
+
+1. `audit_p0_read_only.sql` — 운영 읽기 전용 감사
+2. `schema22_p0_official_content.sql` — TRANSITION: 공식 콘텐츠 차단 + 제한적 옛 코드 호환
+3. `p0_rls_transition_test.sql` — T0~T13, 14개
+4. 감사 결과를 넣은 `cleanup_p0_manual.sql`
+5. `schema23_official_backfill.sql` — 공식 경기방 백필·백업·경기당 1개 인덱스
+6. `schema24_leaguepedia_atomic.sql` — 수집 경기별 원자 저장 RPC(service_role 전용)
+7. `p0_collector_atomic_test.sql` — C0~C8
+8. 코드 Preview 확인 후 운영 배포
+9. `schema25_p0_rpc_only.sql` — FINAL: 회원 자유 투표 RPC 전용
+10. `p0_rls_test.sql` — F0~F14, 15개
+11. 수정 수집기로 재수집 후, 정확히 남은 대상만 `backfill_p0_setwin.sql`
+
+cleanup은 `is_official`을 사용하므로 schema22보다 먼저 실행하면 안 된다. 세트 win 백필은
+각 세트가 선수 side 5:5이고 최종 스코어와 정확히 반대인 완전 수집 경기만 대상으로 한다.
+승인 fingerprint 확인 뒤 먼저 경기 핵심을 `p0_ops.setwin_match_backup_20260809`에, 그다음
+세트별 원본 win·비-win 본문을 `p0_ops.setwin_backup_20260809`에 백업한 뒤에만 교정한다.
+롤백은 두 백업을 함께 검증해 사용하며, 같은 뒤집기 SQL 재실행은 롤백이 아니다.
+
+### 검증 현황
+
+- `tests/check.sh`: 전부 통과
+  - invariant 15
+  - Leaguepedia 재오염 회귀 55
+  - Leaguepedia 경기별 원자 RPC 전송 계약 통과
+  - 경우의 수 golden 60
+  - 관리자 저장 순서·성공·거부·통신 실패 통합 시나리오 1
+  - 스냅샷 v3 폐기·공식 경기방 갱신 회귀 통과
+  - JS/Python 문법, NUL, 캐시 버전 상승, `vercel.json`
+- `git diff --check`: 통과
+- 임시 PostgreSQL 16에서 실제 실행:
+  - 최신 schema22 TRANSITION + T0~T13(14개) 전부 PASS
+  - schema23 백필 → 백업 롤백 → 재적용 PASS
+  - 최신 schema24 원자 저장 RPC + C0~C8(9개) 전부 PASS
+  - 최신 schema25 FINAL + F0~F14(15개) 전부 PASS
+  - FINAL → TRANSITION 복원 → FINAL 재잠금 PASS
+  - collector RPC/service_role 열을 포함한 최신 감사 SQL 전체 실행 PASS
+  - 최신 fingerprint 승인 + 두 백업 테이블로 세트 win `{a,a}→{b,b}→{a,a}` 왕복 PASS
+  - 백필 뒤 `lp_id`가 바뀐 상태에서는 롤백이 win을 건드리지 않고 중단하는 fail-safe PASS
+
+위 검증은 2026-08-11 현재 파일 그대로 실행했다. 운영 DB에서는 데이터·정책 drift가 다를 수
+있으므로 **audit 전체 → T0~T13 → C0~C8 → F0~F14**를 다시 확인하고, 실제 audit ⑥에서
+사람이 승인한 `(match_id, detail_fingerprint)`만 백필한다.
+
+### 아직 사람이 해야 하는 것
+
+- 운영에서는 먼저 읽기 전용 감사 결과를 저장·공유한다. 로컬 fixture 통과가 운영 데이터
+  정리를 대신하지 않는다.
+- 감사 결과를 보고 cleanup의 정확한 post/poll id와 legacy 관리자 경기방 id를 채운다.
+- Preview·운영 배포 및 운영 SQL 실행은 매 단계 별도 승인 뒤 진행한다.
+- 최종적으로 경기 저장+순위+counted를 단일 DB transaction RPC로 묶는 작업은 P1이다.
+
 > 점검 완료: **`docs/AUDIT_REPORT.md`** (Codex, 2026-08-04).
 > 대응 1차 완료(코드) — 남은 것은 아래 "보안 후속 작업" 참고.
 
@@ -255,7 +338,9 @@ Leaguepedia(CC-BY-SA) 데이터 + 직접 만든 SVG 레이더가 핵심이었다
   `indexStats()`를 호출**하세요.
 - `Cache.myVoter` — 서버가 확정해 준 신원. **스냅샷에 저장하지 않습니다**(지난 방문의
   신원이 지금 로그인 상태를 이기면 표가 엉뚱한 계정으로 들어갑니다).
-- 스냅샷 키가 `nexus_snap_v2`로 올라갔습니다. v1에는 남의 표가 통째로 들어 있어 지웁니다.
+- 스냅샷 키가 `nexus_snap_v3`로 올라갔습니다. v1에는 남의 표가 통째로 들어 있고,
+  v2에는 공식 경기방 전환 전 값이 남을 수 있어 **v1·v2를 모두 지웁니다**. 새 서버 데이터와
+  비교할 때는 각 글의 `is_official`·`match_id`도 확인하므로 공식 경기방 승격을 놓치지 않습니다.
 
 `get_fan_stats`가 없으면(= SQL 실행 전) `legacyFanStats()`가 예전처럼 원본을 읽어
 **같은 모양**을 만듭니다. 그래서 코드를 먼저 배포해도 사이트가 그대로 돕니다.

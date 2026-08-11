@@ -244,9 +244,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260809d")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260809d")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260809d")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260809e")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260809e")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260809e")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -296,7 +296,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260809d");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260809e");
 
   renderTabBar(groupName);
 }
@@ -1369,6 +1369,11 @@ function setScoreboardHTML(match, set) {
   if (!A || !B) return "";
 
   const wonA = set.win === "a";
+  // 정합성 검사 (P0-2) — 세트 승수가 최종 스코어와 어긋난 경기는 승/패 표시를 감춘다.
+  // 잘못 저장된 진영(m8: 0:2 인데 두 세트 다 a 승)이 그대로 공개되는 걸 막는다.
+  const sets = (typeof getDetails === "function" && (getDetails(match.id) || {}).sets) || [];
+  const suspect = typeof finishedMatchViolations === "function"
+    && finishedMatchViolations(match, sets).length > 0;
   const sideChip = s => g.blue ? (g.blue === s ? `<span class="sb-side blue">블루</span>`
                                               : `<span class="sb-side red">레드</span>`) : "";
   const head = (t, s, won) => `
@@ -1376,7 +1381,8 @@ function setScoreboardHTML(match, set) {
       ${teamLogoHTML(t, 22)}
       <b class="team-text" style="--team-color:${t.color}">${esc(t.abbr)}</b>
       ${sideChip(s)}
-      <span class="sb-wl ${won ? "w" : "l"}">${won ? "승" : "패"}</span>
+      ${suspect ? `<span class="sb-wl l" title="세트 기록이 최종 스코어와 달라 확인 중입니다">검수 중</span>`
+                : `<span class="sb-wl ${won ? "w" : "l"}">${won ? "승" : "패"}</span>`}
     </div>`;
 
   // 밴·픽 — 순서 그대로. 밴은 흐리게 + 사선.

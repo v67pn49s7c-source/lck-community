@@ -17,11 +17,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260809d">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260809d">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260809e">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260809e">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260809d">
+  <link rel="stylesheet" href="assets/styles.css?v=20260809e">
 </head>
 <body>
   <main class="page">
@@ -99,12 +99,13 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260809d"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260809d"></script>
-  <script src="assets/store.js?v=20260809d"></script>
-  <script src="assets/app.js?v=20260809d"></script>
-  <script src="assets/ddragon.js?v=20260809d"></script>
-  <script src="assets/race.js?v=20260809d"></script>
+  <script src="assets/data.js?v=20260809e"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260809e"></script>
+  <script src="assets/invariants.js?v=20260809e"></script>
+  <script src="assets/store.js?v=20260809e"></script>
+  <script src="assets/app.js?v=20260809e"></script>
+  <script src="assets/ddragon.js?v=20260809e"></script>
+  <script src="assets/race.js?v=20260809e"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -179,6 +180,12 @@
         curSet = Number(b.dataset.set); renderDetails();
       }));
 
+      // 정합성 검사 (P0-2) — 세트 승수가 최종 스코어와 안 맞으면 승 배지를 감춘다.
+      // 실제 사고: m8 = BFX 0:2 BRO 인데 두 세트가 a 승으로 저장돼 "BFX 세트 승"이 떴다.
+      const suspect = typeof finishedMatchViolations === "function"
+        && finishedMatchViolations(match, d.sets).length > 0;
+      if (suspect) console.warn("[정합성] 세트 기록이 최종 스코어와 다릅니다 — 승 배지 숨김:", match.id);
+
       const set = d.sets[curSet];
       // 아직 수집하지 않은 경기는 딜량·시야·아이템·룬·스펠이 비어 있다.
       // 빈 칸만 줄줄이 보이면 지저분하므로, 이 세트에 값이 하나도 없는 열은 아예 숨긴다.
@@ -197,7 +204,8 @@
         return `
         <div class="detail-team-head" style="--team-color:${t ? t.color : "#888"}">
           ${t ? teamLogoHTML(t, 20) : ""} <b>${slotName(teamId)}</b>
-          ${winner === teamId ? `<span class="cat-chip notice">세트 승</span>` : ""}
+          ${suspect ? (winner === teamId ? `<span class="cat-chip">기록 확인 중</span>` : "")
+                    : (winner === teamId ? `<span class="cat-chip notice">세트 승</span>` : "")}
         </div>
         <div class="table-scroll">
         <table class="detail-table">

@@ -240,7 +240,12 @@ async function initPostPage() {
 
     if (poll) {
       const m = poll.match_id ? getMatches().find(x => x.id === poll.match_id) : null;
-      renderPollInto(el.querySelector("#post-poll"), poll, m ? { teamA: m.a, teamB: m.b } : {});
+      // 공식(관리자·phase 있음)과 회원 자유 투표를 화면에서도 구분한다 (P0-1)
+      const box = el.querySelector("#post-poll");
+      box.insertAdjacentHTML("beforebegin",
+        `<div class="poll-kind" style="font-size:11px;font-weight:700;color:var(--text-dim);margin:10px 0 4px">
+           ${poll.phase ? "공식 팬심지수 투표" : "글쓴이가 만든 자유 투표"}</div>`);
+      renderPollInto(box, poll, m ? { teamA: m.a, teamB: m.b } : {});
     }
     el.querySelectorAll(".rx-btn").forEach(b => b.addEventListener("click", () => {
       toggleReaction(id, b.dataset.kind);
@@ -431,19 +436,21 @@ async function initWritePage() {
       fail("글을 등록하지 못했습니다.\n" + (error.message || ""));
       return;
     }
-    // 투표 첨부 (회원)
+    // 투표 첨부 (회원) — RPC 로만 만든다. match_id 는 넘기지 않는다:
+    // 회원 투표가 경기(match_id)에 걸리면 공식 팬심지수 화면에 끼어들 수 있어
+    // 서버가 금지한다 (schema22 · P0-1).
     if (Auth.session && document.getElementById("poll-attach")?.checked) {
       const options = document.getElementById("poll-options").value
         .split("\n").map(s => s.trim()).filter(Boolean).slice(0, 10);
       if (options.length >= 2) {
         const closes = document.getElementById("poll-closes").value;
-        createPoll({
-          post_id: pid, match_id: matchId,
+        createMemberPoll({
+          post_id: pid,
           question: title, options,
           multi: document.getElementById("poll-multi").checked,
           closes_at: closes ? closes + ":00+09:00" : null,
         });
-        const pr = await createPoll.lastSave;
+        const pr = await createMemberPoll.lastSave;
         if (pr.error) alert("글은 등록됐지만 투표 생성에 실패했습니다: " + pr.error.message);
       } else if (options.length) {
         alert("투표 보기는 2개 이상이어야 해서 투표 없이 글만 등록했습니다.");

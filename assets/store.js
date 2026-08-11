@@ -134,13 +134,15 @@ function isMissingFunction(e) {
 // 지난 방문에서 받은 데이터를 브라우저에 저장해 두고, 다음 방문에서는 그것을 먼저
 // 그려서 화면을 즉시 띄운다. 서버 데이터는 뒤에서 받아 와 달라진 게 있으면 알린다.
 // (서버가 서울에 있어 한 번 다녀오는 데만 0.3~1초씩 걸리므로 체감 차이가 크다)
-// v2 = 투표 원본 비공개화. v1 스냅샷에는 **다른 사람들의 표가 통째로** 들어 있으므로
-// 키를 올려 버리고 옛 것은 지운다 (서버만 고쳐서는 이미 방문한 기기에 계속 남는다).
-const SNAP_KEY = "nexus_snap_v2";
+// v3 = 공식 경기방 판별값(is_official·match_id)을 확실히 다시 받는다.
+// v1에는 **다른 사람들의 표가 통째로** 들어 있고, v2에는 공식 경기방 전환 전 값이
+// 남을 수 있으므로 둘 다 지운다 (서버만 고쳐서는 이미 방문한 기기에 계속 남는다).
+const SNAP_KEY = "nexus_snap_v3";
 // 이름 뒤 번호를 올리면 모든 방문자가 로고를 한 번 다시 받는다 —
 // 업로드본을 지우거나 로고를 바꿨는데 캐시(하루) 때문에 옛것이 남을 때 쓴다.
 const LOGO_KEY = "nexus_logos_v2";
 try { localStorage.removeItem("nexus_snap_v1"); } catch (e) {}
+try { localStorage.removeItem("nexus_snap_v2"); } catch (e) {}
 let snapshotUsed = false;
 
 function snapshotSave() {
@@ -205,9 +207,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260809d"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260809d"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260809d"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260809e"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260809e"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260809e"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -321,6 +323,7 @@ async function fetchAll() {
     id: x.id, team: x.team, cat: x.cat, title: x.title, body: x.body, nick: x.nick,
     author_team: x.author_team || null, match_id: x.match_id || null,
     author_id: x.author_id || null,   // 마이페이지 '내가 쓴 글'. 비회원 글은 null.
+    official: !!x.is_official,        // 공식 경기 토론방 (schema22 — 관리자만 켤 수 있다)
     up: x.up, views: x.views, ts: Date.parse(x.created_at), comments: commentsByPost[x.id] || [],
   }));
 
@@ -459,7 +462,10 @@ function cacheFingerprint() {
   try {
     return [
       Cache.matches.map(m => `${m.id}${m.status}${m.scoreA}${m.scoreB}${m.at}`).join(","),
-      Cache.posts.length, Cache.posts[0] ? Cache.posts[0].id : "-",
+      // 글 수·순서뿐 아니라 각 글의 공식 경기방 연결 상태도 본다. 기존 스냅샷의 글이
+      // 서버에서 공식 경기방으로 승격돼도 이 값이 같으면 새로고침 안내가 뜨지 않았다.
+      JSON.stringify(Cache.posts.map(p => [String(p.id), !!p.official,
+        p.match_id == null ? null : String(p.match_id)])),
       Cache.posts.reduce((n, p) => n + p.comments.length, 0),
       Object.keys(Cache.details).length,
       Cache.players.length, Cache.polls.length, Cache.awards.length,
@@ -520,8 +526,28 @@ function addMatch(m) {
   sb.from("matches").insert(matchToDb(m)).then(r => sbWriteFail(r.error, "addMatch"));
 }
 function updateMatch(id, patch) {
-  Cache.matches = Cache.matches.map(m => m.id === id ? { ...m, ...patch } : m);
-  sb.from("matches").update(matchToDb(patch)).eq("id", id).then(r => sbWriteFail(r.error, "updateMatch"));
+  // 화면은 즉시 갱신하되, 호출자는 반드시 서버 저장 결과를 기다릴 수 있어야 한다.
+  // 특히 관리자의 '경기 저장 → 순위 반영'은 이 Promise가 성공한 뒤에만 이어져야 한다.
+  const previous = Cache.matches.find(m => m.id === id);
+  const optimistic = previous ? { ...previous, ...patch } : null;
+  if (optimistic) Cache.matches = Cache.matches.map(m => m.id === id ? optimistic : m);
+
+  const rollback = () => {
+    // 저장을 기다리는 동안 더 최신 수정이 들어왔다면 그것까지 덮어쓰지 않는다.
+    if (previous) Cache.matches = Cache.matches.map(m => m === optimistic ? previous : m);
+  };
+
+  // select + single까지 붙여 RLS에 막혀 '0행 수정'인데 error가 비어 있는 경우도 실패로 잡는다.
+  return sb.from("matches").update(matchToDb(patch)).eq("id", id).select("id").single()
+    .then(r => {
+      if (sbWriteFail(r.error, "updateMatch")) rollback();
+      return r;
+    })
+    .catch(error => {
+      rollback();
+      sbWriteFail(error, "updateMatch");
+      throw error;
+    });
 }
 function deleteMatch(id) {
   Cache.matches = Cache.matches.filter(m => m.id !== id);
@@ -685,8 +711,14 @@ function addPost(p, pw) {
   p.author_team = Auth.profile?.fav_team || null;
   p.id = "p" + Date.now();
   p.ts = Date.now(); p.views = 0; p.up = 0; p.comments = [];
+  // 공식 경기방 표시를 서버(create_post)와 **같은 조건**으로 로컬에도 낙관적으로 건다.
+  // 안 하면 관리자 sync 가드(official 기준)가 방금 만든 글을 못 보고 매번 다시 만든다.
+  p.official = !!(Auth.profile?.is_admin && p.match_id && /^\[경기 토론\]/.test(p.title || ""));
   Cache.posts.unshift(p);
   // 저장 완료를 기다려야 하는 호출자를 위해 프로미스를 노출
+  // ⚠ 인자를 늘리지 않는다. RPC 는 이름 인자가 하나라도 어긋나면 함수를 못 찾아서,
+  //   마이그레이션 전·후 어느 한쪽에서 글쓰기가 통째로 죽는다. 공식 토론방 표시는
+  //   서버(create_post)가 "관리자 + match_id + [경기 토론] 제목"으로 스스로 판정한다.
   addPost.lastSave = sb.rpc("create_post", {
     p_id: p.id, p_team: p.team || null, p_cat: p.cat, p_title: p.title, p_body: p.body,
     p_nick: p.nick, p_match_id: p.match_id || null, p_pw: pw || null,
@@ -1618,10 +1650,16 @@ function deleteDetailSet(matchId, setIndex) {
 
 // ── 팬심지수: 투표 ──
 function getPolls() { return Cache.polls; }
-function pollsForMatch(matchId) { return Cache.polls.filter(p => p.match_id === matchId); }
+// 경기 화면의 공식 팬심지수. **phase 가 있는 투표만** 공식이다 (pre / post_pom / post_key —
+// 전부 관리자 화면이 만든다). phase 없이 match_id 만 단 투표는 회원이 끼워 넣은 것일 수
+// 있으므로 공식 화면에 올리지 않는다. (2026-08-09 P0-1)
+function pollsForMatch(matchId) {
+  return Cache.polls.filter(p => p.match_id === matchId && p.phase);
+}
 function getPollByPost(postId) { return Cache.polls.find(p => p.post_id === postId); }
 function pollOpen(poll) { return !poll.closes_at || new Date(poll.closes_at) > new Date(); }
 
+// 관리자 공식 투표 (팬심지수 pre/post_pom/post_key). RLS admin_all_polls 로만 통과한다.
 function createPoll(p) {
   p.id = p.id || "poll" + Date.now() + Math.random().toString(36).slice(2, 6);
   Cache.polls.push(p);
@@ -1631,10 +1669,47 @@ function createPoll(p) {
   }).then(r => { sbErr(r.error, "createPoll"); return r; });
   return p.id;
 }
-// 경기 토론 글 — 관리자 화면이 경기마다 자동 생성하는 "[경기 토론]" 글.
-// 경기 페이지(경기방)의 댓글이 이 글에 달린다. 글과 경기방은 같은 대화를 공유한다.
+
+/** 회원이 자기 글에 붙이는 자유 투표 — RPC 로만 만든다 (schema22).
+ *  match_id·phase 는 서버가 강제로 NULL 로 두므로 여기서 받지도 않는다.
+ *  예전처럼 직접 INSERT 를 하면, 정책이 검사하지 않는 칸(match_id)에 값을 실어
+ *  공식 경기 화면에 투표를 끼워 넣을 수 있었다 (P0-1). */
+function createMemberPoll(p) {
+  p.id = p.id || "poll" + Date.now() + Math.random().toString(36).slice(2, 6);
+  p.match_id = null; p.phase = null;
+  Cache.polls.push(p);
+  createMemberPoll.lastSave = sb.rpc("create_member_poll", {
+    p_id: p.id, p_post_id: p.post_id, p_question: p.question,
+    p_options: p.options, p_multi: !!p.multi, p_closes_at: p.closes_at || null,
+  }).then(r => {
+    // 서버에 함수가 아직 없으면(schema22 미적용) 예전 직접 INSERT 로 한 번 더 —
+    // 그때는 옛 정책(member_insert_polls)이 아직 살아 있어 통과한다.
+    // match_id 는 여기서도 절대 싣지 않는다.
+    if (r.error && /create_member_poll/.test(r.error.message || "")) {
+      return sb.from("polls").insert({
+        id: p.id, match_id: null, phase: null, post_id: p.post_id,
+        question: p.question, options: p.options, multi: !!p.multi, closes_at: p.closes_at || null,
+      }).then(r2 => { sbErr(r2.error, "createMemberPoll(구버전)"); return r2; });
+    }
+    sbErr(r.error, "createMemberPoll");
+    return r;
+  });
+  return p.id;
+}
+// 경기 토론 글 — 관리자가 경기마다 만드는 "공식 경기방" 글.
+// 경기 페이지의 댓글이 이 글에 달린다. 글과 경기방은 같은 대화를 공유한다.
+//
+// ⚠ **오직 official(관리자만 켤 수 있는 표시)만 믿는다.** 제목("[경기 토론]…")은
+//   누구나 흉내 낼 수 있어서, 예전처럼 제목으로 폴백하면 공격자가 관리자보다 먼저
+//   흉내 글을 올려 경기방을 **가로챌 수 있었다** (적대적 검토 발견 1).
+//   관리 토론방은 관리자가 sync 를 돌릴 때 **지연 생성**되므로 "관리자 글이 항상
+//   먼저"라는 가정도 거짓이었다. official 이 없으면 '경기방 없음'으로 두는 편이
+//   흉내 글을 노출하는 것보다 안전하다.
+//   (schema22/23 배포 → 백필로 기존 관리 토론방이 official=true 가 된 뒤 코드가
+//    배포되므로, 정상 경기방은 그대로 보인다. 배포 순서는 docs/P0_DEPLOY.md)
 function matchTalkPost(matchId) {
-  return Cache.posts.find(p => p.match_id === matchId && /^\[경기 토론\]/.test(p.title)) || null;
+  const officials = Cache.posts.filter(p => p.match_id === matchId && p.official);
+  return officials.length ? officials.reduce((a, b) => (a.ts <= b.ts ? a : b)) : null;
 }
 
 // 투표 질문·마감 고치기 (관리자 전용 — RLS admin_all_polls).
