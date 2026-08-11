@@ -2,51 +2,60 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="description" content="2026 LCK 전 경기 일정과 결과를 대회·라운드별로 확인하세요. 경기별 세트 스코어와 선수 기록까지.">
+  <meta name="description" content="최근 LCK 경기 결과 2경기와 가장 가까운 예정 경기를 한눈에 확인하세요.">
   <link rel="canonical" href="https://lck-community.vercel.app/matches.html">
   <meta property="og:url" content="https://lck-community.vercel.app/matches.html">
   <meta property="og:site_name" content="The Nexus">
   <meta property="og:locale" content="ko_KR">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LCK 경기 일정·결과 — The Nexus</title>
+  <title>LCK 경기 홈 — The Nexus</title>
   <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
-  <meta property="og:title" content="LCK 경기 일정·결과 — The Nexus">
-  <meta property="og:description" content="2026 LCK 전 경기 일정과 결과를 대회·라운드별로 확인하세요. 경기별 세트 스코어와 선수 기록까지.">
+  <meta property="og:title" content="LCK 경기 홈 — The Nexus">
+  <meta property="og:description" content="최근 LCK 경기 결과 2경기와 가장 가까운 예정 경기를 한눈에 확인하세요.">
   <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/og-default.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260811c">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260811c">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260811d">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260811d">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260811c">
+  <link rel="stylesheet" href="assets/styles.css?v=20260811d">
 </head>
 <body>
   <main class="page">
     <div class="container layout">
       <div class="stack">
         <div class="page-title-row">
-          <h1 class="page-title">경기 <span class="sub">일정 · 결과</span></h1>
-          <div style="display:flex; gap:8px; align-items:center">
-            <select id="tournament-select" style="min-width:200px"></select>
-          </div>
+          <h1 class="page-title">경기 <span class="sub">최근 결과와 다음 경기</span></h1>
+          <a class="btn-secondary" href="schedule.html">전체 경기 일정 ›</a>
         </div>
-        <section class="card">
-          <div class="board-toolbar">
-            <div class="filter-tabs" id="stage-tabs"></div>
+        <section class="card match-overview-card">
+          <div class="card-head">
+            <h2 class="card-title">이전 경기 <span class="sub">최근 종료 2경기</span></h2>
+            <a class="card-more" href="schedule.html?view=results">지난 결과 전체 ›</a>
           </div>
-          <div id="matches-body"></div>
+          <div id="recent-matches"></div>
+        </section>
+        <section class="card match-overview-card">
+          <div class="card-head">
+            <h2 class="card-title">앞으로 할 경기 <span class="sub" id="next-day-label"></span></h2>
+            <a class="card-more" href="live.html">오늘의 경기 보기 ›</a>
+          </div>
+          <div id="next-matches"></div>
         </section>
       </div>
 
       <aside class="stack">
         <section class="card">
           <div class="card-head">
-            <h2 class="card-title">다음 경기 예측</h2>
-            <span class="card-more" id="predict-when"></span>
+            <h2 class="card-title">전체 경기 일정</h2>
           </div>
-          <div class="predict-widget" id="predict-widget"></div>
+          <div class="schedule-cta">
+            <b>대회·라운드별 전체 일정</b>
+            <span>지난 결과부터 앞으로의 일정까지 한 화면에서 확인하세요.</span>
+            <a class="btn-primary" href="schedule.html">전체 일정 열기</a>
+          </div>
         </section>
 
         <section class="card">
@@ -59,65 +68,37 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260811c"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260811c"></script>
-  <script src="assets/store.js?v=20260811c"></script>
-  <script src="assets/app.js?v=20260811c"></script>
-  <script src="assets/race.js?v=20260811c"></script>
+  <script src="assets/data.js?v=20260811d"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260811d"></script>
+  <script src="assets/store.js?v=20260811d"></script>
+  <script src="assets/app.js?v=20260811d"></script>
+  <script src="assets/race.js?v=20260811d"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("경기", null);
 
-    const state = { tid: null, stage: "전체" };
-
-    function renderTournamentSelect() {
-      const ts = getTournaments();
-      const sel = document.getElementById("tournament-select");
-      if (!ts.length) {
-        sel.innerHTML = `<option>등록된 대회 없음</option>`;
-        return;
-      }
-      state.tid = state.tid || ts[0].id;
-      sel.innerHTML = ts.map(t => `<option value="${t.id}" ${t.id === state.tid ? "selected" : ""}>${esc(t.name)}</option>`).join("");
-      sel.onchange = () => { state.tid = sel.value; state.stage = "전체"; renderStageTabs(); renderMatches(); updateBracketLink(); };
-      updateBracketLink();
+    function drawOverview() {
+      const all = sortedMatches().filter(knownTeams);
+      const recent = all.filter(m => m.status === "done").slice(-2);
+      const coming = all.filter(m => m.status !== "done");
+      const first = coming.find(m => m.status === "live")
+        || coming.find(m => new Date(m.at).getTime() > Date.now()) || coming[0];
+      const day = first ? fmtDayKey(first.at) : "";
+      const next = day ? coming.filter(m => fmtDayKey(m.at) === day) : [];
+      document.getElementById("recent-matches").innerHTML = scheduleHTML(recent, { showStage: true });
+      document.getElementById("next-matches").innerHTML = scheduleHTML(next, { showStage: true });
+      document.getElementById("next-day-label").textContent = first ? fmtDay(first.at) : "";
     }
 
-    // 대진표는 이제 위쪽 하위 메뉴에 있다. 지금 고른 대회를 그대로 들고 가도록
-    // 그 링크의 주소에 대회 번호를 붙여 준다 — 안 붙이면 늘 마지막 대회로 간다.
-    function updateBracketLink() {
-      const a = document.querySelector('.sub-nav-inner a[href^="bracket.html"]');
-      if (a) a.href = "bracket.html?t=" + encodeURIComponent(state.tid || "");
-    }
-
-    function renderStageTabs() {
-      const t = getTournaments().find(x => x.id === state.tid);
-      const el = document.getElementById("stage-tabs");
-      const stages = ["전체", ...(t ? t.stages : [])];
-      el.innerHTML = stages.map(s =>
-        `<button data-stage="${esc(s)}" class="${state.stage === s ? "active" : ""}">${esc(s)}</button>`).join("");
-      el.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
-        state.stage = b.dataset.stage; renderStageTabs(); renderMatches();
-      }));
-    }
-
-    function renderMatches() {
-      let ms = sortedMatches().filter(m => m.tid === state.tid);
-      if (state.stage !== "전체") ms = ms.filter(m => m.stage === state.stage);
-      document.getElementById("matches-body").innerHTML = scheduleHTML(ms, { showStage: true });
-    }
-
-    renderTournamentSelect();
-    renderStageTabs();
-    renderMatches();
+    drawOverview();
 
     // 저장된 사본으로 먼저 그리고, 서버 자료가 도착하면 **한 번 더** 그린다.
     // 이게 없으면 다시 찾아온 사람은 늘 '지난번 자료'를 본다 — 경기가 끝나도
     // 순위·스코어가 그대로고, 이름을 바꿔도 옛 이름이 남는다. (2026-08-07)
-    storeFresh.then(() => { renderTournamentSelect(); renderStageTabs(); renderMatches(); }).catch(() => {});
+    storeFresh.then(drawOverview).catch(() => {});
     // 경우의 수 '정확본'은 세트 스코어까지 돌려 1초를 넘는다. 유휴 시간에 만든 뒤 한 번 더 그린다.
-    raceWarmExact(changed => { if (changed) renderMatches(); });
-    initSidebar();
+    raceWarmExact(changed => { if (changed) drawOverview(); });
+    setupSidebarStandings();
     renderFooter();
   
   });

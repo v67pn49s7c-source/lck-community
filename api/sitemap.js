@@ -15,6 +15,7 @@ const esc = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
 const STATIC = [
   ["/", "1.0", "hourly"],
   ["/matches.html", "0.9", "hourly"],
+  ["/schedule.html", "0.8", "hourly"],
   ["/standings.html", "0.8", "daily"],
   ["/race.html", "0.8", "daily"],
   ["/predict.html", "0.8", "hourly"],

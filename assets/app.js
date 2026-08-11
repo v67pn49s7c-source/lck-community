@@ -130,7 +130,8 @@ function applyTheme(theme) {
 const NAV_GROUPS = [
   { menu: "홈", href: "index.html" },
   { menu: "경기", href: "matches.html", subs: [
-    ["일정·결과", "matches.html"], ["오늘의 경기", "live.html"], ["대진표", "bracket.html"]] },
+    ["경기 홈", "matches.html"], ["오늘의 경기", "live.html"],
+    ["전체 경기 일정", "schedule.html"], ["대진표", "bracket.html"]] },
   { menu: "순위", href: "standings.html", subs: [
     ["순위표", "standings.html"], ["경우의 수", "race.html"]] },
   { menu: "승부예측", href: "predict.html", subs: [
@@ -244,9 +245,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260811c")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260811c")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811c")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260811d")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260811d")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811d")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -296,7 +297,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811c");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811d");
 
   renderTabBar(groupName);
 }
@@ -1502,11 +1503,16 @@ const SB_ROWS = [
 //   우리는 **개수만** 받으므로 어떤 영혼인지는 알 수 없다. 그래서 종류를 단정하지 않고
 //   "영혼"이라고만 적는다. (아는 것보다 더 말하지 않는다)
 const DRAKE_KO = {
-  infernal: ["화염", "🔥"], mountain: ["대지", "⛰️"], ocean: ["바다", "🌊"],
-  cloud: ["바람", "💨"], hextech: ["마공학", "⚙️"], chemtech: ["화학공학", "☣️"],
-  elder: ["장로", "👑"],
+  infernal: "화염", mountain: "대지", ocean: "바다", cloud: "바람",
+  hextech: "마공학", chemtech: "화학공학", elder: "장로드래곤",
 };
 const SOUL_AT = 4;
+const DRAKE_ICON_ROOT = "https://raw.communitydragon.org/latest/game/assets/ux/minimap/icons/";
+
+function drakeIconHTML(kind, label) {
+  const file = kind === "elder" ? "dragon_elder.png" : `dragon_${kind}.png`;
+  return `<img class="sb-drake-icon" src="${DRAKE_ICON_ROOT}${file}" alt="" loading="lazy" decoding="async"><span>${esc(label)}</span>`;
+}
 
 function setScoreboardHTML(match, set) {
   const g = (set && set.game) || {};
@@ -1568,10 +1574,12 @@ function setScoreboardHTML(match, set) {
     if (!d) return "";
     const total = (g.dragons || {})[s] || 0;
     const chips = Object.keys(DRAKE_KO).filter(k => d[k]).map(k => {
-      const [nm, ic] = DRAKE_KO[k];
-      return `<span class="sb-drake" title="${esc(nm)} 드래곤 ${d[k]}마리">${ic}${d[k] > 1 ? `<b>${d[k]}</b>` : ""}</span>`;
+      const nm = DRAKE_KO[k];
+      const full = k === "elder" ? nm : `${nm} 드래곤`;
+      return `<span class="sb-drake" title="${esc(full)} ${d[k]}마리">${drakeIconHTML(k, full)}${d[k] > 1 ? `<b>${d[k]}</b>` : ""}</span>`;
     }).join("");
-    return chips + (total >= SOUL_AT ? `<span class="sb-soul" title="드래곤 4마리 — 영혼 획득">영혼</span>` : "");
+    return chips + (total >= SOUL_AT
+      ? `<span class="sb-soul" title="드래곤 4마리 — 드래곤 영혼 획득"><span aria-hidden="true">✦</span> 영혼</span>` : "");
   };
   const drakeRow = (g.drakes && (g.drakes.a || g.drakes.b))
     ? `<div class="sb-pb">
@@ -1581,7 +1589,6 @@ function setScoreboardHTML(match, set) {
        </div>` : "";
 
   const links = [
-    g.vod ? `<a href="${esc(g.vod)}" target="_blank" rel="noopener">▶ 다시보기</a>` : "",
     g.mh ? `<a href="${esc(g.mh)}" target="_blank" rel="noopener">라이엇 전적</a>` : "",
     g.patch ? `<span>패치 ${esc(g.patch)}</span>` : "",
   ].filter(Boolean).join("");

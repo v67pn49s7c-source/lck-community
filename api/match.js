@@ -131,7 +131,7 @@ function page(m, details, players, tournamentName) {
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="${esc(`${AN} ${m.score_a ?? ""} : ${m.score_b ?? ""} ${BN}`)}">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" type="image/png" href="/assets/brand/nexus-icon.png?v=20260811c">
+<link rel="icon" type="image/png" href="/assets/brand/nexus-icon.png?v=20260811d">
 ${jsonLd(m, `${AN} vs ${BN}`, url)}
 <style>
 /* 검색 로봇과 자바스크립트가 꺼진 사람을 위한 최소 화면.
@@ -148,7 +148,7 @@ th{background:#171923;color:#99a1af}a{color:#ff4655}
 ${head}
 <a class="go" href="/live.html?match=${encodeURIComponent(m.id)}">경기 상세·팬 평점·승부예측 보기 →</a>
 ${setsHTML}
-<p><a href="/">The Nexus 홈</a> · <a href="/matches.html">전체 경기 일정</a></p>
+<p><a href="/">The Nexus 홈</a> · <a href="/schedule.html">전체 경기 일정</a></p>
 <p style="color:#667080;font-size:13px;margin-top:28px">
 The Nexus는 LCK·라이엇 게임즈와 무관한 비공식 팬 커뮤니티입니다.<br>
 Some content is provided courtesy of Leaguepedia, under a CC-BY-SA 3.0 license.</p>
@@ -191,5 +191,5 @@ function notFound(msg) {
 <title>${esc(msg)} — The Nexus</title><meta name="robots" content="noindex">
 <style>body{background:#0f1015;color:#e8eaed;font-family:sans-serif;padding:40px;text-align:center}a{color:#ff4655}</style>
 </head><body><h1>${esc(msg)}</h1>
-<p><a href="/matches.html">전체 경기 일정 보기</a> · <a href="/">The Nexus 홈</a></p></body></html>`;
+<p><a href="/schedule.html">전체 경기 일정 보기</a> · <a href="/">The Nexus 홈</a></p></body></html>`;
 }
