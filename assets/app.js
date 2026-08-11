@@ -245,9 +245,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260811d")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260811d")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811d")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260811e")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260811e")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811e")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -297,13 +297,13 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811d");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811e");
 
   renderTabBar(groupName);
 }
 
-// ── 선수 지표 육각형 (SVG 직접 그리기, 라이브러리 없음) ─────
-// 바깥 테두리 = 같은 포지션에서 1등, 가운데 = 꼴등. 회색은 동 포지션 평균.
+// ── 포지션별 선수 지표 육각형 (SVG 직접 그리기, 라이브러리 없음) ──
+// 바깥 테두리 = 같은 포지션 상위권, 가운데 = 하위권. 회색은 동 포지션 평균.
 function radarSVG(axes, opts) {
   const o = opts || {};
   const size = o.size || 260, c = size / 2, R = c - 42;
@@ -339,14 +339,15 @@ function radarSVG(axes, opts) {
   </svg>`;
 }
 
-// 육각형 옆에 붙는 막대 목록 (내 점수 · 원래 수치 · 동 포지션 평균)
+// 육각형 옆에 붙는 막대 목록 (포지션 백분위 · 계산에 사용한 실측값 · 동 포지션 평균)
 function radarBarsHTML(axes) {
   return `<div class="rd-bars">` + axes.map(ax => `
-    <div class="rd-bar">
+    <div class="rd-bar ${ax.available === false ? "is-missing" : ""}">
       <span class="rd-bar-label">${esc(ax.label)}</span>
       <span class="rd-bar-track"><i style="width:${Math.max(2, ax.score)}%"></i></span>
-      <b>${ax.score}</b><span class="rd-bar-raw">(${esc(ax.text)})</span>
-      <span class="rd-bar-avg">평균 ${ax.avgScore} (${esc(ax.avgText)})</span>
+      <b>${ax.available === false ? "-" : ax.score}</b>
+      <span class="rd-bar-raw">${esc(ax.text)}</span>
+      <span class="rd-bar-avg">동 포지션 평균 ${ax.avgScore}</span>
     </div>`).join("") + `</div>`;
 }
 

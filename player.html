@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="description" content="선수의 KDA·킬관여·딜 비중·CS를 같은 포지션 안에서 비교하는 육각형 지표와 경기별 팬 평점.">
+  <meta name="description" content="TOP·JGL·MID·ADC·SUP 역할에 맞춘 6축을 실제 경기 통계의 동 포지션 백분위로 비교합니다.">
   <link rel="canonical" href="https://lck-community.vercel.app/player.html">
   <meta property="og:url" content="https://lck-community.vercel.app/player.html">
   <meta property="og:site_name" content="The Nexus">
@@ -11,16 +11,16 @@
   <title>LCK 선수 기록 — The Nexus</title>
   <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
   <meta property="og:title" content="LCK 선수 기록 — The Nexus">
-  <meta property="og:description" content="선수의 KDA·킬관여·딜 비중·CS를 같은 포지션 안에서 비교하는 육각형 지표와 경기별 팬 평점.">
+  <meta property="og:description" content="TOP·JGL·MID·ADC·SUP 역할에 맞춘 6축을 실제 경기 통계의 동 포지션 백분위로 비교합니다.">
   <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/og-default.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260811d">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260811d">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260811e">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260811e">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260811d">
+  <link rel="stylesheet" href="assets/styles.css?v=20260811e">
 </head>
 <body>
   <div class="team-hero" id="player-hero"></div>
@@ -30,7 +30,7 @@
       <div class="stack">
         <section class="card">
           <div class="card-head">
-            <h2 class="card-title">선수 지표 <span class="sub">같은 포지션 안에서의 위치 (0~100)</span></h2>
+            <h2 class="card-title">포지션 역할 지표 <span class="sub">같은 포지션 안에서의 위치 (0~100)</span></h2>
             <div class="chip-row" id="stat-tabs"></div>
           </div>
           <div id="radar-box"></div>
@@ -72,12 +72,12 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260811d"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260811d"></script>
-  <script src="assets/store.js?v=20260811d"></script>
-  <script src="assets/app.js?v=20260811d"></script>
-  <script src="assets/ddragon.js?v=20260811d"></script>
-  <script src="assets/player-photos.js?v=20260811d"></script>
+  <script src="assets/data.js?v=20260811e"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260811e"></script>
+  <script src="assets/store.js?v=20260811e"></script>
+  <script src="assets/app.js?v=20260811e"></script>
+  <script src="assets/ddragon.js?v=20260811e"></script>
+  <script src="assets/player-photos.js?v=20260811e"></script>
   <script>
   storeReady.then(async () => {
     // ⚠ 없는 id 로 들어와도 "|| getPlayers()[0]" 로 엉뚱한 선수를 보여 주던 자리다.
@@ -145,7 +145,10 @@
 
         box.innerHTML = `<div class="radar-wrap">${radarSVG(rd.axes)}${radarBarsHTML(rd.axes)}</div>
           <div class="rd-legend"><span class="me"><i></i>${esc(player.nick)}</span>
-            <span class="avg"><i></i>${esc(player.pos)} 평균</span></div>`;
+            <span class="avg"><i></i>${esc(player.pos)} 평균</span></div>
+          <p class="rd-method"><b>${esc(rd.role)}</b> 역할 지표 · 0~100 동 포지션 백분위<br>
+            Leaguepedia 세트 종료 실측 기록으로 계산합니다. @15·로밍 동선·솔로킬처럼 원본에 없는 값은
+            골드·CS 상대차, 분당 K+A, 팀 오브젝트 등 가장 가까운 실측값을 사용합니다.</p>`;
 
         const s = rd.stats;
         document.getElementById("summary-scope").textContent =

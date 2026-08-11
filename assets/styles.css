@@ -63,7 +63,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260811d") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260811e") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -1260,16 +1260,19 @@ a.bracket-match:hover { border-color: var(--accent); }
 .rd-legend .me i { background: var(--accent); }
 .rd-legend .avg i { background: var(--text-dim); }
 .rd-bars { display: flex; flex-direction: column; gap: 7px; }
-.rd-bar { display: grid; grid-template-columns: 52px minmax(0, 1fr) 26px auto; align-items: center; gap: 7px; font-size: var(--fs-xs); }
+.rd-bar { display: grid; grid-template-columns: 52px minmax(0, 1fr) 26px; align-items: center; gap: 7px; font-size: var(--fs-xs); }
 .rd-bar-label { font-weight: 800; color: var(--text-sub); }
 .rd-bar-track { height: 7px; background: var(--bg-soft); border: 1px solid var(--line); }
 .rd-bar-track i { display: block; height: 100%; background: var(--accent); }
 .rd-bar b { font-weight: 800; text-align: right; }
-.rd-bar-raw { color: var(--text-sub); }
-.rd-bar-avg { grid-column: 2 / -1; color: var(--text-dim); font-size: 10px; margin-top: -3px; }
+.rd-bar-raw { grid-column: 2 / -1; color: var(--text-sub); font-size: 10px; margin-top: -3px; }
+.rd-bar-avg { grid-column: 2 / -1; color: var(--text-dim); font-size: 10px; margin-top: -5px; }
+.rd-bar.is-missing .rd-bar-track i { background: var(--text-dim); opacity: .35; }
+.rd-method { margin: 0 14px 14px; padding: 10px 12px; border-top: 1px solid var(--line); color: var(--text-dim); font-size: 11px; line-height: 1.55; }
+.rd-method b { color: var(--text-sub); }
 @media (max-width: 720px) {
   .radar-wrap { grid-template-columns: 1fr; gap: 10px; }
-  .rd-bar { grid-template-columns: 46px minmax(0, 1fr) 24px auto; }
+  .rd-bar { grid-template-columns: 46px minmax(0, 1fr) 24px; }
 }
 
 /* ── 대회 필터 칩 ── */

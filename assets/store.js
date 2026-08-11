@@ -207,9 +207,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260811d"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260811d"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811d"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260811e"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260811e"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811e"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -1470,13 +1470,47 @@ function fandomAccuracy() {
 }
 
 // ── 선수 지표 집계 (육각형 차트용) ─────────────────────────
-// 경기 상세(세트별 KDA·CS·골드) + 팬 평점 + POM을 한 선수 기준으로 모은다.
+// 경기 상세의 실제 기록만 한 선수 기준으로 모은다.
+// 팬 평점/POM은 인기와 투표의 영향이 있어 경기력 육각형 계산에는 절대 섞지 않는다.
 // tid를 주면 그 대회 경기만, 없으면 전체.
+function radarRole(pos) {
+  const p = String(pos || "").trim().toLowerCase();
+  if (["탑", "top"].includes(p)) return "TOP";
+  if (["정글", "jgl", "jungle"].includes(p)) return "JGL";
+  if (["미드", "mid", "middle"].includes(p)) return "MID";
+  if (["원딜", "adc", "bot", "bottom"].includes(p)) return "ADC";
+  if (["서폿", "서포터", "sup", "support"].includes(p)) return "SUP";
+  return "MID";
+}
+
+function setMinutes(set) {
+  const raw = String((set && set.game && set.game.len) || "").trim();
+  const mmss = raw.match(/^(\d+):(\d{1,2})$/);
+  if (mmss) return Number(mmss[1]) + Number(mmss[2]) / 60;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function gameSideNumber(game, key, side) {
+  const value = game && game[key] && game[key][side];
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function playerAggregate(pid, tid) {
   const player = getPlayer(pid);
   if (!player) return null;
   let sets = 0, wins = 0, k = 0, d = 0, a = 0, cs = 0, gold = 0, kpSum = 0, kpSets = 0;
   let dmg = 0, dmgSets = 0, vis = 0, visSets = 0, dmgShareSum = 0, dmgShareSets = 0, penta = 0;
+  let minutes = 0, timedSets = 0, goldPmSum = 0, csPmSum = 0, kaPmSum = 0, assistPmSum = 0, deathPmSum = 0;
+  let dpmSum = 0, dpmSets = 0, vspmSum = 0, vspmSets = 0;
+  let goldShareSum = 0, goldShareSets = 0, csShareSum = 0, csShareSets = 0;
+  let killShareSum = 0, killShareSets = 0, deathShareSum = 0, deathShareSets = 0;
+  let visShareSum = 0, visShareSets = 0, laneGoldDiffPmSum = 0, laneGoldDiffSets = 0;
+  let laneCsDiffPmSum = 0, laneCsDiffSets = 0, laneKillDiffPmSum = 0, laneKillDiffSets = 0;
+  let duoGoldDiffPmSum = 0, duoGoldDiffSets = 0, duoCsDiffPmSum = 0, duoCsDiffSets = 0;
+  let objControlSum = 0, objControlSets = 0, objPerSetSum = 0, objSets = 0;
+  let towerControlSum = 0, towerControlSets = 0;
   const champs = {};
 
   getMatches().forEach(m => {
@@ -1498,6 +1532,10 @@ function playerAggregate(pid, tid) {
       const sides = setSides(m, s.players);
       const mySide = sides[pid];
       const mates = (s.players || []).filter(p => sides[p.pid] === mySide);
+      const foes = (s.players || []).filter(p => sides[p.pid] && sides[p.pid] !== mySide);
+      const role = radarRole(row.pos || player.pos);
+      const sameRole = foes.find(p => radarRole(p.pos || (getPlayer(p.pid) || {}).pos) === role);
+      const mins = setMinutes(s);
 
       // 킬 관여율 = (킬+어시) ÷ 우리 팀 총 킬
       const teamKills = mates.reduce((n, p) => n + (+p.k || 0), 0);
@@ -1506,6 +1544,68 @@ function playerAggregate(pid, tid) {
       // 딜 비중: 우리 팀 총 딜에서 내가 넣은 몫 (팀 색깔이 달라도 공평하게 비교된다)
       const teamDmg = mates.reduce((n, p) => n + (+p.dmg || 0), 0);
       if (teamDmg > 0 && +row.dmg > 0) { dmgShareSum += (+row.dmg) / teamDmg; dmgShareSets++; }
+
+      const rowGold = (+row.gold || 0) * 1000;
+      const teamGold = mates.reduce((n, p) => n + (+p.gold || 0) * 1000, 0);
+      const teamCs = mates.reduce((n, p) => n + (+p.cs || 0), 0);
+      const teamDeaths = mates.reduce((n, p) => n + (+p.d || 0), 0);
+      const teamVision = mates.reduce((n, p) => n + (+p.vs || 0), 0);
+      if (teamGold > 0 && rowGold > 0) { goldShareSum += rowGold / teamGold; goldShareSets++; }
+      if (teamCs > 0 && +row.cs > 0) { csShareSum += (+row.cs) / teamCs; csShareSets++; }
+      if (teamKills > 0) { killShareSum += rk / teamKills; killShareSets++; }
+      if (teamDeaths > 0) { deathShareSum += rd / teamDeaths; deathShareSets++; }
+      if (teamVision > 0 && +row.vs > 0) { visShareSum += (+row.vs) / teamVision; visShareSets++; }
+
+      if (mins) {
+        minutes += mins; timedSets++;
+        goldPmSum += rowGold / mins;
+        csPmSum += (+row.cs || 0) / mins;
+        kaPmSum += (rk + ra) / mins;
+        assistPmSum += ra / mins;
+        deathPmSum += rd / mins;
+        if (+row.dmg > 0) { dpmSum += (+row.dmg) / mins; dpmSets++; }
+        if (+row.vs > 0) { vspmSum += (+row.vs) / mins; vspmSets++; }
+
+        if (sameRole) {
+          laneGoldDiffPmSum += (rowGold - (+sameRole.gold || 0) * 1000) / mins;
+          laneGoldDiffSets++;
+          laneCsDiffPmSum += ((+row.cs || 0) - (+sameRole.cs || 0)) / mins;
+          laneCsDiffSets++;
+          laneKillDiffPmSum += (rk - (+sameRole.k || 0)) / mins;
+          laneKillDiffSets++;
+        }
+
+        // 서포터 라인전은 개인 CS가 아니라 양 팀 봇 듀오(원딜+서폿)의 합으로 본다.
+        const botRoles = new Set(["ADC", "SUP"]);
+        const ourBot = mates.filter(p => botRoles.has(radarRole(p.pos || (getPlayer(p.pid) || {}).pos)));
+        const theirBot = foes.filter(p => botRoles.has(radarRole(p.pos || (getPlayer(p.pid) || {}).pos)));
+        if (ourBot.length >= 2 && theirBot.length >= 2) {
+          const ourGold = ourBot.reduce((n, p) => n + (+p.gold || 0) * 1000, 0);
+          const theirGold = theirBot.reduce((n, p) => n + (+p.gold || 0) * 1000, 0);
+          const ourCs = ourBot.reduce((n, p) => n + (+p.cs || 0), 0);
+          const theirCs = theirBot.reduce((n, p) => n + (+p.cs || 0), 0);
+          duoGoldDiffPmSum += (ourGold - theirGold) / mins; duoGoldDiffSets++;
+          duoCsDiffPmSum += (ourCs - theirCs) / mins; duoCsDiffSets++;
+        }
+      }
+
+      // 오브젝트는 개인 막타가 아니라 선수가 출전한 세트의 팀 확보 비율이다.
+      // UI에도 팀 기록임을 명시해 개인 기여로 과장하지 않는다.
+      const otherSide = mySide === "a" ? "b" : "a";
+      // 유충 1마리를 바론 1회와 같게 세면 유충이 축을 압도한다. 전략 가치에 맞춰
+      // 드래곤 1, 전령 1, 유충 1/3, 바론·아타칸 1.5의 고정 가중치를 쓴다.
+      const objectWeights = { dragons: 1, barons: 1.5, heralds: 1, grubs: 1 / 3, atakhan: 1.5 };
+      const ownObj = Object.entries(objectWeights).reduce((n, [key, weight]) =>
+        n + gameSideNumber(s.game, key, mySide) * weight, 0);
+      const oppObj = Object.entries(objectWeights).reduce((n, [key, weight]) =>
+        n + gameSideNumber(s.game, key, otherSide) * weight, 0);
+      if (ownObj + oppObj > 0) { objControlSum += ownObj / (ownObj + oppObj); objControlSets++; }
+      if (s.game && Object.keys(s.game).length) { objPerSetSum += ownObj; objSets++; }
+      const ownTowers = gameSideNumber(s.game, "towers", mySide);
+      const oppTowers = gameSideNumber(s.game, "towers", otherSide);
+      if (ownTowers + oppTowers > 0) {
+        towerControlSum += ownTowers / (ownTowers + oppTowers); towerControlSets++;
+      }
 
       const won = mySide === s.win;
       if (won) wins++;
@@ -1546,6 +1646,29 @@ function playerAggregate(pid, tid) {
     dmgAvg: dmgSets ? dmg / dmgSets : null,          // 세트당 챔피언 딜량
     dmgShare: dmgShareSets ? dmgShareSum / dmgShareSets : null,  // 팀 내 딜 비중
     visAvg: visSets ? vis / visSets : null,          // 세트당 시야 점수
+    minutes, timedSets,
+    gpm: timedSets ? goldPmSum / timedSets : null,
+    csm: timedSets ? csPmSum / timedSets : null,
+    dpm: dpmSets ? dpmSum / dpmSets : null,
+    vspm: vspmSets ? vspmSum / vspmSets : null,
+    kaPm: timedSets ? kaPmSum / timedSets : null,
+    assistPm: timedSets ? assistPmSum / timedSets : null,
+    deathPm: timedSets ? deathPmSum / timedSets : null,
+    goldShare: goldShareSets ? goldShareSum / goldShareSets : null,
+    csShare: csShareSets ? csShareSum / csShareSets : null,
+    killShare: killShareSets ? killShareSum / killShareSets : null,
+    deathShare: deathShareSets ? deathShareSum / deathShareSets : null,
+    visShare: visShareSets ? visShareSum / visShareSets : null,
+    laneGoldDiffPm: laneGoldDiffSets ? laneGoldDiffPmSum / laneGoldDiffSets : null,
+    laneCsDiffPm: laneCsDiffSets ? laneCsDiffPmSum / laneCsDiffSets : null,
+    laneKillDiffPm: laneKillDiffSets ? laneKillDiffPmSum / laneKillDiffSets : null,
+    duoGoldDiffPm: duoGoldDiffSets ? duoGoldDiffPmSum / duoGoldDiffSets : null,
+    duoCsDiffPm: duoCsDiffSets ? duoCsDiffPmSum / duoCsDiffSets : null,
+    objControl: objControlSets ? objControlSum / objControlSets : null,
+    objPerSet: objSets ? objPerSetSum / objSets : null,
+    towerControl: towerControlSets ? towerControlSum / towerControlSets : null,
+    dmgEfficiency: dmgShareSets && goldShareSets && goldShareSum > 0
+      ? (dmgShareSum / dmgShareSets) / (goldShareSum / goldShareSets) : null,
     pentakills: penta,
     hasNewStats: dmgSets > 0,
     fan: fanAvg, fanCount: hist.length,
@@ -1554,48 +1677,98 @@ function playerAggregate(pid, tid) {
   };
 }
 
-// 육각형에 쓰는 축 정의 (raw 값을 뽑는 방법 + 표시 형식)
-// 육각형 6축. '골드'는 CS 와 거의 같은 이야기라서 빼고, 대신 **딜 비중**을 넣는다.
-// (딜 비중 = 우리 팀 총 딜에서 내가 넣은 몫 — 팀 색깔이 달라도 공평하게 비교된다)
-const RADAR_AXES = [
-  { key: "kda", label: "KDA", get: s => s.kda, fmt: v => v.toFixed(2) },
-  { key: "kp", label: "킬관여", get: s => s.kp * 100, fmt: v => v.toFixed(0) + "%" },
-  { key: "dmg", label: "딜비중", get: s => (s.dmgShare == null ? null : s.dmgShare * 100), fmt: v => v.toFixed(0) + "%" },
-  { key: "cs", label: "CS", get: s => s.csAvg, fmt: v => v.toFixed(0) },
-  { key: "fan", label: "팬평점", get: s => (s.fan == null ? null : s.fan), fmt: v => v.toFixed(1) },
-  { key: "pom", label: "POM", get: s => s.pom, fmt: v => v.toFixed(0) + "pt" },
-];
+const metric = (key, weight, direction) => ({ key, weight: weight || 1, direction: direction || 1 });
+const pctText = v => v == null ? "-" : `${Math.round(v * 100)}%`;
+const numText = (v, digits) => v == null ? "-" : Number(v).toFixed(digits == null ? 1 : digits);
+const signedText = (v, suffix) => v == null ? "-" : `${v >= 0 ? "+" : ""}${Math.round(v)}${suffix || ""}`;
+
+// 모든 카드에서 12시부터 시계 방향으로: 초반 → 성장/운영 → 공격 → 교전 → 안정성 → 특화.
+// 각 축은 한 숫자를 임의 가공하지 않고, 아래 실측 지표들의 동 포지션 백분위를 가중 평균한다.
+const ROLE_RADAR_AXES = {
+  TOP: [
+    { key: "lane", label: "라인전", metrics: [metric("laneGoldDiffPm", .55), metric("laneCsDiffPm", .35), metric("laneKillDiffPm", .1)], evidence: s => `골드차/분 ${signedText(s.laneGoldDiffPm)} · CS차/분 ${numText(s.laneCsDiffPm, 2)}` },
+    { key: "growth", label: "성장", metrics: [metric("gpm", .45), metric("csm", .35), metric("goldShare", .2)], evidence: s => `GPM ${numText(s.gpm, 0)} · CSM ${numText(s.csm)} · 골드 ${pctText(s.goldShare)}` },
+    { key: "damage", label: "딜링", metrics: [metric("dpm", .55), metric("dmgShare", .45)], evidence: s => `DPM ${numText(s.dpm, 0)} · 딜 비중 ${pctText(s.dmgShare)}` },
+    { key: "fight", label: "교전", metrics: [metric("kp", .45), metric("kaPm", .35), metric("killShare", .2)], evidence: s => `킬관여 ${pctText(s.kp)} · K+A/분 ${numText(s.kaPm, 2)}` },
+    { key: "survival", label: "생존", metrics: [metric("deathPm", .55, -1), metric("kda", .3), metric("deathShare", .15, -1)], evidence: s => `데스/분 ${numText(s.deathPm, 2)} · KDA ${numText(s.kda, 2)}` },
+    { key: "side", label: "사이드", metrics: [metric("csShare", .35), metric("laneCsDiffPm", .25), metric("towerControl", .2), metric("goldShare", .2)], evidence: s => `CS 비중 ${pctText(s.csShare)} · 팀 타워 ${pctText(s.towerControl)}` },
+  ],
+  JGL: [
+    { key: "early", label: "초반개입", metrics: [metric("kaPm", .45), metric("kp", .35), metric("laneGoldDiffPm", .2)], evidence: s => `K+A/분 ${numText(s.kaPm, 2)} · 킬관여 ${pctText(s.kp)}` },
+    { key: "objective", label: "오브젝트", metrics: [metric("objControl", .65), metric("objPerSet", .35)], evidence: s => `팀 확보율 ${pctText(s.objControl)} · 세트당 ${numText(s.objPerSet)}` },
+    { key: "growth", label: "성장", metrics: [metric("gpm", .5), metric("csm", .3), metric("goldShare", .2)], evidence: s => `GPM ${numText(s.gpm, 0)} · CSM ${numText(s.csm)}` },
+    { key: "fight", label: "교전", metrics: [metric("kp", .45), metric("kaPm", .35), metric("killShare", .2)], evidence: s => `킬관여 ${pctText(s.kp)} · K+A/분 ${numText(s.kaPm, 2)}` },
+    { key: "survival", label: "생존", metrics: [metric("deathPm", .55, -1), metric("kda", .3), metric("deathShare", .15, -1)], evidence: s => `데스/분 ${numText(s.deathPm, 2)} · KDA ${numText(s.kda, 2)}` },
+    { key: "team", label: "팀기여", metrics: [metric("kp", .35), metric("assistPm", .25), metric("visShare", .2), metric("objControl", .2)], evidence: s => `킬관여 ${pctText(s.kp)} · 시야 비중 ${pctText(s.visShare)}` },
+  ],
+  MID: [
+    { key: "lane", label: "라인전", metrics: [metric("laneGoldDiffPm", .55), metric("laneCsDiffPm", .35), metric("laneKillDiffPm", .1)], evidence: s => `골드차/분 ${signedText(s.laneGoldDiffPm)} · CS차/분 ${numText(s.laneCsDiffPm, 2)}` },
+    { key: "growth", label: "성장", metrics: [metric("gpm", .5), metric("csm", .35), metric("goldShare", .15)], evidence: s => `GPM ${numText(s.gpm, 0)} · CSM ${numText(s.csm)}` },
+    { key: "damage", label: "딜링", metrics: [metric("dpm", .55), metric("dmgShare", .45)], evidence: s => `DPM ${numText(s.dpm, 0)} · 딜 비중 ${pctText(s.dmgShare)}` },
+    { key: "fight", label: "교전", metrics: [metric("kp", .45), metric("kaPm", .35), metric("killShare", .2)], evidence: s => `킬관여 ${pctText(s.kp)} · K+A/분 ${numText(s.kaPm, 2)}` },
+    { key: "survival", label: "생존", metrics: [metric("deathPm", .55, -1), metric("kda", .3), metric("deathShare", .15, -1)], evidence: s => `데스/분 ${numText(s.deathPm, 2)} · KDA ${numText(s.kda, 2)}` },
+    { key: "roam", label: "로밍", metrics: [metric("assistPm", .4), metric("kp", .35), metric("vspm", .25)], evidence: s => `어시/분 ${numText(s.assistPm, 2)} · 킬관여 ${pctText(s.kp)}` },
+  ],
+  ADC: [
+    { key: "lane", label: "라인전", metrics: [metric("laneGoldDiffPm", .55), metric("laneCsDiffPm", .35), metric("laneKillDiffPm", .1)], evidence: s => `골드차/분 ${signedText(s.laneGoldDiffPm)} · CS차/분 ${numText(s.laneCsDiffPm, 2)}` },
+    { key: "growth", label: "성장", metrics: [metric("gpm", .5), metric("csm", .35), metric("goldShare", .15)], evidence: s => `GPM ${numText(s.gpm, 0)} · CSM ${numText(s.csm)}` },
+    { key: "damage", label: "딜링", metrics: [metric("dpm", .55), metric("dmgShare", .45)], evidence: s => `DPM ${numText(s.dpm, 0)} · 딜 비중 ${pctText(s.dmgShare)}` },
+    { key: "fight", label: "교전", metrics: [metric("kp", .35), metric("kaPm", .3), metric("killShare", .35)], evidence: s => `킬관여 ${pctText(s.kp)} · 킬 비중 ${pctText(s.killShare)}` },
+    { key: "survival", label: "생존", metrics: [metric("deathPm", .55, -1), metric("kda", .3), metric("deathShare", .15, -1)], evidence: s => `데스/분 ${numText(s.deathPm, 2)} · KDA ${numText(s.kda, 2)}` },
+    { key: "carry", label: "캐리력", metrics: [metric("dmgEfficiency", .45), metric("dmgShare", .35), metric("killShare", .2)], evidence: s => `자원 대비 딜 ${numText(s.dmgEfficiency, 2)} · 딜 비중 ${pctText(s.dmgShare)}` },
+  ],
+  SUP: [
+    { key: "lane", label: "라인전", metrics: [metric("duoGoldDiffPm", .55), metric("duoCsDiffPm", .25), metric("kaPm", .2)], evidence: s => `봇듀오 골드차/분 ${signedText(s.duoGoldDiffPm)} · CS차/분 ${numText(s.duoCsDiffPm, 2)}` },
+    { key: "vision", label: "시야", metrics: [metric("vspm", .55), metric("visShare", .45)], evidence: s => `시야점수/분 ${numText(s.vspm, 2)} · 팀 비중 ${pctText(s.visShare)}` },
+    { key: "fight", label: "교전", metrics: [metric("kp", .45), metric("assistPm", .35), metric("kaPm", .2)], evidence: s => `킬관여 ${pctText(s.kp)} · 어시/분 ${numText(s.assistPm, 2)}` },
+    { key: "survival", label: "생존", metrics: [metric("deathPm", .55, -1), metric("kda", .3), metric("deathShare", .15, -1)], evidence: s => `데스/분 ${numText(s.deathPm, 2)} · KDA ${numText(s.kda, 2)}` },
+    { key: "roam", label: "로밍", metrics: [metric("assistPm", .4), metric("kp", .35), metric("vspm", .25)], evidence: s => `어시/분 ${numText(s.assistPm, 2)} · 시야점수/분 ${numText(s.vspm, 2)}` },
+    { key: "team", label: "팀기여", metrics: [metric("kp", .3), metric("visShare", .3), metric("assistPm", .2), metric("objControl", .2)], evidence: s => `킬관여 ${pctText(s.kp)} · 시야 비중 ${pctText(s.visShare)}` },
+  ],
+};
 
 // 같은 포지션 선수들 사이에서 몇 등쯤인지를 0~100으로 (50 = 딱 중간)
 function radarData(pid, tid) {
   const me = playerAggregate(pid, tid);
   if (!me) return null;
+  const role = radarRole(me.pos);
   const peers = getPlayers()
-    .filter(p => p.pos === me.pos && p.id !== pid)
+    .filter(p => radarRole(p.pos) === role && p.id !== pid)
     .map(p => playerAggregate(p.id, tid))
     .filter(s => s && s.sets > 0);
 
-  const axes = RADAR_AXES.map(ax => {
-    const mine = ax.get(me);
-    const vals = peers.map(s => ax.get(s)).filter(v => v != null && !isNaN(v));
-    const all = (mine == null ? vals : vals.concat(mine)).slice().sort((x, y) => x - y);
-    const pct = v => {
-      if (v == null || !all.length) return 50;
-      if (all.length === 1) return 50;
-      const below = all.filter(x => x < v).length;
-      const same = all.filter(x => x === v).length;
-      return Math.round(((below + same / 2) / all.length) * 100);
+  const cohort = [me].concat(peers);
+  const axes = (ROLE_RADAR_AXES[role] || ROLE_RADAR_AXES.MID).map(ax => {
+    const componentScore = (subject, m) => {
+      const raw = subject[m.key];
+      if (raw == null || !Number.isFinite(Number(raw))) return null;
+      const vals = cohort.map(s => s[m.key]).filter(v => v != null && Number.isFinite(Number(v)))
+        .map(Number).map(v => v * m.direction).sort((x, y) => x - y);
+      if (vals.length < 2) return null;
+      const value = Number(raw) * m.direction;
+      const below = vals.filter(x => x < value).length;
+      const same = vals.filter(x => x === value).length;
+      return ((below + same / 2) / vals.length) * 100;
     };
-    const avg = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+    const axisScore = subject => {
+      const parts = ax.metrics.map(m => ({ score: componentScore(subject, m), weight: m.weight }))
+        .filter(x => x.score != null);
+      if (!parts.length) return null;
+      return Math.round(parts.reduce((n, x) => n + x.score * x.weight, 0) /
+        parts.reduce((n, x) => n + x.weight, 0));
+    };
+    const mine = axisScore(me);
+    const peerScores = peers.map(axisScore).filter(v => v != null);
+    const avg = peerScores.length ? Math.round(peerScores.reduce((n, v) => n + v, 0) / peerScores.length) : 50;
     return {
       key: ax.key, label: ax.label,
-      raw: mine, score: mine == null ? 0 : pct(mine),
-      avgRaw: avg, avgScore: avg == null ? 50 : pct(avg),
-      text: mine == null ? "-" : ax.fmt(mine),
-      avgText: avg == null ? "-" : ax.fmt(avg),
+      score: mine == null ? 50 : mine,
+      avgScore: avg,
+      available: mine != null,
+      text: mine == null ? "데이터 부족" : ax.evidence(me),
     };
   });
-  return { stats: me, axes };
+  return { stats: me, axes, role };
 }
 
 // 선수의 경기별 평점 목록 (최신 경기 순)
