@@ -244,9 +244,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260811b")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260811b")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811b")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260811c")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260811c")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811c")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -296,7 +296,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811b");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811c");
 
   renderTabBar(groupName);
 }
@@ -659,10 +659,10 @@ const TAB_BAR = [
     icon: `<rect x="3" y="4.5" width="18" height="17" rx="2"/><path d="M8 2.5v4M16 2.5v4M3 10h18"/>` },
   { menu: "승부예측", href: "predict.html", label: "예측",
     icon: `<path d="M12 3l2.6 5.6 6.4.8-4.7 4.3 1.3 6.3L12 17l-5.6 3 1.3-6.3L3 9.4l6.4-.8z"/>` },
-  { menu: "커뮤니티", href: "community.html", label: "커뮤니티", alt: ["선수·팀"],
+  { menu: "커뮤니티", href: "community.html", label: "커뮤니티",
     icon: `<path d="M21 12a8 8 0 1 1-3.2-6.4L21 4l-1 4.2A8 8 0 0 1 21 12z"/><path d="M8 11h8M8 14.5h5"/>` },
-  { menu: "MY", href: "my.html", label: "MY",
-    icon: `<circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/>` },
+  { menu: "선수·팀", href: "players.html", label: "선수·팀",
+    icon: `<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7 0"/>` },
 ];
 
 function renderTabBar(activeMenu) {
@@ -1196,6 +1196,64 @@ function shareRatingCard(match) {
 }
 
 // ── 홈 ──
+const HOME_DAY_FMT = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul", weekday: "short",
+});
+function homeDayLabel(at) {
+  const p = kstParts(at);
+  return `${Number(p.month)}. ${Number(p.day)}. ${HOME_DAY_FMT.format(new Date(at))}`;
+}
+
+// 가장 가까운 경기 날짜의 모든 경기를 팀 메뉴 바로 위 얇은 바로 보여 준다.
+// LCK는 보통 하루 2경기지만 휴식기·플레이오프의 1경기도 같은 코드로 자연스럽게 처리한다.
+function renderHomeMatchBar() {
+  const strip = document.querySelector(".team-strip");
+  if (!strip) return;
+  let bar = document.getElementById("home-match-bar");
+  if (!bar) {
+    bar = document.createElement("section");
+    bar.id = "home-match-bar";
+    bar.className = "home-match-bar";
+    bar.setAttribute("aria-label", "오늘의 경기 예측");
+    strip.before(bar);
+  }
+
+  const now = Date.now();
+  const candidates = sortedMatches().filter(m => knownTeams(m) && m.status !== "done" &&
+    (m.status === "live" || new Date(m.at).getTime() > now));
+  const first = candidates.find(m => m.status === "live") || candidates[0];
+  if (!first) { bar.style.display = "none"; return; }
+  const day = fmtDayKey(first.at);
+  const games = candidates.filter(m => fmtDayKey(m.at) === day).slice(0, 2);
+  if (!games.length) { bar.style.display = "none"; return; }
+
+  bar.style.display = "";
+  bar.dataset.count = String(games.length);
+  bar.innerHTML = `
+    <div class="container home-match-inner">
+      <div class="home-match-date">
+        <span>${fmtDayKey(first.at) === fmtDayKey(new Date()) ? "오늘의 경기" : "다음 경기"}</span>
+        <strong>${homeDayLabel(first.at)} · ${games.length}경기</strong>
+      </div>
+      <div class="home-match-list">
+        ${games.map(m => {
+          const A = TEAM_MAP[m.a], B = TEAM_MAP[m.b];
+          const pct = communityPct(m);
+          const a = pct.n > 0 ? pct.a : 50;
+          const b = pct.n > 0 ? pct.b : 50;
+          return `<a class="home-match-game" href="/match/${q(m.id)}"
+            aria-label="${fmtHM(m.at)} ${esc(A.abbr)} 대 ${esc(B.abbr)} 승부 예측">
+            <time>${m.status === "live" ? "LIVE" : fmtHM(m.at)}</time>
+            <span class="home-match-team">${teamLogoHTML(A, 26)}<b>${esc(A.abbr)}</b></span>
+            <span class="home-match-rate"><b>${a}%</b><i><span style="width:${a}%"></span></i><b>${b}%</b></span>
+            <span class="home-match-team right"><b>${esc(B.abbr)}</b>${teamLogoHTML(B, 26)}</span>
+            <em>예측 ›</em>
+          </a>`;
+        }).join("")}
+      </div>
+    </div>`;
+}
+
 function renderHomeSchedule() {
   const el = document.getElementById("schedule-body");
   if (!el) return;
@@ -1224,33 +1282,87 @@ function renderHomeSchedule() {
   el.innerHTML = cta + scheduleHTML([...past.slice(-3), ...soon.slice(0, 7)]);
 }
 
+let homeBoardCat = "전체";
 function renderHotPosts() {
   const el = document.getElementById("hot-posts");
   if (!el) return;
-  // 홈 첫인상 품질 기준 — 참여가 실제로 있는 글(추천 2+ 또는 댓글 1+)과 공지만.
-  // 기준이 없으면 "ㅏㅏㅓ" 같은 글이 인기 글로 노출되고, 참여 0인 자동 토론글이
-  // 유령 도시처럼 홈을 덮는다 (2026-08-07 코덱스 지적 반영).
-  const quality = p => p.cat === "공지" || p.up >= 2 || p.comments.length >= 1;
-  const posts = getPosts().filter(quality)
-    .sort((a, b) => b.up - a.up || b.comments.length - a.comments.length || b.ts - a.ts)
-    .slice(0, 7);
+  // 자동 생성된 공식 토론글은 반응이 전혀 없으면 첫 화면에서 제외한다.
+  // 회원 글은 추천 수와 관계없이 최신 글로 보여 줘 새 커뮤니티가 더 비어 보이지 않게 한다.
+  const meaningful = p => {
+    const title = String(p.title || "").trim();
+    return p.cat === "공지" || title.length >= 5;
+  };
+  const candidates = getPosts().filter(meaningful)
+    .filter(p => homeBoardCat === "전체" || p.cat === homeBoardCat)
+    .sort((a, b) => (b.cat === "공지") - (a.cat === "공지") || b.ts - a.ts);
+  const preferred = candidates.filter(p => {
+    const autoRoom = !!p.match_id || /^\[경기 토론\]/.test(String(p.title || "").trim());
+    return !autoRoom || p.up >= 2 || p.comments.length >= 1;
+  });
+  // 양질의 글이 다섯 개보다 적을 때만 반응 없는 자동 경기방을 맨 아래 보충한다.
+  // 5개 고정 요구를 지키면서도 빈 자동 글이 정상 글 위로 올라오지 않게 한다.
+  const posts = [...preferred, ...candidates.filter(p => !preferred.includes(p))].slice(0, 5);
   if (!posts.length) {
-    el.innerHTML = `<div class="empty-note">오늘의 인기 글을 모으는 중입니다 —
-      <a href="community.html" style="text-decoration:underline">첫 글을 남겨 보세요</a></div>`;
-    return;
+    el.innerHTML = `<div class="empty-note">이 분류의 최신 글이 없습니다 —
+      <a href="write.html" style="text-decoration:underline">첫 글을 남겨 보세요</a></div>`;
+  } else {
+    el.innerHTML = posts.map(p => {
+      const t = p.team ? TEAM_MAP[p.team] : null;
+      return `
+      <a class="home-post-row" href="post.html?id=${q(p.id)}">
+        <span class="home-board-name" style="--home-team:${t ? t.color : "var(--accent)"}">${t ? esc(t.abbr) : "전체"}</span>
+        <span class="home-post-copy"><strong>${esc(p.title)}</strong><small>${esc(p.nick)} · ${fmtAgo(p.ts)}</small></span>
+        <span class="home-post-stats"><b>▲ ${p.up}</b><span>댓글 ${p.comments.length}</span></span>
+      </a>`;
+    }).join("");
   }
-  el.innerHTML = posts.map(p => {
-    const t = p.team ? TEAM_MAP[p.team] : null;
-    return `
-    <a class="post-row" href="post.html?id=${q(p.id)}">
-      ${t ? `<span class="tag-team" style="--tag-color:${t.color}">${teamLogoHTML(t, 16)} ${t.abbr}</span>`
-          : `<span class="tag-team no-logo">전체</span>`}
-      <span class="tag-cat">${esc(p.cat)}</span>
-      ${getPollByPost(p.id) ? `<span title="투표가 있는 글">🗳️</span>` : ""}
-      <span class="post-title">${esc(p.title)}</span>
-      <span class="post-meta"><span class="up">▲ ${p.up}</span><span class="cmt">💬 ${p.comments.length}</span><span>${fmtAgo(p.ts)}</span></span>
+
+  document.querySelectorAll("[data-home-cat]").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.homeCat === homeBoardCat);
+    btn.onclick = () => { homeBoardCat = btn.dataset.homeCat; renderHotPosts(); };
+  });
+}
+
+function renderHomeUpcomingSchedule() {
+  const el = document.getElementById("home-schedule-body");
+  if (!el) return;
+  const now = Date.now();
+  const games = sortedMatches().filter(m => knownTeams(m) && m.status !== "done" &&
+    (m.status === "live" || new Date(m.at).getTime() > now)).slice(0, 4);
+  if (!games.length) { el.innerHTML = `<div class="empty-note">예정된 경기가 없습니다</div>`; return; }
+
+  let day = "";
+  el.innerHTML = games.map(m => {
+    const key = fmtDayKey(m.at);
+    const label = key === day ? "" : `<div class="home-schedule-day">${homeDayLabel(m.at)}</div>`;
+    day = key;
+    const A = TEAM_MAP[m.a], B = TEAM_MAP[m.b];
+    return `${label}<a class="home-schedule-row" href="/match/${q(m.id)}">
+      <time>${m.status === "live" ? "LIVE" : fmtHM(m.at)}</time>
+      <span>${teamLogoHTML(A, 20)}${esc(A.abbr)}</span><b>VS</b>
+      <span>${teamLogoHTML(B, 20)}${esc(B.abbr)}</span>
     </a>`;
   }).join("");
+}
+
+function renderHomePulse() {
+  const card = document.getElementById("home-pulse-card");
+  if (!card) return;
+  const poll = getPolls().filter(pollOpen)
+    .sort((a, b) => (a.closes_at ? new Date(a.closes_at) : Infinity) - (b.closes_at ? new Date(b.closes_at) : Infinity))[0];
+  if (!poll || !poll.options?.length) { card.style.display = "none"; return; }
+  const match = poll.match_id ? getMatches().find(m => m.id === poll.match_id) : null;
+  const r = pollResults(poll, match?.a, match?.b);
+  const ranked = poll.options.map((label, i) => ({ label, n: r.overall.counts[i] || 0 }))
+    .sort((a, b) => b.n - a.n).slice(0, 2);
+  const total = r.overall.total || 0;
+
+  card.style.display = "";
+  card.querySelector("#home-pulse-question").textContent = poll.question;
+  card.querySelector("#home-pulse-votes").innerHTML = ranked.map(x =>
+    `<span><b>${esc(x.label)}</b> ${total ? Math.round(x.n / total * 100) : 0}%</span>`).join("");
+  const link = card.querySelector("#home-pulse-link");
+  link.href = match ? `/match/${q(match.id)}` : poll.post_id ? `post.html?id=${q(poll.post_id)}` : "community.html";
 }
 
 // ── 창립 팬 100인 레이스 (홈 사이드바) ─────────────────────
@@ -1349,20 +1461,15 @@ async function initHome() {
   await storeReady;
   renderHeader("홈", null);
   const draw = () => {
-    // 응원팀을 고르는 중이면 다시 그리지 않는다 (고르던 화면이 사라진다)
-    if (!fanHeroChoosing) renderFanHero();
-    renderTodayPoll();
-    renderHomeSchedule();
+    renderHomeMatchBar();
     renderHotPosts();
-    renderFoundingRace();
-    renderPredictRanking();
+    renderHomeUpcomingSchedule();
+    renderHomePulse();
+    setupSidebarStandings();
   };
   draw();
-  // 참여 비율·내 기록은 서버 집계에서 오므로, 스냅샷으로 먼저 그렸다면 도착 후 다시 그린다
+  // 스냅샷으로 먼저 그린 뒤 최신 경기·게시글·순위·투표가 오면 한 번 더 갱신한다.
   storeFresh.then(draw).catch(() => {});
-  // 홈 경기 카드에도 경우의 수 한 줄이 붙는다 — 정확본이 준비되면 다시 그린다
-  if (typeof raceWarmExact === "function") raceWarmExact(changed => { if (changed) draw(); });
-  initSidebar();
   renderFooter();
 }
 

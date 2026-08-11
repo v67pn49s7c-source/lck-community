@@ -17,84 +17,74 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260811b">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260811b">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260811c">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260811c">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260811b">
+  <link rel="stylesheet" href="assets/styles.css?v=20260811c">
 </head>
-<body>
-  <main class="page">
-    <div class="container layout">
-      <div class="stack">
-        <h1 class="home-h1">LCK 팬 커뮤니티<span class="sub">경기 일정 · 승부예측 · 세트별 팬 평점 · 플레이오프 경우의 수</span></h1>
-
-        <section class="card" id="fan-hero" style="display:none"></section>
-
-        <section class="card">
-          <div class="card-head">
-            <h2 class="card-title">경기 일정 <span class="sub">2026 정규 라운드 3-4</span></h2>
-            <a class="card-more" href="matches.html">전체 일정 ›</a>
-          </div>
-          <div id="schedule-body"></div>
-        </section>
-
-        <section class="card">
-          <div class="card-head">
-            <h2 class="card-title">실시간 인기 글</h2>
-            <a class="card-more" href="community.html">전체 글 ›</a>
-          </div>
-          <div id="hot-posts"></div>
-        </section>
+<body class="home-redesign">
+  <main class="page home-redesign-page">
+    <div class="container">
+      <div class="home-intro">
+        <h1>LCK 팬 커뮤니티</h1>
+        <p>다음 경기, 순위, 팬들의 이야기를 가장 빠르게 확인하세요.</p>
       </div>
 
-      <aside class="stack">
-        <section class="card" id="today-poll-card" style="display:none">
+      <div class="home-layout">
+        <div class="stack home-main-column">
+          <section class="card home-board-card">
           <div class="card-head">
-            <h2 class="card-title">오늘의 투표</h2>
-            <a class="card-more" id="today-poll-link" href="#">경기 페이지 ›</a>
+              <h2 class="card-title">전체 게시판 <span class="sub">최신 글 5개</span></h2>
+            <a class="card-more" href="community.html">전체 글 ›</a>
           </div>
-          <div class="poll-box" id="today-poll"></div>
+            <div class="home-board-tabs" aria-label="게시판 분류">
+              <button type="button" class="active" data-home-cat="전체">전체</button>
+              <button type="button" data-home-cat="자유">자유</button>
+              <button type="button" data-home-cat="경기 분석">경기 분석</button>
+              <button type="button" data-home-cat="밴픽·메타">밴픽·메타</button>
+              <button type="button" data-home-cat="영상·짤">영상·짤</button>
+            </div>
+          <div id="hot-posts"></div>
+            <div class="home-board-cta">
+              <span>응원팀 이야기부터 경기 분석까지</span>
+              <a href="write.html">새 글 쓰기</a>
+            </div>
         </section>
 
-        <section class="card">
-          <div class="card-head">
-            <h2 class="card-title">다음 경기 예측</h2>
-            <span class="card-more" id="predict-when"></span>
-          </div>
-          <div class="predict-widget" id="predict-widget"></div>
-        </section>
+          <section class="card home-pulse-card" id="home-pulse-card" style="display:none">
+            <div class="home-pulse-copy">
+              <span>지금 팬들이 고른 승부처</span>
+              <strong id="home-pulse-question"></strong>
+            </div>
+            <div class="home-pulse-votes" id="home-pulse-votes"></div>
+            <a id="home-pulse-link" href="predict.html">투표 참여 ›</a>
+          </section>
+        </div>
 
-        <section class="card">
-          <div class="card-head">
-            <h2 class="card-title">창립 팬 100인 <span class="sub">팀당 선착순 · 마감되면 영구 명단</span></h2>
-            <span class="card-more" id="founding-total"></span>
-          </div>
-          <div id="founding-race"></div>
-        </section>
+        <aside class="stack home-sidebar">
+          <section class="card">
+            <div class="card-head">
+              <h2 class="card-title">LCK 순위</h2>
+            </div>
+            <div id="standings-body"></div>
+          </section>
 
-        <section class="card">
-          <div class="card-head">
-            <h2 class="card-title">LCK 순위</h2>
+          <section class="card home-schedule-card">
+            <div class="card-head">
+              <h2 class="card-title">이후 경기 일정</h2>
+              <a class="card-more" href="matches.html">전체 일정 ›</a>
           </div>
-          <div id="standings-body"></div>
-        </section>
-
-        <section class="card">
-          <div class="card-head">
-            <h2 class="card-title">주간 예측 랭킹</h2>
-            <a class="card-more" href="ranking.html">전체 ›</a>
-          </div>
-          <div id="predict-ranking"></div>
-        </section>
-      </aside>
+            <div id="home-schedule-body"></div>
+          </section>
+        </aside>
+      </div>
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260811b"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260811b"></script>
-  <script src="assets/store.js?v=20260811b"></script>
-  <script src="assets/app.js?v=20260811b"></script>
-  <script src="assets/race.js?v=20260811b"></script>
+  <script src="assets/data.js?v=20260811c"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260811c"></script>
+  <script src="assets/store.js?v=20260811c"></script>
+  <script src="assets/app.js?v=20260811c"></script>
   <script>initHome();</script>
 </body>
 </html>
