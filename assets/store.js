@@ -207,9 +207,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260812a"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260812a"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812a"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260812b"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260812b"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812b"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -1855,15 +1855,10 @@ function createMemberPoll(p) {
     p_id: p.id, p_post_id: p.post_id, p_question: p.question,
     p_options: p.options, p_multi: !!p.multi, p_closes_at: p.closes_at || null,
   }).then(r => {
-    // 서버에 함수가 아직 없으면(schema22 미적용) 예전 직접 INSERT 로 한 번 더 —
-    // 그때는 옛 정책(member_insert_polls)이 아직 살아 있어 통과한다.
-    // match_id 는 여기서도 절대 싣지 않는다.
-    if (r.error && /create_member_poll/.test(r.error.message || "")) {
-      return sb.from("polls").insert({
-        id: p.id, match_id: null, phase: null, post_id: p.post_id,
-        question: p.question, options: p.options, multi: !!p.multi, closes_at: p.closes_at || null,
-      }).then(r2 => { sbErr(r2.error, "createMemberPoll(구버전)"); return r2; });
-    }
+    // ⚠ 예전에는 RPC 가 없을 때(schema22 미적용) 직접 INSERT 로 되돌아가는 폴백이 있었다.
+    //   지금은 schema25(FINAL)까지 적용돼 **회원 직접 INSERT 정책 자체가 없어졌으므로**
+    //   그 폴백은 어차피 막힌다. 남겨 두면 "아직 우회로가 있다"고 오해하게 만들어 지웠다.
+    //   (2026-08-12 운영 확인: member_insert_polls 정책 없음, RPC 는 회원만 실행 가능)
     sbErr(r.error, "createMemberPoll");
     return r;
   });

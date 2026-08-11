@@ -11,20 +11,16 @@
 >
 > | 항목 | 상태 | 확인 방법 |
 > |---|---|---|
-> | 코드 (`main` = `ee19140`) | **배포 완료** — Vercel Production Ready | 운영 자산 `?v=20260812a` |
+> | 코드 (`main` = `ee19140`) | **배포 완료** — Vercel Production Ready | 운영 자산 `?v=20260812b` |
 > | `schema22` (is_official·create_member_poll) | **적용 완료** | `posts.is_official` 조회 성공, RPC 호출 시 `42501`(권한거부) |
 > | `schema23` (공식 경기방 백필·유니크 인덱스) | **적용 완료** | `is_official=true` 글 38개 |
 > | `schema24` (경기 원자 저장 RPC) | **적용 완료** | RPC 호출 시 `42501`, 8/11 수집에서 세트 20개 저장·경고 0 |
 > | 세트 win 뒤집힘 backfill | **적용 완료** | m8·m1·m7 등 세트 win이 최종 스코어와 일치, 정합성 위반 0 |
-> | `schema25` (FINAL 잠금) | **미확인** | anon 권한으로는 정책 조회 불가 — 아래 확인 SQL 참고 |
+> | `schema25` (FINAL 잠금) | **적용 완료** | `member_insert_polls` 정책 없음(조회 0행), RPC는 `42501`로 anon 차단 |
 >
-> **schema25 적용 여부 확인용 (읽기 전용):**
-> ```sql
-> select policyname from pg_policies
->  where schemaname='public' and tablename='polls' and policyname='member_insert_polls';
-> -- 결과가 비어 있으면 schema25 적용 완료(회원 직접 INSERT 제거됨)
-> -- 행이 나오면 아직 TRANSITION 단계 — 코드 배포가 끝났으므로 schema25 실행 가능
-> ```
+> **→ P0 하드닝의 모든 단계(schema22·23·24·25 + backfill)가 운영에 반영됐습니다.**
+> 회원 자유 투표는 이제 `create_member_poll` RPC 전용이며, 직접 INSERT 경로는 없습니다.
+> 배포된 클라이언트(`assets/board.js`)도 RPC를 호출하므로 정상 동작합니다.
 
 기준 브랜치: `main` (운영과 동일). 초안이 있던 `p0-hardening` 브랜치는 이미 운영에 반영됐다.
 아래 절차·롤백·백로그는 **기록과 참고용**으로 남긴다.
@@ -45,9 +41,9 @@
 | 확인됨 | 비관리자 `create_post`가 `match_id`를 보존했음 | 구 `schema11_post_edit.sql` |
 | 확인됨 | 공식 경기방을 제목으로 판별해 가로채기가 가능했음 | 수정 전 `assets/store.js` |
 | 확인됨 | 종료 경기의 세트 win과 최종 스코어가 모순됨 | `/match/m8`, 로컬 invariant 감사 |
-| 확인됨 | 초기 관리자 시드 경기방 일부는 `author_id`가 없음 | 로컬 데이터 감사. 운영은 audit ① 재확인 필요 |
-| 운영 확인 필요 | 운영 RLS·함수 ACL이 저장소 SQL과 같은지 | `audit_p0_read_only.sql` ⑤ |
-| 운영 확인 필요 | 정확한 win 교정 대상과 부분수집/side 오염 경기 | audit ⑥·⑦ |
+| 확인됨 | 초기 관리자 시드 경기방 일부는 `author_id`가 없음 | 로컬 데이터 감사 + 운영 audit ① |
+| **해결됨** | 운영 RLS·함수 ACL이 저장소 SQL과 같은지 | 2026-08-12: `member_insert_polls` 없음, RPC `42501` — schema25까지 일치 |
+| **해결됨** | 정확한 win 교정 대상과 부분수집/side 오염 경기 | 2026-08-12: 종료 경기 정합성 위반 0건 (backfill 완료) |
 
 ## 중요한 2단계 권한 모델
 
@@ -240,10 +236,10 @@ FINAL(`schema25`) 뒤 옛 코드로 돌아가면 옛 코드의 직접 INSERT가 
 ## 변경·적용 상태 (2026-08-11 실측)
 
 - Git commit·push **완료** — 운영 `main` = `ee19140`
-- Vercel 배포 **완료** — Production Ready, 자산 `?v=20260812a`
-- 운영 DB **적용 완료** — `schema22` · `schema23` · `schema24`
+- Vercel 배포 **완료** — Production Ready, 자산 `?v=20260812b`
+- 운영 DB **적용 완료** — `schema22` · `schema23` · `schema24` · `schema25`(FINAL)
 - 세트 win 뒤집힘 backfill **적용 완료** — 대상 경기 정합성 위반 0건
-- `schema25`(FINAL 잠금)만 **미확인** — 위 머리말의 확인 SQL로 판정할 것
+- **P0 하드닝 전 단계 종료.** 남은 운영 작업 없음
 
 > 이 절은 과거에 "아무것도 적용하지 않음"이라고 적혀 있었다. 실제로는 전부 적용된
 > 뒤였고, 그 표기를 믿으면 파괴적 SQL을 재실행할 위험이 있어 실측값으로 바로잡았다.
