@@ -24,6 +24,13 @@ const DD_ALIAS = {
 };
 
 // 이름 찾기: 정확한 이름 → 별칭 → 공백 무시 (판금장화 ↔ 판금 장화)
+function ddNormKey(value) {
+  return String(value || "")
+    .normalize("NFKC")
+    .toLocaleLowerCase("en-US")
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
 function ddLookup(map, name) {
   if (!name) return null;
   if (map[name] != null) return map[name];
@@ -31,10 +38,10 @@ function ddLookup(map, name) {
   if (alias && map[alias] != null) return map[alias];
   if (!map.__norm) {
     const n = {};
-    Object.keys(map).forEach(k => { n[k.replace(/\s+/g, "")] = map[k]; });
+    Object.keys(map).forEach(k => { n[ddNormKey(k)] = map[k]; });
     Object.defineProperty(map, "__norm", { value: n, enumerable: false });
   }
-  return map.__norm[name.replace(/\s+/g, "")] ?? null;
+  return map.__norm[ddNormKey(alias || name)] ?? null;
 }
 
 async function ddInit() {
@@ -43,30 +50,45 @@ async function ddInit() {
     const ver = vers[0];
     // 같은 패치면 캐시 재사용 (패치가 바뀌면 자동 갱신)
     try {
-      const cached = JSON.parse(localStorage.getItem("nexus_dd_v3") || "null");
+      const cached = JSON.parse(localStorage.getItem("nexus_dd_v6") || "null");
       if (cached && cached.ver === ver) { Object.assign(DD, cached); return true; }
     } catch {}
     const base = `${DD_CDN}/${ver}/data/ko_KR/`;
-    const [item, summ, runes, champ] = await Promise.all([
+    const enBase = `${DD_CDN}/${ver}/data/en_US/`;
+    const [item, itemEn, summ, runes, champ, champEn] = await Promise.all([
       fetch(base + "item.json").then(r => r.json()),
+      fetch(enBase + "item.json").then(r => r.json()),
       fetch(base + "summoner.json").then(r => r.json()),
       fetch(base + "runesReforged.json").then(r => r.json()),
       fetch(base + "champion.json").then(r => r.json()),
+      fetch(enBase + "champion.json").then(r => r.json()),
     ]);
     DD.ver = ver;
     // ⚠ 장신구(와드·렌즈)는 아이템 칸에서 걸러야 한다. Data Dragon 이 종류를 알려 준다
     //   (tags 에 "Trinket", 또는 inStore=false / 상점 밖 아이템).
     //   이미 저장된 기록에 섞여 있어서, 화면에서도 한 번 더 거른다. (2026-08-08)
+    const itemInfoById = {};
     Object.entries(item.data).forEach(([id, it]) => {
       if (!it.name) return;
       if (DD.items[it.name] == null) DD.items[it.name] = id;
       if ((it.tags || []).includes("Trinket")) DD.trinkets[it.name] = id;
       // 마우스를 올렸을 때 보여 줄 것 — 이름 · 값 · 한 줄 설명
-      DD.itemInfo[it.name] = {
+      DD.itemInfo[it.name] = itemInfoById[id] = {
         gold: (it.gold && it.gold.total) || 0,
         // plaintext 가 가장 짧고 읽기 쉽다. 없으면 설명에서 태그를 걷어 낸다.
         text: (it.plaintext || "").trim()
           || String(it.description || "").replace(/<br\s*\/?>/gi, " ").replace(/<[^>]+>/g, "").trim().slice(0, 90),
+      };
+    });
+    // Leaguepedia 기록에는 영문명과 한글명이 섞인다. 같은 id의 en_US 이름도 함께
+    // 등록해 두면 Jak'Sho처럼 쉼표·따옴표 표기가 달라도 아이콘으로 찾을 수 있다.
+    Object.entries(itemEn.data).forEach(([id, it]) => {
+      if (!it.name) return;
+      if (DD.items[it.name] == null) DD.items[it.name] = id;
+      if ((it.tags || []).includes("Trinket")) DD.trinkets[it.name] = id;
+      DD.itemInfo[it.name] = itemInfoById[id] || {
+        gold: (it.gold && it.gold.total) || 0,
+        text: (it.plaintext || "").trim(),
       };
     });
     // ⚠ 같은 이름의 소환사 주문이 여러 개다 — 소환사의 협곡(CLASSIC)용과
@@ -90,8 +112,21 @@ async function ddInit() {
         };
       }));
     });
-    Object.values(champ.data).forEach(ch => { DD.champs[ch.name] = ch.id; }); // 영문 id (최신 초상화용)
-    try { localStorage.setItem("nexus_dd_v3", JSON.stringify(DD)); } catch {}
+    // 같은 표시 이름을 쓰는 이벤트/아레나 변형(Jade_Alistar 등)이 정식 초상화를
+    // 덮어쓰지 못하게 기본 id를 우선한다. 데이터 파일에서 변형이 먼저 나올 수도 있다.
+    const isChampVariant = id => /^(?:Jade|Cherry|Strawberry|Arena)_/i.test(String(id || ""));
+    const registerChamp = ch => {
+      const before = DD.champs[ch.name];
+      if (before == null || (isChampVariant(before) && !isChampVariant(ch.id))) DD.champs[ch.name] = ch.id;
+    };
+    Object.values(champ.data).forEach(registerChamp);
+    Object.values(champEn.data).forEach(registerChamp);
+    try {
+      localStorage.removeItem("nexus_dd_v3");
+      localStorage.removeItem("nexus_dd_v4");
+      localStorage.removeItem("nexus_dd_v5");
+      localStorage.setItem("nexus_dd_v6", JSON.stringify(DD));
+    } catch {}
     return true;
   } catch (e) { console.error("[ddragon]", e); return false; }
 }
@@ -118,11 +153,11 @@ function ddChampHTML(name, size) {
   name = (name || "").trim();
   if (!name) return "";
   const id = ddLookup(DD.champs, name);
-  if (!id) return esc(name);
+  if (!id) return ddUnknownChip(name, "챔피언", "champ");
   const px = size || 26;
   const square = DD.ver ? `${DD_CDN}/${DD.ver}/img/champion/${id}.png`
                         : `https://cdn.communitydragon.org/latest/champion/${id}/square`;
-  return `<span class="dd-chip"><img class="dd-ic champ" src="${ddChampSrc(id)}" data-fallback="${square}"`
+  return `<span class="dd-chip"><img class="dd-ic champ" src="${square}" data-fallback="${ddChampSrc(id)}"`
     + ` alt="${esc(name)}" width="${px}" height="${px}" decoding="async">`
     + `<span class="dd-tip"><b>${esc(name)}</b></span></span>`
     + ` <span class="dd-nm">${esc(name)}</span>`;
@@ -149,19 +184,47 @@ function ddChip(src, name, sub, cls) {
   </span>`;
 }
 
+function ddUnknownChip(name, kind, cls) {
+  return `<span class="dd-chip dd-unknown" tabindex="0" aria-label="${esc(name)}">
+    <span class="dd-ic dd-unknown-ic ${cls || ""}" aria-hidden="true">?</span>
+    <span class="dd-tip"><b>${esc(name)}</b><em>${esc(kind || "아이콘 확인 중")}</em></span>
+  </span>`;
+}
+
+// 쉼표는 아이템 목록 구분자이면서 정식 아이템명 안에도 들어간다.
+// 예: "Jak'Sho, The Protean". 먼저 나눈 뒤 현재 조각이 아이템이 아니고
+// 다음 조각과 합쳤을 때 정식 아이템이면 한 칸으로 되돌린다.
+function ddItemParts(str) {
+  const raw = (str || "").split(/[,·;]/).map(s => s.trim()).filter(Boolean);
+  const out = [];
+  for (let i = 0; i < raw.length; i++) {
+    const now = raw[i];
+    if (!ddLookup(DD.items, now) && i + 1 < raw.length) {
+      const joined = `${now}, ${raw[i + 1]}`;
+      if (ddLookup(DD.items, joined)) {
+        out.push(joined);
+        i++;
+        continue;
+      }
+    }
+    out.push(now);
+  }
+  return out;
+}
+
 /** 장신구처럼 **거르지 않고** 그대로 그려야 하는 아이콘 (와드·렌즈) */
 function ddItemsAny(str) {
-  const parts = (str || "").split(/[,·;]/).map(s => s.trim()).filter(Boolean);
+  const parts = ddItemParts(str);
   if (!parts.length || !DD.ver) return esc(str || "");
   return parts.map(nm => {
     const id = ddLookup(DD.items, nm);
-    if (!id) return `<span class="dd-miss">${esc(nm)}</span>`;
+    if (!id) return ddUnknownChip(nm, "장신구");
     return ddChip(`${DD_CDN}/${DD.ver}/img/item/${id}.png`, nm, "장신구");
   }).join("");
 }
 
 function ddItemsHTML(str) {
-  const parts = (str || "").split(/[,·;]/).map(s => s.trim()).filter(Boolean);
+  const parts = ddItemParts(str);
   if (!parts.length) return "";
   if (!DD.ver) return esc(str);
   return parts
@@ -169,8 +232,8 @@ function ddItemsHTML(str) {
     .filter(nm => !ddLookup(DD.trinkets, nm))
     .map(nm => {
       const id = ddLookup(DD.items, nm);
-      if (!id) return `<span class="dd-miss" title="이름이 정확하지 않아요">${esc(nm)}</span>`;
-      const info = DD.itemInfo[nm] || {};
+      if (!id) return ddUnknownChip(nm, "아이템");
+      const info = ddLookup(DD.itemInfo, nm) || {};
       const sub = [info.gold ? `${info.gold.toLocaleString()}골드` : "", info.text].filter(Boolean).join(" · ");
       return ddChip(`${DD_CDN}/${DD.ver}/img/item/${id}.png`, nm, sub);
     }).join("");

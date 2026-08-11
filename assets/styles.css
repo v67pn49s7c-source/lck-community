@@ -63,7 +63,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260809e") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260811a") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -701,34 +701,55 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
    열 위치가 어긋나 위아래가 안 맞는다(실제로 그랬다). 열 너비를 못 박아 맞춘다.
    (2026-08-07) */
 table.detail-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-table.detail-table col.c-player { width: 21%; }
-table.detail-table col.c-champ  { width: 17%; }
-table.detail-table col.c-spell  { width: 8%; }
-table.detail-table col.c-kda    { width: 13%; }
-table.detail-table col.c-dmg    { width: 9%; }
-table.detail-table col.c-cs     { width: 8%; }
-table.detail-table col.c-gold   { width: 9%; }
+table.detail-table col.c-player { width: 18%; }
+table.detail-table col.c-champ  { width: 7%; }
+table.detail-table col.c-spell  { width: 6%; }
+table.detail-table col.c-kda    { width: 10%; }
+table.detail-table col.c-dmg    { width: 16%; }
+table.detail-table col.c-cs     { width: 6%; }
+table.detail-table col.c-gold   { width: 7%; }
 table.detail-table col.c-vs     { width: 7%; }
-table.detail-table col.c-items  { width: 20%; }
-table.detail-table col.c-runes  { width: 12%; }
+table.detail-table col.c-items  { width: 22%; }
+table.detail-table col.c-runes  { width: 8%; }
 table.detail-table th {
   font-size: var(--fs-xs); font-weight: 600; color: var(--text-dim);
   padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--line);
 }
 table.detail-table td {
-  padding: 9px 10px; border-bottom: 1px solid var(--line);
-  font-size: var(--fs-sm); color: var(--text-sub); vertical-align: top;
+  padding: 10px 8px; border-bottom: 1px solid var(--line);
+  font-size: var(--fs-sm); color: var(--text-sub); vertical-align: middle;
 }
 table.detail-table tr:last-child td { border-bottom: none; }
+table.detail-table tbody tr { transition: background .15s; }
+table.detail-table tbody tr:hover { background: color-mix(in srgb, var(--team-color) 4%, transparent); }
 .dt-player a { font-weight: 700; color: var(--text); }
 .dt-player a:hover { color: var(--accent); }
-.dt-player .pos { margin-left: 5px; font-size: 10px; color: var(--text-dim); }
-.dt-champ { font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dt-player-line { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.dt-pos { width: 21px; height: 21px; flex: 0 0 21px; color: var(--text-dim); }
+.dt-pos svg { display: block; width: 100%; height: 100%; fill: currentColor; }
+.dt-champ { text-align: center; white-space: nowrap; }
+.dt-champ .dd-nm { display: none; }
+.dt-champ .dd-ic.champ {
+  width: 44px; height: 44px; margin: 0; border-radius: 6px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--team-color) 45%, var(--line));
+}
 .dt-player { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dt-kda { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .dt-kda b { color: var(--text); }
 .dt-kda em { font-style: normal; color: var(--accent); }
-.dt-items, .dt-runes { font-size: var(--fs-xs); line-height: 1.5; }
+.dt-items, .dt-runes { font-size: var(--fs-xs); line-height: 1; }
+.dt-items { display: flex; align-items: center; flex-wrap: wrap; gap: 3px; }
+.dt-items .dd-ic, .dt-spell .dd-ic { width: 26px; height: 26px; margin: 0; border-radius: 3px; }
+.dt-runes .dd-ic { width: 28px; height: 28px; margin: 0; }
+.dt-trinket { display: inline-flex; margin-left: 3px; padding-left: 6px; border-left: 1px solid var(--line); }
+.dt-dmg-meter { display: grid; gap: 4px; min-width: 70px; }
+.dt-dmg-meter > span { font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+.dt-dmg-meter > i { display: block; height: 6px; background: var(--bg-soft); overflow: hidden; }
+.dt-dmg-meter > i > b {
+  display: block; height: 100%; min-width: 0;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--team-color) 70%, #fff), var(--team-color));
+  transition: width .35s ease;
+}
 /* Data Dragon 인게임 아이콘 (챔피언·스펠·아이템·룬) */
 .dd-ic { width: 22px; height: 22px; vertical-align: middle; border: 1px solid var(--line); background: #000; margin: 1px 2px 1px 0; }
 .dd-ic.rune { border-radius: 50%; background: var(--bg-soft); }
@@ -738,6 +759,10 @@ table.detail-table tr:last-child td { border-bottom: none; }
 .dd-ic.champ { width: 26px; height: 26px; object-fit: cover; object-position: center 22%; border-radius: 3px; }
 .dd-nm { vertical-align: middle; }
 .dd-miss { font-size: var(--fs-xs); color: var(--text-dim); margin-right: 4px; }
+.dd-unknown-ic {
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-dim); background: var(--bg-soft); font: 800 12px/1 sans-serif;
+}
 .poll-ic { flex-shrink: 0; font-size: 12px; }
 
 /* ── 수상 페이지 (POM 포인트 · 시즌 수상) ── */
@@ -1337,11 +1362,12 @@ a.bracket-match:hover { border-color: var(--accent); }
      떨어져 있었다. 네 칸 전부 자리를 못 박는다. */
   table.detail-table tr {
     display: grid; gap: 7px 10px;
-    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     grid-template-areas:
-      "who   who  champ spell"
-      "kda   dmg  cs    gold"
-      "items items items runes";
+      "who   champ spell"
+      "kda   cs    gold"
+      "dmg   dmg   dmg"
+      "items items runes";
     padding: 12px 13px; border-bottom: 1px solid var(--line);
   }
   table.detail-table td { border: none; padding: 0; white-space: normal; }
@@ -1350,7 +1376,7 @@ a.bracket-match:hover { border-color: var(--accent); }
   .dt-champ  { grid-area: champ; align-self: center; }
   .dt-spell  { grid-area: spell; align-self: center; }
   .dt-kda    { grid-area: kda; }
-  .dt-dmg    { grid-area: dmg; }
+  .dt-dmg    { grid-area: dmg; width: 100%; }
   .dt-cs     { grid-area: cs; }
   .dt-gold   { grid-area: gold; justify-self: end; }
   /* 숫자에는 무엇인지 이름표를 단다 (표 머리를 감췄으므로) */
@@ -1360,7 +1386,9 @@ a.bracket-match:hover { border-color: var(--accent); }
   }
   .dt-items  { grid-area: items; }
   .dt-runes  { grid-area: runes; justify-self: end; align-self: center; }
-  .dt-champ .dd-nm { display: none; }
+  .dt-dmg-meter { grid-template-columns: 42px minmax(0, 1fr); align-items: center; gap: 8px; }
+  .dt-dmg-meter > i { height: 7px; }
+  .dt-champ .dd-ic.champ { width: 42px; height: 42px; }
 
   /* 정보창이 화면 밖으로 나가지 않게 — 아이콘이 아니라 **칸**에 맞춰 편다.
      아이콘 기준으로 가운데 정렬하면 줄 끝 아이콘의 정보창이 화면을 넘는다. */
@@ -1372,8 +1400,9 @@ a.bracket-match:hover { border-color: var(--accent); }
   .dt-runes .dd-tip { left: auto; right: 0; }
   .dt-items .dd-tip::after, .dt-runes .dd-tip::after,
   .dt-spell .dd-tip::after, .dt-champ .dd-tip::after { display: none; }
-  .dd-ic { width: 20px; height: 20px; }
-  .dt-player .pos { margin-left: 3px; }
+  .dt-items .dd-ic, .dt-spell .dd-ic { width: 24px; height: 24px; }
+  .dt-runes .dd-ic { width: 26px; height: 26px; }
+  .dt-pos { width: 19px; height: 19px; flex-basis: 19px; }
 }
 
 /* 좁은 화면: 경기 행 압축 (시간 · 팀 · 예측%) */
