@@ -243,9 +243,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260811h")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260811h")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811h")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260812a")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260812a")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812a")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -295,7 +295,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811h");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812a");
 
   renderTabBar(groupName);
 }
@@ -1311,6 +1311,60 @@ function renderHomeFeature() {
 
 // 가장 가까운 경기 날짜의 모든 경기를 팀 메뉴 바로 위 얇은 바로 보여 준다.
 // LCK는 보통 하루 2경기지만 휴식기·플레이오프의 1경기도 같은 코드로 자연스럽게 처리한다.
+/** 응원팀 고르기 바 — 아직 응원팀을 안 고른 사람에게만 뜨는 얇은 한 줄.
+ *
+ *  왜 큰 온보딩 화면이 아니라 바인가 — 홈 위쪽엔 이미 '오늘의 경기 바'와
+ *  '팀 스트립'이 있다. 세 번째 큰 덩어리를 얹으면 실제 내용이 화면 아래로 밀린다.
+ *  그래서 본문 맨 위에 한 줄만 두고, 고르는 순간 사라지게 한다.
+ *
+ *  비회원도 고를 수 있다 — setFavTeam 이 프로필 없으면 이 브라우저(localStorage)에만
+ *  저장한다. 나중에 가입하면 그때 서버 값이 우선한다(getFavTeam).
+ *
+ *  안 보이는 조건: 이미 골랐거나(중립 '' 포함), 이번 방문에서 '다음에'를 눌렀을 때.
+ */
+function renderFanPickBar(onPick) {
+  const bar = document.getElementById("fanpick-bar");
+  if (!bar) return;
+  // getFavTeam 은 '중립'을 빈 문자열로 돌려준다. null 일 때만 = 한 번도 안 고른 사람.
+  const chosen = typeof getFavTeam === "function" ? getFavTeam() : null;
+  const snoozed = sessionStorage.getItem("nexus_fanpick_snooze") === "1";
+  if (chosen !== null || snoozed) { bar.style.display = "none"; return; }
+
+  bar.style.display = "";
+  bar.innerHTML = `
+    <div class="fanpick-head">
+      <b>어느 팀을 응원하시나요?</b>
+      <span>고르면 그 팀 경기·글이 먼저 보여요 · 가입 안 해도 됩니다</span>
+    </div>
+    <div class="fanpick-teams" role="group" aria-label="응원팀 선택">
+      ${TEAMS.map(t => `
+        <button type="button" class="fanpick-team" data-team="${esc(t.id)}"
+          style="--team-color:${esc(t.color)}" title="${esc(t.name)}">
+          ${teamLogoHTML(t, 22)}<span>${esc(t.abbr)}</span>
+        </button>`).join("")}
+    </div>
+    <button type="button" class="fanpick-skip" id="fanpick-skip">다음에</button>`;
+
+  bar.querySelectorAll(".fanpick-team").forEach(b => b.addEventListener("click", async () => {
+    const id = b.dataset.team;
+    bar.querySelectorAll("button").forEach(x => { x.disabled = true; });
+    const r = await setFavTeam(id);
+    if (r && r.error) {                       // 서버가 막으면(회원 30일 제한 등) 되돌린다
+      alert(r.error);
+      bar.querySelectorAll("button").forEach(x => { x.disabled = false; });
+      return;
+    }
+    bar.style.display = "none";
+    if (typeof onPick === "function") onPick();
+  }));
+  bar.querySelector("#fanpick-skip")?.addEventListener("click", () => {
+    // ⚠ 여기서 setFavTeam("") 을 부르면 안 된다. 그건 '중립'이라는 **실제 선택**이라
+    //   회원이면 서버에 저장되고 30일 잠금까지 먹는다. 이번 방문만 접어 둔다.
+    sessionStorage.setItem("nexus_fanpick_snooze", "1");
+    bar.style.display = "none";
+  });
+}
+
 function renderHomeMatchBar() {
   const strip = document.querySelector(".team-strip");
   if (!strip) return;
@@ -1565,6 +1619,7 @@ async function initHome() {
   await storeReady;
   renderHeader("홈", null);
   const draw = () => {
+    renderFanPickBar(draw);   // 팀을 고르면 내 팀 기준으로 홈을 다시 그린다
     renderHomeMatchBar();
     renderHomeFeature();
     renderHotPosts();

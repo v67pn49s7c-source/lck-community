@@ -1,8 +1,33 @@
 # P0 하드닝 운영 적용 안내
 
-기준 브랜치: `p0-hardening`
-최신 커밋 기준: `2798987`
-이 문서의 SQL 보강은 아직 로컬 미커밋 상태이며, 운영 DB·Vercel·원격 저장소에는 적용하지 않았다.
+> ## ⚠️ 이 문서는 **이미 실행된 작업의 기록**입니다 (2026-08-11 확인)
+>
+> 아래 "운영 적용 순서"는 **지나간 절차**입니다. 다시 실행하는 문서가 아닙니다.
+> 특히 **schema23 백필**과 **세트 win a↔b 뒤집기(backfill_p0_setwin.sql)** 는
+> 되돌리기 어려운 파괴적 작업이며 **이미 운영에 적용됐습니다.**
+> 재실행하지 마세요. 되돌려야 한다면 아래 "롤백" 절만 보십시오.
+>
+> **2026-08-11 운영 실측 결과**
+>
+> | 항목 | 상태 | 확인 방법 |
+> |---|---|---|
+> | 코드 (`main` = `ee19140`) | **배포 완료** — Vercel Production Ready | 운영 자산 `?v=20260812a` |
+> | `schema22` (is_official·create_member_poll) | **적용 완료** | `posts.is_official` 조회 성공, RPC 호출 시 `42501`(권한거부) |
+> | `schema23` (공식 경기방 백필·유니크 인덱스) | **적용 완료** | `is_official=true` 글 38개 |
+> | `schema24` (경기 원자 저장 RPC) | **적용 완료** | RPC 호출 시 `42501`, 8/11 수집에서 세트 20개 저장·경고 0 |
+> | 세트 win 뒤집힘 backfill | **적용 완료** | m8·m1·m7 등 세트 win이 최종 스코어와 일치, 정합성 위반 0 |
+> | `schema25` (FINAL 잠금) | **미확인** | anon 권한으로는 정책 조회 불가 — 아래 확인 SQL 참고 |
+>
+> **schema25 적용 여부 확인용 (읽기 전용):**
+> ```sql
+> select policyname from pg_policies
+>  where schemaname='public' and tablename='polls' and policyname='member_insert_polls';
+> -- 결과가 비어 있으면 schema25 적용 완료(회원 직접 INSERT 제거됨)
+> -- 행이 나오면 아직 TRANSITION 단계 — 코드 배포가 끝났으므로 schema25 실행 가능
+> ```
+
+기준 브랜치: `main` (운영과 동일). 초안이 있던 `p0-hardening` 브랜치는 이미 운영에 반영됐다.
+아래 절차·롤백·백로그는 **기록과 참고용**으로 남긴다.
 
 ## 최근 5개 커밋
 
@@ -212,9 +237,13 @@ FINAL(`schema25`) 뒤 옛 코드로 돌아가면 옛 코드의 직접 INSERT가 
 - soft 404, 팀/선수/게시글 SSR, 완료 경기 `EventCompleted`
 - 데이터 수집 실패·stale 외부 알림
 
-## 변경·적용 상태
+## 변경·적용 상태 (2026-08-11 실측)
 
-- 로컬 파일만 수정
-- 운영 DB 실행 안 함
-- Vercel 배포 안 함
-- Git push/commit 안 함
+- Git commit·push **완료** — 운영 `main` = `ee19140`
+- Vercel 배포 **완료** — Production Ready, 자산 `?v=20260812a`
+- 운영 DB **적용 완료** — `schema22` · `schema23` · `schema24`
+- 세트 win 뒤집힘 backfill **적용 완료** — 대상 경기 정합성 위반 0건
+- `schema25`(FINAL 잠금)만 **미확인** — 위 머리말의 확인 SQL로 판정할 것
+
+> 이 절은 과거에 "아무것도 적용하지 않음"이라고 적혀 있었다. 실제로는 전부 적용된
+> 뒤였고, 그 표기를 믿으면 파괴적 SQL을 재실행할 위험이 있어 실측값으로 바로잡았다.

@@ -17,14 +17,19 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260811h">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260811h">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260812a">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260812a">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260811h">
+  <link rel="stylesheet" href="assets/styles.css?v=20260812a">
 </head>
 <body class="home-redesign">
   <main class="page home-redesign-page">
     <div class="container">
+      <!-- 응원팀 고르기 — 아직 안 고른 사람에게만 잠깐 뜨는 얇은 바.
+           비회원도 고를 수 있고(이 브라우저에 저장), 고르면 바로 사라진다. -->
+      <section class="fanpick-bar" id="fanpick-bar" style="display:none"
+        aria-label="응원팀 고르기"></section>
+
       <section class="card home-feature-card" id="home-feature-card" style="display:none"
         aria-labelledby="home-feature-title">
         <div class="home-feature-copy">
@@ -94,10 +99,10 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260811h"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260811h"></script>
-  <script src="assets/store.js?v=20260811h"></script>
-  <script src="assets/app.js?v=20260811h"></script>
+  <script src="assets/data.js?v=20260812a"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260812a"></script>
+  <script src="assets/store.js?v=20260812a"></script>
+  <script src="assets/app.js?v=20260812a"></script>
   <script>initHome();</script>
 </body>
 </html>

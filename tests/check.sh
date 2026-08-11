@@ -10,7 +10,10 @@ okk() { echo "✓ $1"; }
 # ── ① 자산 버전 통일 — 전 HTML 이 같은 ?v= 를 써야 한다 ─────────────
 # admin.html 이 NUL 때문에 grep 에서 빠져 20260808i 로 남았던 실제 사고의 재발 방지.
 # (버전이 다르면 그 페이지만 30일 캐시된 옛 JS 를 계속 쓴다)
-VERS=$(grep -ahro '?v=[0-9]\{8\}[a-z]' --include="*.html" . | sort -u)
+# ⚠ **git 이 추적하는 HTML 만** 본다. 예전엔 작업 폴더 전체를 훑어서, 배포되지도 않는
+#   미추적 시안 파일(home-preview.html 등)의 옛 버전 때문에 게이트가 붉게 떴다.
+#   붉은 게이트가 일상이 되면 진짜 사고를 놓친다. 배포 대상만 검사한다.
+VERS=$(git ls-files -z '*.html' | xargs -0 grep -aho '?v=[0-9]\{8\}[a-z]' | sort -u)
 NV=$(echo "$VERS" | grep -c .)
 if [ "$NV" -eq 1 ]; then okk "자산 버전 통일: $VERS"
 else bad "자산 버전이 ${NV}가지: $(echo $VERS | tr '\n' ' ')"; fi

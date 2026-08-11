@@ -63,7 +63,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260811h") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260812a") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -284,6 +284,56 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
 .home-h1 .sub { font-size: var(--fs-sm); font-weight: 500; color: var(--text-sub); }
 
 /* ── 홈 개편: 경기 예측 → 게시판 → 순위·일정의 세 단계만 남긴다 ── */
+/* ── 응원팀 고르기 바 (홈 본문 맨 위, 안 고른 사람에게만) ──────────────
+   위쪽 '팀 스트립'과 헷갈리지 않게 일부러 다르게 생겼다 —
+   스트립은 팀 게시판으로 가는 큰 로고 줄, 이쪽은 라벨이 붙은 작은 알약 줄이다. */
+.fanpick-bar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 14px; margin-bottom: 12px;
+  border: 1px solid var(--line); border-left: 3px solid var(--accent);
+  border-radius: 10px; background: var(--bg-soft);
+}
+.fanpick-head { display: flex; flex-direction: column; gap: 1px; flex: 0 0 auto; }
+.fanpick-head b { font-size: var(--fs-md); font-weight: 800; letter-spacing: -0.01em; }
+.fanpick-head span { font-size: var(--fs-xs); color: var(--text-dim); }
+.fanpick-teams {
+  display: flex; align-items: center; gap: 6px; flex: 1 1 320px; min-width: 0;
+  overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.fanpick-teams::-webkit-scrollbar { display: none; }
+.fanpick-team {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px 5px 6px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--bg);
+  color: var(--text-sub); font-weight: 700; font-size: var(--fs-sm);
+}
+.fanpick-team span { line-height: 1; }
+.fanpick-team:hover {
+  color: var(--text); border-color: var(--team-color);
+  transition: color .15s, border-color .15s;
+}
+.fanpick-team:disabled { opacity: .5; cursor: default; }
+.fanpick-skip {
+  flex: 0 0 auto; background: none; border: none; cursor: pointer;
+  color: var(--text-dim); font-size: var(--fs-xs); font-weight: 600;
+  text-decoration: underline; padding: 4px 2px;
+}
+.fanpick-skip:hover { color: var(--text-sub); }
+@media (max-width: 720px) {
+  /* 좁은 화면에선 한 줄에 다 못 들어간다. 그렇다고 셋을 세로로 쌓으면
+     '다음에'가 한 줄을 통째로 먹어 바가 두꺼워진다(실측 133px).
+     그래서 안내와 '다음에'를 같은 줄에 두고, 팀 줄만 아래로 내린다. */
+  .fanpick-bar {
+    display: grid; gap: 7px 10px; padding: 9px 11px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "head skip" "teams teams";
+    align-items: start;
+  }
+  .fanpick-head { grid-area: head; }
+  .fanpick-skip { grid-area: skip; align-self: start; }
+  .fanpick-teams { grid-area: teams; }
+}
+
 .home-match-bar {
   background: var(--card); border-bottom: 1px solid var(--line);
   box-shadow: 0 8px 24px rgba(0, 0, 0, .04);
