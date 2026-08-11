@@ -487,10 +487,10 @@ async function initTeamPage() {
   // 팀마다 다른 주소·제목 (10개 팀 게시판이 한 장으로 합쳐지지 않게)
   setPageIdentity(["team"], {
     title: `${team.name} 팬 게시판 — The Nexus`,
-    desc: `${team.name}(${team.abbr}) 팬들이 모이는 게시판, 공식 유튜브 최신 영상, 창립 팬 100인.`,
+    desc: `${team.name}(${team.abbr}) 팬들이 모이는 게시판, 공식 SNS 최신 콘텐츠, 창립 팬 100인.`,
   });
 
-  renderTeamVideos(team.id);   // 공식 유튜브 최신 영상 (서버 함수가 있을 때만 표시)
+  renderTeamContent(team.id);  // 공식 YouTube · Instagram · X 최신 콘텐츠
 
   const hero = document.getElementById("team-hero");
   hero.style.background = `linear-gradient(120deg, ${team.dark} 0%, #12141b 70%)`;
