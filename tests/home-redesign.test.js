@@ -9,6 +9,9 @@ assert(html.includes('id="home-match-bar"') === false,
   "경기 바는 실제 데이터를 읽은 뒤 JS가 팀 메뉴 위에 만들어야 함");
 assert(html.includes("전체 게시판") && html.includes("최신 글 5개"),
   "홈 본문은 전체 게시판 최신 글 5개를 중심으로 구성해야 함");
+assert(html.includes('id="home-feature-card"') &&
+  html.indexOf('id="home-feature-card"') < html.indexOf('class="home-intro"'),
+  "자동 핵심 경기 카드는 게시판 제목과 분리해 그 위에 둬야 함");
 assert(html.includes('id="standings-body"') && html.includes('id="home-schedule-body"'),
   "사이드바에 순위와 이후 경기 일정이 있어야 함");
 assert(html.indexOf('id="standings-body"') < html.indexOf('id="home-schedule-body"'),
@@ -18,12 +21,22 @@ assert(!html.includes('id="predict-widget"') && !html.includes('id="founding-rac
 
 assert(app.includes("function renderHomeMatchBar()") && app.includes("fmtDayKey(m.at) === day"),
   "가장 가까운 날짜의 경기를 묶는 홈 경기 바가 있어야 함");
+assert(app.includes("function renderHomeFeature()") && app.includes("function homePreviousMeeting(match)"),
+  "핵심 경기 문구는 최근 맞대결 데이터로 자동 교체해야 함");
+assert(app.includes("const shown = pct.n >= 10") && app.includes("home-match-rate-pending"),
+  "표본 10명 전에는 예측 비율을 숨겨야 함");
+assert(app.includes('class="home-match-cta">예측하기</span>'),
+  "상단 경기 바에는 눈에 띄는 예측하기 버튼이 있어야 함");
+assert(!app.includes("...candidates.filter(p => !preferred.includes(p))"),
+  "반응 없는 자동 경기방으로 홈 게시판 다섯 칸을 채우면 안 됨");
 assert(app.includes(".slice(0, 2)") && app.includes(".slice(0, 5)"),
   "경기 바는 하루 최대 2경기, 전체 게시판은 5개를 표시해야 함");
 assert(app.includes('menu: "선수·팀", href: "players.html", label: "선수·팀"'),
   "모바일 하단 메뉴의 마지막 칸은 선수·팀이어야 함");
 assert(css.includes(".home-match-bar") && css.includes(".home-schedule-row"),
   "홈 경기 바와 사이드 일정 스타일이 있어야 함");
+assert(css.includes(".home-match-cta") && !css.includes(".home-match-game time:first-letter"),
+  "예측 버튼은 강조하고 경기 시간은 한 가지 중립색으로 보여야 함");
 assert(/@media \(max-width: 720px\)[\s\S]*?\.main-nav \{ display: none; \}/.test(css),
   "모바일에서는 중복되는 상단 주 메뉴를 숨겨야 함");
 

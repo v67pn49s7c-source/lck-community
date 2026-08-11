@@ -245,9 +245,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260811e")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260811e")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811e")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260811f")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260811f")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811f")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -297,7 +297,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811e");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811f");
 
   renderTabBar(groupName);
 }
@@ -1206,6 +1206,67 @@ function homeDayLabel(at) {
   return `${Number(p.month)}. ${Number(p.day)}. ${HOME_DAY_FMT.format(new Date(at))}`;
 }
 
+// 가장 가까운 경기 날짜의 1~2경기를 홈의 경기 바와 핵심 경기 카드가 함께 사용한다.
+// 한쪽만 별도로 계산하면 새 데이터가 들어온 순간 서로 다른 날짜를 가리킬 수 있다.
+function homeNearestGames() {
+  const now = Date.now();
+  const candidates = sortedMatches().filter(m => knownTeams(m) && m.status !== "done" &&
+    (m.status === "live" || new Date(m.at).getTime() > now));
+  const first = candidates.find(m => m.status === "live") || candidates[0];
+  if (!first) return [];
+  const day = fmtDayKey(first.at);
+  return candidates.filter(m => fmtDayKey(m.at) === day).slice(0, 2);
+}
+
+function homePreviousMeeting(match) {
+  return sortedMatches().filter(m => m.id !== match.id && m.status === "done" &&
+    new Date(m.at).getTime() < new Date(match.at).getTime() &&
+    ((m.a === match.a && m.b === match.b) || (m.a === match.b && m.b === match.a)))
+    .sort((a, b) => new Date(b.at) - new Date(a.at))[0] || null;
+}
+
+function homeFeaturedMatch(games) {
+  // 팬 참여가 있으면 참여가 많은 경기를, 아직 표본이 없으면 늦게 열리는 경기를 고른다.
+  // 특정 팀을 하드코딩하지 않아 10개 팀을 같은 기준으로 다룬다.
+  return games.slice().sort((a, b) => {
+    const voteGap = communityPct(b).n - communityPct(a).n;
+    return voteGap || new Date(b.at) - new Date(a.at);
+  })[0] || null;
+}
+
+function renderHomeFeature() {
+  const card = document.getElementById("home-feature-card");
+  if (!card) return;
+  const match = homeFeaturedMatch(homeNearestGames());
+  if (!match) { card.style.display = "none"; return; }
+
+  const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
+  const prev = homePreviousMeeting(match);
+  let story = `${esc(A.abbr)}와 ${esc(B.abbr)}, 팬들의 선택은 어느 쪽일까요?`;
+  let history = `${homeDayLabel(match.at)} ${fmtHM(match.at)} KST`;
+  if (prev && prev.scoreA !== prev.scoreB) {
+    const winner = prev.scoreA > prev.scoreB ? TEAM_MAP[prev.a] : TEAM_MAP[prev.b];
+    const loser = prev.scoreA > prev.scoreB ? TEAM_MAP[prev.b] : TEAM_MAP[prev.a];
+    const high = Math.max(prev.scoreA, prev.scoreB), low = Math.min(prev.scoreA, prev.scoreB);
+    const days = Math.max(1, Math.round((new Date(match.at) - new Date(prev.at)) / 86400e3));
+    const pp = kstParts(prev.at);
+    story = days <= 14
+      ? `${days}일 만의 재대결, ${esc(loser.abbr)}는 되갚을 수 있을까요?`
+      : `${esc(A.abbr)}와 ${esc(B.abbr)}, 다시 만난 두 팀의 승부입니다.`;
+    history = `${Number(pp.month)}월 ${Number(pp.day)}일 맞대결 ${esc(winner.abbr)} ${high}:${low} 승리`;
+  }
+
+  card.style.display = "";
+  card.querySelector("#home-feature-title").innerHTML = `
+    ${teamLogoHTML(A, 30)}<strong>${esc(A.abbr)}</strong><span>VS</span>
+    <strong>${esc(B.abbr)}</strong>${teamLogoHTML(B, 30)}
+    <time>${match.status === "live" ? "LIVE" : `${homeDayLabel(match.at)} ${fmtHM(match.at)} KST`}</time>`;
+  card.querySelector("#home-feature-story").innerHTML = `<strong>${story}</strong><span>${history}</span>`;
+  const href = `/match/${q(match.id)}`;
+  card.querySelector("#home-feature-predict").href = `${href}#fanpulse-card`;
+  card.querySelector("#home-feature-preview").href = `${href}#preview-card`;
+}
+
 // 가장 가까운 경기 날짜의 모든 경기를 팀 메뉴 바로 위 얇은 바로 보여 준다.
 // LCK는 보통 하루 2경기지만 휴식기·플레이오프의 1경기도 같은 코드로 자연스럽게 처리한다.
 function renderHomeMatchBar() {
@@ -1220,14 +1281,9 @@ function renderHomeMatchBar() {
     strip.before(bar);
   }
 
-  const now = Date.now();
-  const candidates = sortedMatches().filter(m => knownTeams(m) && m.status !== "done" &&
-    (m.status === "live" || new Date(m.at).getTime() > now));
-  const first = candidates.find(m => m.status === "live") || candidates[0];
-  if (!first) { bar.style.display = "none"; return; }
-  const day = fmtDayKey(first.at);
-  const games = candidates.filter(m => fmtDayKey(m.at) === day).slice(0, 2);
+  const games = homeNearestGames();
   if (!games.length) { bar.style.display = "none"; return; }
+  const first = games[0];
 
   bar.style.display = "";
   bar.dataset.count = String(games.length);
@@ -1241,15 +1297,16 @@ function renderHomeMatchBar() {
         ${games.map(m => {
           const A = TEAM_MAP[m.a], B = TEAM_MAP[m.b];
           const pct = communityPct(m);
-          const a = pct.n > 0 ? pct.a : 50;
-          const b = pct.n > 0 ? pct.b : 50;
+          const shown = pct.n >= 10;
           return `<a class="home-match-game" href="/match/${q(m.id)}"
             aria-label="${fmtHM(m.at)} ${esc(A.abbr)} 대 ${esc(B.abbr)} 승부 예측">
             <time>${m.status === "live" ? "LIVE" : fmtHM(m.at)}</time>
             <span class="home-match-team">${teamLogoHTML(A, 26)}<b>${esc(A.abbr)}</b></span>
-            <span class="home-match-rate"><b>${a}%</b><i><span style="width:${a}%"></span></i><b>${b}%</b></span>
+            ${shown
+              ? `<span class="home-match-rate"><b>${pct.a}%</b><i><span style="width:${pct.a}%"></span></i><b>${pct.b}%</b></span>`
+              : `<span class="home-match-rate home-match-rate-pending">${pct.n ? `${pct.n}명 참여` : "예측 대기"}</span>`}
             <span class="home-match-team right"><b>${esc(B.abbr)}</b>${teamLogoHTML(B, 26)}</span>
-            <em>예측 ›</em>
+            <span class="home-match-cta">예측하기</span>
           </a>`;
         }).join("")}
       </div>
@@ -1301,20 +1358,22 @@ function renderHotPosts() {
     const autoRoom = !!p.match_id || /^\[경기 토론\]/.test(String(p.title || "").trim());
     return !autoRoom || p.up >= 2 || p.comments.length >= 1;
   });
-  // 양질의 글이 다섯 개보다 적을 때만 반응 없는 자동 경기방을 맨 아래 보충한다.
-  // 5개 고정 요구를 지키면서도 빈 자동 글이 정상 글 위로 올라오지 않게 한다.
-  const posts = [...preferred, ...candidates.filter(p => !preferred.includes(p))].slice(0, 5);
+  // 반응 없는 자동 경기방으로 다섯 칸을 억지로 채우면 새 서비스가 더 비어 보인다.
+  // 운영진·회원 콘텐츠가 쌓일 때까지는 실제 의미 있는 글만 최대 5개 보여 준다.
+  const posts = preferred.slice(0, 5);
   if (!posts.length) {
     el.innerHTML = `<div class="empty-note">이 분류의 최신 글이 없습니다 —
       <a href="write.html" style="text-decoration:underline">첫 글을 남겨 보세요</a></div>`;
   } else {
     el.innerHTML = posts.map(p => {
       const t = p.team ? TEAM_MAP[p.team] : null;
+      const stats = [p.up > 0 ? `<b>▲ ${p.up}</b>` : "", p.comments.length > 0 ? `<span>댓글 ${p.comments.length}</span>` : ""]
+        .filter(Boolean).join("");
       return `
       <a class="home-post-row" href="post.html?id=${q(p.id)}">
         <span class="home-board-name" style="--home-team:${t ? t.color : "var(--accent)"}">${t ? esc(t.abbr) : "전체"}</span>
         <span class="home-post-copy"><strong>${esc(p.title)}</strong><small>${esc(p.nick)} · ${fmtAgo(p.ts)}</small></span>
-        <span class="home-post-stats"><b>▲ ${p.up}</b><span>댓글 ${p.comments.length}</span></span>
+        ${stats ? `<span class="home-post-stats">${stats}</span>` : ""}
       </a>`;
     }).join("");
   }
@@ -1361,8 +1420,9 @@ function renderHomePulse() {
 
   card.style.display = "";
   card.querySelector("#home-pulse-question").textContent = poll.question;
-  card.querySelector("#home-pulse-votes").innerHTML = ranked.map(x =>
-    `<span><b>${esc(x.label)}</b> ${total ? Math.round(x.n / total * 100) : 0}%</span>`).join("");
+  card.querySelector("#home-pulse-votes").innerHTML = total >= 10
+    ? ranked.map(x => `<span><b>${esc(x.label)}</b> ${Math.round(x.n / total * 100)}%</span>`).join("")
+    : `<span><b>${total ? `${total}명 참여` : "집계 준비 중"}</b></span>`;
   const link = card.querySelector("#home-pulse-link");
   link.href = match ? `/match/${q(match.id)}` : poll.post_id ? `post.html?id=${q(poll.post_id)}` : "community.html";
 }
@@ -1464,6 +1524,7 @@ async function initHome() {
   renderHeader("홈", null);
   const draw = () => {
     renderHomeMatchBar();
+    renderHomeFeature();
     renderHotPosts();
     renderHomeUpcomingSchedule();
     renderHomePulse();

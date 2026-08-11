@@ -17,14 +17,27 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260811e">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260811e">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260811f">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260811f">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260811e">
+  <link rel="stylesheet" href="assets/styles.css?v=20260811f">
 </head>
 <body class="home-redesign">
   <main class="page home-redesign-page">
     <div class="container">
+      <section class="card home-feature-card" id="home-feature-card" style="display:none"
+        aria-labelledby="home-feature-title">
+        <div class="home-feature-copy">
+          <span class="home-feature-kicker">오늘의 핵심 경기</span>
+          <h2 id="home-feature-title"></h2>
+          <p id="home-feature-story"></p>
+        </div>
+        <div class="home-feature-actions">
+          <a class="btn-primary" id="home-feature-predict" href="predict.html">승부 예측하기</a>
+          <a class="btn-secondary" id="home-feature-preview" href="matches.html">관전 포인트</a>
+        </div>
+      </section>
+
       <div class="home-intro">
         <h1>LCK 팬 커뮤니티</h1>
         <p>다음 경기, 순위, 팬들의 이야기를 가장 빠르게 확인하세요.</p>
@@ -81,10 +94,10 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260811e"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260811e"></script>
-  <script src="assets/store.js?v=20260811e"></script>
-  <script src="assets/app.js?v=20260811e"></script>
+  <script src="assets/data.js?v=20260811f"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260811f"></script>
+  <script src="assets/store.js?v=20260811f"></script>
+  <script src="assets/app.js?v=20260811f"></script>
   <script>initHome();</script>
 </body>
 </html>
