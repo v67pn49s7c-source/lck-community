@@ -2,49 +2,263 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="description" content="2026 LCK 전 선수 명단과 최근 팬 평점. 선수를 누르면 육각형 지표와 시즌 기록을 볼 수 있습니다.">
+  <meta name="description" content="LCK 선수 검색, 팀·포지션 필터, 최근 평점 상승 선수, 다음 경기 맞대결과 동일 포지션 육각형 비교.">
   <link rel="canonical" href="https://lck-community.vercel.app/players.html">
   <meta property="og:url" content="https://lck-community.vercel.app/players.html">
   <meta property="og:site_name" content="The Nexus">
   <meta property="og:locale" content="ko_KR">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LCK 선수 목록 — The Nexus</title>
+  <title>LCK 선수·팀 탐색 — The Nexus</title>
   <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
-  <meta property="og:title" content="LCK 선수 목록 — The Nexus">
-  <meta property="og:description" content="2026 LCK 전 선수 명단과 최근 팬 평점. 선수를 누르면 육각형 지표와 시즌 기록을 볼 수 있습니다.">
+  <meta property="og:title" content="LCK 선수·팀 탐색 — The Nexus">
+  <meta property="og:description" content="선수를 찾고, 다음 경기 맞대결과 포지션별 육각형 지표를 비교해 보세요.">
   <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/og-default.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260811f">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260811f">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260811g">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260811g">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260811f">
+  <link rel="stylesheet" href="assets/styles.css?v=20260811g">
 </head>
 <body>
   <main class="page">
     <div class="container">
       <div class="page-title-row">
-        <h1 class="page-title">선수 <span class="sub">2026 LCK 로스터 · 카드를 누르면 선수 응원 페이지로</span></h1>
+        <h1 class="page-title">선수·팀 <span class="sub">검색하고, 발견하고, 같은 포지션끼리 비교하세요</span></h1>
+      </div>
+
+      <section class="card player-finder" aria-labelledby="player-finder-title">
+        <div class="card-head">
+          <h2 class="card-title" id="player-finder-title">선수 찾기 <span class="sub">2026 LCK 등록 선수</span></h2>
+        </div>
+        <div class="player-filter-bar">
+          <label class="player-filter-field player-search-field">
+            <span>선수 검색</span>
+            <input id="player-search" type="search" placeholder="닉네임 또는 이름" autocomplete="off" aria-describedby="player-result-count">
+          </label>
+          <label class="player-filter-field">
+            <span>팀</span>
+            <select id="player-team-filter" aria-label="팀 필터"></select>
+          </label>
+          <div class="player-position-filter" role="group" aria-label="포지션 필터">
+            <span class="filter-label">포지션</span>
+            <div class="chip-row" id="player-position-buttons">
+              <button type="button" class="active" data-role="ALL" aria-pressed="true">전체</button>
+              <button type="button" data-role="TOP" aria-pressed="false">탑</button>
+              <button type="button" data-role="JGL" aria-pressed="false">정글</button>
+              <button type="button" data-role="MID" aria-pressed="false">미드</button>
+              <button type="button" data-role="ADC" aria-pressed="false">원딜</button>
+              <button type="button" data-role="SUP" aria-pressed="false">서폿</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="player-discovery-grid">
+        <section class="card discovery-card" aria-labelledby="rating-risers-title">
+          <div class="card-head">
+            <h2 class="card-title" id="rating-risers-title">이번 주 평점 상승 <span class="sub">최근 두 경기 팬 평점 비교</span></h2>
+          </div>
+          <div id="rating-risers" class="discovery-list"></div>
+        </section>
+        <section class="card discovery-card" aria-labelledby="fan-interest-title">
+          <div class="card-head">
+            <h2 class="card-title" id="fan-interest-title">팬 관심 선수 <span class="sub">평점 참여·POM 기준</span></h2>
+          </div>
+          <div id="fan-interest" class="discovery-list"></div>
+        </section>
+      </div>
+
+      <section class="card matchup-card" aria-labelledby="next-matchup-title">
+        <div class="card-head">
+          <h2 class="card-title" id="next-matchup-title">다음 경기 주요 맞대결 <span class="sub" id="next-matchup-meta"></span></h2>
+          <a class="card-more" id="next-matchup-link" href="schedule.html">전체 일정 ›</a>
+        </div>
+        <div id="next-matchups" class="matchup-lanes"></div>
+      </section>
+
+      <section class="card compare-card" aria-labelledby="compare-title">
+        <div class="card-head">
+          <h2 class="card-title" id="compare-title">육각형 비교하기 <span class="sub">동일 포지션 백분위 비교</span></h2>
+        </div>
+        <div class="compare-controls">
+          <label><span>선수 A</span><select id="compare-player-a"></select></label>
+          <span class="compare-vs" aria-hidden="true">VS</span>
+          <label><span>선수 B</span><select id="compare-player-b"></select></label>
+        </div>
+        <div id="player-compare-result" class="compare-result"></div>
+      </section>
+
+      <div class="page-title-row roster-results-title">
+        <h2 class="page-title">전체 선수 <span class="sub" id="player-result-count" aria-live="polite"></span></h2>
       </div>
       <div id="rosters"></div>
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260811f"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260811f"></script>
-  <script src="assets/store.js?v=20260811f"></script>
-  <script src="assets/app.js?v=20260811f"></script>
-  <script src="assets/player-photos.js?v=20260811f"></script>
+  <script src="assets/data.js?v=20260811g"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260811g"></script>
+  <script src="assets/store.js?v=20260811g"></script>
+  <script src="assets/app.js?v=20260811g"></script>
+  <script src="assets/player-photos.js?v=20260811g"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("선수", null);
 
+    const roleNames = { TOP: "탑", JGL: "정글", MID: "미드", ADC: "원딜", SUP: "서폿" };
+    const search = document.getElementById("player-search");
+    const teamFilter = document.getElementById("player-team-filter");
+    const roleButtons = [...document.querySelectorAll("#player-position-buttons button")];
+    let selectedRole = "ALL";
+
+    function playerCompactRow(p, rightHTML) {
+      const t = TEAM_MAP[p.team] || { abbr: p.team || "-", color: "var(--accent)" };
+      return `<a class="discovery-player" href="player.html?id=${q(p.id)}" style="--team-color:${t.color}">
+        ${playerAvatarHTML(p, t.color, false)}
+        <span class="discovery-player-name"><b>${esc(p.nick)}</b><small>${esc(t.abbr)} · ${esc(p.pos)}</small></span>
+        <span class="discovery-player-stat">${rightHTML}</span>
+      </a>`;
+    }
+
+    function ratingRisers() {
+      const weekAgo = Date.now() - 7 * 86400000;
+      return getPlayers().map(p => {
+        const h = matchRatingsForPlayer(p.id);
+        if (h.length < 2 || !h[0].at || new Date(h[0].at).getTime() < weekAgo) return null;
+        return { p, latest: h[0], previous: h[1], delta: Number((h[0].avg - h[1].avg).toFixed(1)) };
+      }).filter(x => x && x.delta > 0)
+        .sort((a, b) => b.delta - a.delta || b.latest.n - a.latest.n).slice(0, 5);
+    }
+
+    function drawDiscoveryLists() {
+      const risers = ratingRisers();
+      document.getElementById("rating-risers").innerHTML = risers.length
+        ? risers.map(x => playerCompactRow(x.p,
+          `<b class="stat-up">+${x.delta.toFixed(1)}</b><small>${x.previous.avg.toFixed(1)} → ${x.latest.avg.toFixed(1)}</small>`)).join("")
+        : `<p class="discovery-empty">최근 7일 안에 비교 가능한 평점 데이터가 아직 없습니다.</p>`;
+
+      const interest = getPlayers().map(p => {
+        const votes = matchRatingsForPlayer(p.id).reduce((n, r) => n + Number(r.n || 0), 0);
+        const pom = pomPointsFor(p.id);
+        return { p, votes, pom, score: votes + pom / 20 };
+      }).filter(x => x.votes || x.pom).sort((a, b) => b.score - a.score || b.votes - a.votes).slice(0, 5);
+      document.getElementById("fan-interest").innerHTML = interest.length
+        ? interest.map(x => playerCompactRow(x.p,
+          `<b>${x.votes}명</b><small>평점 참여${x.pom ? ` · POM ${x.pom}pt` : ""}</small>`)).join("")
+        : `<p class="discovery-empty">팬 평점과 POM 데이터가 쌓이면 관심 선수가 표시됩니다.</p>`;
+    }
+
+    function drawMatchups() {
+      const m = nextMatch();
+      const box = document.getElementById("next-matchups");
+      if (!m || !knownTeams(m)) {
+        document.getElementById("next-matchup-meta").textContent = "예정된 경기 없음";
+        box.innerHTML = `<p class="discovery-empty">다음 대진이 등록되면 포지션별 맞대결을 보여드립니다.</p>`;
+        return;
+      }
+      const a = TEAM_MAP[m.a], b = TEAM_MAP[m.b];
+      document.getElementById("next-matchup-meta").textContent = `${fmtWhen(m.at)} · ${a.abbr} vs ${b.abbr}`;
+      document.getElementById("next-matchup-link").href = `live.html?match=${q(m.id)}`;
+      document.getElementById("next-matchup-link").textContent = "경기 보기 ›";
+      box.innerHTML = Object.keys(roleNames).map(role => {
+        const pa = teamPlayers(a.id).find(p => radarRole(p.pos) === role);
+        const pb = teamPlayers(b.id).find(p => radarRole(p.pos) === role);
+        if (!pa && !pb) return "";
+        const side = (p, t) => p
+          ? `<a href="player.html?id=${q(p.id)}">${playerAvatarHTML(p, t.color, false)}<b>${esc(p.nick)}</b></a>`
+          : `<span class="matchup-tbd">미정</span>`;
+        return `<div class="matchup-lane" style="--team-a:${a.color};--team-b:${b.color}">
+          ${side(pa, a)}<span class="matchup-role">${roleNames[role]}</span>${side(pb, b)}
+        </div>`;
+      }).join("");
+    }
+
+    function comparablePlayers() {
+      // 목록을 만들 때 선수마다 전체 동포지션 백분위를 다시 계산하면 선수 수의 제곱만큼
+      // 경기 기록을 순회한다. 여기서는 출전 기록 유무만 한 번씩 확인하고, 선택된 두 명만
+      // 아래 drawComparison에서 실제 백분위를 계산한다.
+      const withData = getPlayers().filter(p => {
+        const stats = playerAggregate(p.id, null);
+        return stats && stats.sets > 0;
+      });
+      return withData.length >= 2 ? withData : getPlayers();
+    }
+
+    function optionHTML(p) {
+      const t = TEAM_MAP[p.team];
+      return `<option value="${esc(p.id)}">${esc(t ? t.abbr : p.team)} · ${esc(p.nick)} (${esc(p.pos)})</option>`;
+    }
+
+    function drawComparison() {
+      const pa = getPlayer(document.getElementById("compare-player-a").value);
+      const pb = getPlayer(document.getElementById("compare-player-b").value);
+      const out = document.getElementById("player-compare-result");
+      if (!pa || !pb || radarRole(pa.pos) !== radarRole(pb.pos)) {
+        out.innerHTML = `<p class="discovery-empty">같은 포지션 선수 두 명을 선택해 주세요.</p>`;
+        return;
+      }
+      const a = radarData(pa.id, null), b = radarData(pb.id, null);
+      if (!a || !b) {
+        out.innerHTML = `<p class="discovery-empty">비교할 경기 기록이 아직 부족합니다.</p>`;
+        return;
+      }
+      const ta = TEAM_MAP[pa.team], tb = TEAM_MAP[pb.team];
+      out.innerHTML = `<div class="compare-chart">${radarCompareSVG(a.axes, b.axes, { aName: pa.nick, bName: pb.nick })}</div>
+        <div class="compare-summary">
+          <div class="compare-legend"><span class="player-a"><i></i>${esc(pa.nick)} · ${esc(ta ? ta.abbr : pa.team)}</span>
+            <span class="player-b"><i></i>${esc(pb.nick)} · ${esc(tb ? tb.abbr : pb.team)}</span></div>
+          ${a.axes.map((ax, i) => `<div class="compare-axis"><span>${esc(ax.label)}</span>
+            <b class="player-a">${ax.score}</b><em>:</em><b class="player-b">${b.axes[i].score}</b></div>`).join("")}
+          <p>각 점수는 전체가 아닌 <b>동일 포지션 선수 사이의 백분위</b>입니다.</p>
+        </div>`;
+    }
+
+    function refreshSecondPlayer(preferred) {
+      const all = comparablePlayers();
+      const a = getPlayer(document.getElementById("compare-player-a").value) || all[0];
+      const same = all.filter(p => p.id !== a.id && radarRole(p.pos) === radarRole(a.pos));
+      const bSelect = document.getElementById("compare-player-b");
+      bSelect.innerHTML = same.map(optionHTML).join("");
+      if (preferred && same.some(p => p.id === preferred)) bSelect.value = preferred;
+      drawComparison();
+    }
+
+    function setupComparison() {
+      const all = comparablePlayers();
+      const upcoming = nextMatch();
+      let pair = null;
+      if (upcoming && knownTeams(upcoming)) {
+        for (const role of ["MID", "JGL", "TOP", "ADC", "SUP"]) {
+          const a = teamPlayers(upcoming.a).find(p => radarRole(p.pos) === role);
+          const b = teamPlayers(upcoming.b).find(p => radarRole(p.pos) === role);
+          if (a && b && all.some(p => p.id === a.id) && all.some(p => p.id === b.id)) { pair = [a, b]; break; }
+        }
+      }
+      if (!pair) {
+        const a = all[0];
+        const b = a && all.find(p => p.id !== a.id && radarRole(p.pos) === radarRole(a.pos));
+        pair = a && b ? [a, b] : [];
+      }
+      const aSelect = document.getElementById("compare-player-a");
+      aSelect.innerHTML = all.map(optionHTML).join("");
+      if (pair[0]) aSelect.value = pair[0].id;
+      refreshSecondPlayer(pair[1] && pair[1].id);
+    }
+
     function drawRosters() {
+    const term = search.value.trim().toLocaleLowerCase("ko-KR");
+    const teamId = teamFilter.value;
+    let shown = 0;
     document.getElementById("rosters").innerHTML = TEAMS.map(t => {
-      const players = teamPlayers(t.id);
+      if (teamId && t.id !== teamId) return "";
+      const players = teamPlayers(t.id).filter(p => {
+        if (selectedRole !== "ALL" && radarRole(p.pos) !== selectedRole) return false;
+        return !term || [p.nick, p.name, p.pos, t.name, t.abbr].some(v => String(v || "").toLocaleLowerCase("ko-KR").includes(term));
+      });
       if (!players.length) return "";
+      shown += players.length;
       return `
       <section class="card" style="margin-bottom:14px">
         <div class="card-head">
@@ -68,11 +282,31 @@
         </div>
       </section>`;
     }).join("");
+    document.getElementById("player-result-count").textContent = `${shown}명`;
+    if (!shown) document.getElementById("rosters").innerHTML = `<section class="card discovery-empty roster-empty">조건에 맞는 선수가 없습니다.</section>`;
     }
-    drawRosters();
+
+    teamFilter.innerHTML = `<option value="">전체 팀</option>` + TEAMS.map(t => `<option value="${t.id}">${t.abbr} · ${t.name}</option>`).join("");
+    search.addEventListener("input", drawRosters);
+    teamFilter.addEventListener("change", drawRosters);
+    roleButtons.forEach(btn => btn.addEventListener("click", () => {
+      selectedRole = btn.dataset.role;
+      roleButtons.forEach(x => { const on = x === btn; x.classList.toggle("active", on); x.setAttribute("aria-pressed", String(on)); });
+      drawRosters();
+    }));
+    document.getElementById("compare-player-a").addEventListener("change", () => refreshSecondPlayer());
+    document.getElementById("compare-player-b").addEventListener("change", drawComparison);
+
+    function drawAll() {
+      drawDiscoveryLists();
+      drawMatchups();
+      setupComparison();
+      drawRosters();
+    }
+    drawAll();
     // 저장된 사본으로 먼저 그리고, 서버 자료가 도착하면 한 번 더 그린다.
     // 이게 없으면 다시 찾아온 사람은 늘 '지난번 자료'를 본다. (2026-08-07)
-    storeFresh.then(drawRosters).catch(() => {});
+    storeFresh.then(drawAll).catch(() => {});
 
     renderFooter();
   

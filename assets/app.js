@@ -15,11 +15,9 @@ const TEAM_LOGO_LIGHT = { bro: 1, dk: 1, dns: 1, krx: 1, hle: 1 };
 
 function teamLogoHTML(team, size) {
   const s = size || 24;
-  const cut = Math.max(4, Math.round(s * 0.2));
   const light = TEAM_LOGO_LIGHT[team.id]
     ? `<img class="lg-light" src="assets/logos/${encodeURIComponent(team.id + " light")}.svg" alt="">` : "";
-  return `<span class="team-logo${light ? " has-light" : ""}" style="width:${s}px;height:${s}px;
-    clip-path:polygon(0 0, 100% 0, 100% calc(100% - ${cut}px), calc(100% - ${cut}px) 100%, 0 100%);">
+  return `<span class="team-logo${light ? " has-light" : ""}" style="width:${s}px;height:${s}px">
     <img class="lg-dark" src="assets/logos/${team.id}.svg" alt="${team.abbr} 로고">${light}</span>`;
 }
 
@@ -245,9 +243,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260811f")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260811f")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811f")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260811g")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260811g")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811g")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -297,7 +295,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811f");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811g");
 
   renderTabBar(groupName);
 }
@@ -335,6 +333,41 @@ function radarSVG(axes, opts) {
     <polygon class="rd-me" points="${poly(axes.map(a => a.score), 1)}"/>
     ${axes.map((ax, i) => { const [x, y] = pt(i, R * Math.max(0.04, ax.score / 100));
       return `<circle class="rd-dot" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3"/>`; }).join("")}
+    ${labels}
+  </svg>`;
+}
+
+// 같은 포지션 두 선수 비교용 육각형. 포지션별 축 자체가 다르므로 호출하는 화면에서
+// 반드시 동일 포지션 선수만 넘긴다. 회색 평균 대신 두 선수의 실제 백분위를 겹쳐 본다.
+function radarCompareSVG(aAxes, bAxes, opts) {
+  const o = opts || {};
+  const size = o.size || 300, c = size / 2, R = c - 48;
+  const n = aAxes.length;
+  const pt = (i, r) => {
+    const ang = (Math.PI * 2 * i) / n - Math.PI / 2;
+    return [c + Math.cos(ang) * r, c + Math.sin(ang) * r];
+  };
+  const points = axes => axes.map((ax, i) =>
+    pt(i, R * Math.max(.04, Number(ax.score || 0) / 100)).map(x => x.toFixed(1)).join(",")).join(" ");
+  const rings = [1, .75, .5, .25].map(f =>
+    `<polygon points="${aAxes.map((_, i) => pt(i, R * f).map(x => x.toFixed(1)).join(",")).join(" ")}"
+      fill="${f === 1 ? "var(--bg-soft)" : "none"}" stroke="var(--line)" stroke-width="1"/>`).join("");
+  const spokes = aAxes.map((_, i) =>
+    `<line x1="${c}" y1="${c}" x2="${pt(i, R)[0].toFixed(1)}" y2="${pt(i, R)[1].toFixed(1)}" stroke="var(--line)"/>`).join("");
+  const labels = aAxes.map((ax, i) => {
+    const [x, y] = pt(i, R + 24);
+    const anchor = Math.abs(x - c) < 6 ? "middle" : (x > c ? "start" : "end");
+    const b = bAxes[i] || { score: 0 };
+    return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}"
+      dominant-baseline="middle" class="rd-label">${esc(ax.label)}
+      <tspan x="${x.toFixed(1)}" dy="14" class="rd-compare-score">${ax.score} · ${b.score}</tspan></text>`;
+  }).join("");
+  const aName = esc(o.aName || "선수 A"), bName = esc(o.bName || "선수 B");
+  return `<svg class="radar radar-compare" viewBox="0 0 ${size} ${size}" role="img"
+    aria-label="${aName}와 ${bName}의 동일 포지션 육각형 비교">
+    ${rings}${spokes}
+    <polygon class="rd-player-b" points="${points(bAxes)}"/>
+    <polygon class="rd-player-a" points="${points(aAxes)}"/>
     ${labels}
   </svg>`;
 }

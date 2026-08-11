@@ -5,6 +5,7 @@ const vm = require("vm");
 const store = fs.readFileSync("assets/store.js", "utf8");
 const app = fs.readFileSync("assets/app.js", "utf8");
 const playerPage = fs.readFileSync("player.html", "utf8");
+const playersPage = fs.readFileSync("players.html", "utf8");
 
 const start = store.indexOf("function radarRole");
 const end = store.indexOf("// 선수의 경기별 평점 목록", start);
@@ -85,5 +86,18 @@ assert(store.includes('grubs: 1 / 3') && store.includes('barons: 1.5'),
 assert(app.includes("포지션 백분위"), "막대 설명이 포지션 백분위임을 밝혀야 함");
 assert(playerPage.includes("@15·로밍 동선·솔로킬처럼 원본에 없는 값"),
   "제공되지 않는 원본 지표의 대체 계산을 투명하게 설명해야 함");
+assert(app.includes("function radarCompareSVG"), "동일 포지션 선수 육각형 비교 렌더러가 있어야 함");
+assert(playersPage.includes('id="player-search"') && playersPage.includes('id="player-team-filter"'),
+  "선수 검색과 팀 필터가 있어야 함");
+assert(playersPage.includes('id="player-position-buttons"') && playersPage.includes('data-role="SUP"'),
+  "모든 포지션을 고르는 필터가 있어야 함");
+assert(playersPage.includes("이번 주 평점 상승") && playersPage.includes("matchRatingsForPlayer"),
+  "최근 두 경기의 실제 팬 평점으로 상승 선수를 찾아야 함");
+assert(playersPage.includes("팬 관심 선수") && playersPage.includes("평점 참여·POM 기준"),
+  "전역 조회 로그 없이 임의의 많이 본 순위를 만들지 않고 관심도 기준을 밝혀야 함");
+assert(playersPage.includes("다음 경기 주요 맞대결") && playersPage.includes("teamPlayers(upcoming.a)"),
+  "다음 경기 로스터로 포지션 맞대결을 구성해야 함");
+assert(playersPage.includes("radarRole(pa.pos) !== radarRole(pb.pos)"),
+  "포지션이 다른 선수의 서로 다른 축을 직접 비교하면 안 됨");
 
 console.log("✓ 포지션별 선수 육각형 지표 회귀 테스트 통과");

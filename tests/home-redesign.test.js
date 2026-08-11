@@ -37,6 +37,12 @@ assert(css.includes(".home-match-bar") && css.includes(".home-schedule-row"),
   "홈 경기 바와 사이드 일정 스타일이 있어야 함");
 assert(css.includes(".home-match-cta") && !css.includes(".home-match-game time:first-letter"),
   "예측 버튼은 강조하고 경기 시간은 한 가지 중립색으로 보여야 함");
+assert(css.includes("grid-template-columns: 126px minmax(0, 1fr)") &&
+  css.includes("grid-template-columns: 38px auto minmax(90px, 1fr) auto auto"),
+  "날짜 칸은 줄이고 예측 버튼 열은 내용 너비에 맞춰 경계를 침범하지 않아야 함");
+assert(css.includes("background: transparent; border: 0; clip-path: none") &&
+  !app.slice(app.indexOf("function teamLogoHTML"), app.indexOf("function placeholderLogoHTML")).includes("clip-path"),
+  "실제 팀 로고에는 배경 타일·테두리·각진 잘라내기를 사용하지 않아야 함");
 assert(/@media \(max-width: 720px\)[\s\S]*?\.main-nav \{ display: none; \}/.test(css),
   "모바일에서는 중복되는 상단 주 메뉴를 숨겨야 함");
 
