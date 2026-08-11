@@ -31,6 +31,8 @@ assert(app.includes("DRAKE_ICON_ROOT") && app.includes("dragon_elder.png"),
 assert(app.includes("✦</span> 영혼"), "드래곤 4마리 획득 팀에는 영혼을 명시해야 함");
 assert(css.includes("#board-root table.board-table tr") && css.includes("grid-template-columns: 64px minmax(0, 1fr) 38px"),
   "모바일 팀 게시판 행은 화면 폭 안의 3열 카드로 바뀌어야 함");
+assert(/@media \(max-width: 960px\)[\s\S]*?#board-root table\.board-table tr[\s\S]*?grid-template-columns: 72px minmax\(0, 1fr\) 52px/.test(css),
+  "중간 폭 팀 게시판도 분류·제목·추천 3열로 전체 폭을 사용해야 함");
 
 const xml = `
 <feed>

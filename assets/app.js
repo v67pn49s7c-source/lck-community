@@ -243,9 +243,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260811g")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260811g")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811g")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260811h")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260811h")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811h")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -295,7 +295,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811g");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260811h");
 
   renderTabBar(groupName);
 }
@@ -1288,6 +1288,15 @@ function renderHomeFeature() {
       : `${esc(A.abbr)}와 ${esc(B.abbr)}, 다시 만난 두 팀의 승부입니다.`;
     history = `${Number(pp.month)}월 ${Number(pp.day)}일 맞대결 ${esc(winner.abbr)} ${high}:${low} 승리`;
   }
+  // 운영자가 잡은 관전 문구는 저장 당시의 경기에서만 쓴다. 다음 경기로 넘어가면
+  // 자동 문구로 복귀하므로 어제의 리벤지 카피가 다른 대진에 남지 않는다.
+  try {
+    const custom = JSON.parse(getSetting("home_feature_copy") || "{}");
+    if (custom.match_id === match.id && String(custom.title || "").trim()) {
+      story = esc(String(custom.title).trim());
+      history = esc(String(custom.subtitle || "").trim()) || history;
+    }
+  } catch {}
 
   card.style.display = "";
   card.querySelector("#home-feature-title").innerHTML = `
@@ -1339,7 +1348,7 @@ function renderHomeMatchBar() {
               ? `<span class="home-match-rate"><b>${pct.a}%</b><i><span style="width:${pct.a}%"></span></i><b>${pct.b}%</b></span>`
               : `<span class="home-match-rate home-match-rate-pending">${pct.n ? `${pct.n}명 참여` : "예측 대기"}</span>`}
             <span class="home-match-team right"><b>${esc(B.abbr)}</b>${teamLogoHTML(B, 26)}</span>
-            <span class="home-match-cta">예측하기</span>
+            <span class="home-match-cta"><span class="home-match-cta-long">예측하기</span><span class="home-match-cta-short">예측</span></span>
           </a>`;
         }).join("")}
       </div>

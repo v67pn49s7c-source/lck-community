@@ -89,6 +89,8 @@ assert(playerPage.includes("@15·로밍 동선·솔로킬처럼 원본에 없는
 assert(app.includes("function radarCompareSVG"), "동일 포지션 선수 육각형 비교 렌더러가 있어야 함");
 assert(playersPage.includes('id="player-search"') && playersPage.includes('id="player-team-filter"'),
   "선수 검색과 팀 필터가 있어야 함");
+assert(playersPage.includes('id="player-team-buttons"') && playersPage.includes("drawTeamButtons()"),
+  "팀 로고를 고르면 해당 팀 로스터로 즉시 전환되어야 함");
 assert(playersPage.includes('id="player-position-buttons"') && playersPage.includes('data-role="SUP"'),
   "모든 포지션을 고르는 필터가 있어야 함");
 assert(playersPage.includes("이번 주 평점 상승") && playersPage.includes("matchRatingsForPlayer"),
@@ -99,5 +101,11 @@ assert(playersPage.includes("다음 경기 주요 맞대결") && playersPage.inc
   "다음 경기 로스터로 포지션 맞대결을 구성해야 함");
 assert(playersPage.includes("radarRole(pa.pos) !== radarRole(pb.pos)"),
   "포지션이 다른 선수의 서로 다른 축을 직접 비교하면 안 됨");
+assert(playersPage.includes('<aside class="player-insights"') &&
+  playersPage.indexOf("이번 주 평점 상승") > playersPage.indexOf("player-main-column"),
+  "평점 상승과 팬 관심 선수는 선수 명단 옆 보조 영역에 있어야 함");
+assert(playersPage.includes('<details class="card compare-card">') &&
+  playersPage.includes("compare-player-portrait") && playersPage.includes("playerAvatarHTML(p"),
+  "육각형 비교는 접을 수 있는 별도 도구이며 선수 상반신 이미지를 함께 보여야 함");
 
 console.log("✓ 포지션별 선수 육각형 지표 회귀 테스트 통과");

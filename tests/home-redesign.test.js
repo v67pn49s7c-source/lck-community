@@ -23,10 +23,14 @@ assert(app.includes("function renderHomeMatchBar()") && app.includes("fmtDayKey(
   "가장 가까운 날짜의 경기를 묶는 홈 경기 바가 있어야 함");
 assert(app.includes("function renderHomeFeature()") && app.includes("function homePreviousMeeting(match)"),
   "핵심 경기 문구는 최근 맞대결 데이터로 자동 교체해야 함");
+assert(app.includes('getSetting("home_feature_copy")') && app.includes("custom.match_id === match.id"),
+  "관리자 문구는 저장 당시 핵심 경기에만 덮어써야 함");
+assert(html.includes('id="home-feature-story"') && fs.readFileSync("admin.html", "utf8").includes('id="home-copy-admin"'),
+  "관리자 화면에서 홈 핵심 경기 문구를 편집할 수 있어야 함");
 assert(app.includes("const shown = pct.n >= 10") && app.includes("home-match-rate-pending"),
   "표본 10명 전에는 예측 비율을 숨겨야 함");
-assert(app.includes('class="home-match-cta">예측하기</span>'),
-  "상단 경기 바에는 눈에 띄는 예측하기 버튼이 있어야 함");
+assert(app.includes('home-match-cta-long">예측하기') && app.includes('home-match-cta-short">예측'),
+  "상단 경기 바는 넓은 폭과 중간 폭에 맞는 예측 버튼 문구를 가져야 함");
 assert(!app.includes("...candidates.filter(p => !preferred.includes(p))"),
   "반응 없는 자동 경기방으로 홈 게시판 다섯 칸을 채우면 안 됨");
 assert(app.includes(".slice(0, 2)") && app.includes(".slice(0, 5)"),
@@ -38,7 +42,8 @@ assert(css.includes(".home-match-bar") && css.includes(".home-schedule-row"),
 assert(css.includes(".home-match-cta") && !css.includes(".home-match-game time:first-letter"),
   "예측 버튼은 강조하고 경기 시간은 한 가지 중립색으로 보여야 함");
 assert(css.includes("grid-template-columns: 126px minmax(0, 1fr)") &&
-  css.includes("grid-template-columns: 38px auto minmax(90px, 1fr) auto auto"),
+  css.includes("grid-template-columns: 38px auto minmax(90px, 1fr) auto auto") &&
+  /@media \(max-width: 960px\)[\s\S]*?\.home-match-list \{ grid-template-columns: minmax\(0, 1fr\); \}/.test(css),
   "날짜 칸은 줄이고 예측 버튼 열은 내용 너비에 맞춰 경계를 침범하지 않아야 함");
 assert(css.includes("background: transparent; border: 0; clip-path: none") &&
   !app.slice(app.indexOf("function teamLogoHTML"), app.indexOf("function placeholderLogoHTML")).includes("clip-path"),

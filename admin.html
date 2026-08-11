@@ -13,11 +13,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260811g">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260811g">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260811h">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260811h">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260811g">
+  <link rel="stylesheet" href="assets/styles.css?v=20260811h">
 </head>
 <body>
   <main class="page">
@@ -38,6 +38,7 @@
         <button type="button" data-tab="import">데이터 수집</button>
         <a href="cards.html" style="text-decoration:none"><button type="button">카드 스튜디오 ↗</button></a>
         <button type="button" data-tab="streams">중계 링크</button>
+        <button type="button" data-tab="home-copy">홈 문구</button>
         <button type="button" data-tab="logos">로고</button>
         <button type="button" data-tab="audit">참여 점검</button>
         <button type="button" data-tab="info">안내</button>
@@ -288,6 +289,18 @@
         <div class="admin-list" id="stream-match-box"></div>
       </section>
 
+      <!-- 홈 핵심 경기 문구 -->
+      <section class="card admin-panel" data-tab="home-copy">
+        <div class="card-head">
+          <h2 class="card-title">홈 핵심 경기 문구 <span class="sub">현재 핵심 경기에만 적용 · 다음 경기에는 자동 문구로 복귀</span></h2>
+        </div>
+        <div class="admin-form" id="home-copy-admin"></div>
+        <div class="admin-note">
+          경기와 버튼은 일정 데이터에서 자동으로 정해집니다. 여기서는 홈 상단 카드의 <b>관전 제목과 보조 설명만</b>
+          바꿉니다. 저장 당시 경기 ID와 함께 묶이므로 다음 경기로 넘어간 뒤 예전 문구가 잘못 노출되지 않습니다.
+        </div>
+      </section>
+
       <!-- 로고 관리 -->
       <section class="card admin-panel" data-tab="logos">
         <div class="card-head">
@@ -339,13 +352,13 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260811g"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260811g"></script>
-  <script src="assets/invariants.js?v=20260811g"></script>
-  <script src="assets/store.js?v=20260811g"></script>
-  <script src="assets/app.js?v=20260811g"></script>
-  <script src="assets/ddragon.js?v=20260811g"></script>
-  <script src="assets/brackets.js?v=20260811g"></script>
+  <script src="assets/data.js?v=20260811h"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260811h"></script>
+  <script src="assets/invariants.js?v=20260811h"></script>
+  <script src="assets/store.js?v=20260811h"></script>
+  <script src="assets/app.js?v=20260811h"></script>
+  <script src="assets/ddragon.js?v=20260811h"></script>
+  <script src="assets/brackets.js?v=20260811h"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -903,6 +916,51 @@
           resetBrandLogo(slot);
           renderLogoAdmin();
         });
+      });
+    }
+
+    // ── 홈 핵심 경기 문구 ──
+    function renderHomeCopyAdmin() {
+      const el = document.getElementById("home-copy-admin");
+      const match = homeFeaturedMatch(homeNearestGames());
+      let saved = {};
+      try { saved = JSON.parse(getSetting("home_feature_copy") || "{}"); } catch {}
+      if (!match || !knownTeams(match)) {
+        el.innerHTML = `<div class="empty-note">예정된 핵심 경기가 없습니다. 일정이 등록되면 여기서 문구를 편집할 수 있습니다.</div>`;
+        return;
+      }
+      const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
+      const current = saved.match_id === match.id ? saved : {};
+      el.innerHTML = `<div class="row">
+          <label style="flex:1">적용 경기
+            <input value="${esc(`${fmtWhen(match.at)} · ${A.abbr} vs ${B.abbr}`)}" disabled>
+          </label>
+        </div>
+        <div class="row">
+          <label style="flex:1">관전 제목
+            <input id="home-copy-title" maxlength="80" value="${esc(current.title || "")}" placeholder="예: 3일 만의 재대결, KT는 되갚을 수 있을까요?">
+          </label>
+          <label style="flex:1">보조 설명
+            <input id="home-copy-subtitle" maxlength="100" value="${esc(current.subtitle || "")}" placeholder="예: 8월 9일 맞대결 DK 2:1 승리">
+          </label>
+        </div>
+        <div class="row actions">
+          <button class="btn-primary" type="button" id="home-copy-save">홈 문구 저장</button>
+          <button class="btn-secondary" type="button" id="home-copy-reset">자동 문구로 복귀</button>
+        </div>`;
+      document.getElementById("home-copy-save").addEventListener("click", async () => {
+        const title = document.getElementById("home-copy-title").value.trim();
+        const subtitle = document.getElementById("home-copy-subtitle").value.trim();
+        if (!title) { alert("관전 제목을 입력해 주세요."); return; }
+        const r = await setSetting("home_feature_copy", JSON.stringify({ match_id: match.id, title, subtitle }));
+        if (r.error) { alert("저장하지 못했습니다: " + r.error.message); return; }
+        alert("홈 핵심 경기 문구를 저장했습니다.");
+      });
+      document.getElementById("home-copy-reset").addEventListener("click", async () => {
+        const r = await setSetting("home_feature_copy", "");
+        if (r.error) { alert("초기화하지 못했습니다: " + r.error.message); return; }
+        renderHomeCopyAdmin();
+        alert("자동 문구로 되돌렸습니다.");
       });
     }
 
@@ -1707,6 +1765,7 @@
       renderRecords();
       renderPlayers();
       renderDetailEditor();
+      renderHomeCopyAdmin();
       renderLogoAdmin();
       renderStreamAdmin();
       renderAwardAdmin();
