@@ -13,32 +13,75 @@
 --      아무나 최신 글로 공식 토론방을 가로챌 수 있었다.
 --
 -- 고침:
---   · 회원 투표는 직접 INSERT 대신 SECURITY DEFINER RPC 로만 생성
+--   · 새 코드는 SECURITY DEFINER RPC 로 회원 투표를 생성
 --     (match_id 강제 NULL · phase 강제 NULL · 자기 글에만)
+--   · 이 파일에서는 **배포 과도기용** 제한적 직접 INSERT 정책을 잠시 유지
+--     (옛 코드가 RPC 배포 전에 멈추지 않게 함). 코드 배포가 끝나면 반드시
+--     schema25_p0_rpc_only.sql 로 이 정책을 제거해 회원 투표를 RPC 전용으로 잠근다.
 --   · create_post: 비관리자의 match_id 는 무조건 NULL
 --   · posts.is_official 칸 신설 — 공식 경기 토론방 표시는 관리자만
 --
 -- 이 파일은 **여러 번 실행해도 안전**합니다.
 -- ⚠ 공식 토론방 백필과 경기당 1개 유니크 인덱스는 schema23 에 있습니다.
---   반드시 audit_p0 SQL 로 중복·오염을 확인한 뒤 실행하세요.
+--   audit → schema22 → cleanup → schema23 순서로 실행하세요.
 -- ═══════════════════════════════════════════════════════════════════
+
+begin;
 
 -- ── ① 공식 토론방 표시 칸 ──────────────────────────────────────────
 alter table posts add column if not exists is_official boolean not null default false;
 
--- ── ② 회원 투표: 정책 강화 + RPC ─────────────────────────────────
--- 정책을 **지우지 않고 강화**한다. 지우면, 아직 옛 코드가 도는 과도기에
--- 회원 투표(직접 INSERT)가 통째로 막힌다. 강화하면 배포 순서와 무관하게
--- 옛 코드의 정상 투표(match_id 없음)는 통과하고, 흉내(match_id 있음)만 막힌다.
--- RPC(아래)는 그 위에 얹는 이중 방어이자 새 코드의 주 경로다.
+-- 글 생성·수정·삭제는 검증 규칙이 들어 있는 SECURITY DEFINER RPC만 통과시킨다.
+-- 예전 스키마의 insert_posts 정책이나 넓은 table/column grant가 운영 DB에 남아 있어도
+-- match_id·is_official을 직접 써서 공식 경기방을 가로챌 수 없게 ACL부터 닫는다.
+alter table public.posts enable row level security;
+drop policy if exists "insert_posts" on public.posts;
+drop policy if exists "admin_delete_posts" on public.posts;
+revoke insert, update, delete on table public.posts from public, anon, authenticated;
+
+-- PostgreSQL의 column-level grant는 table-level REVOKE만으로 남을 수 있다.
+-- 현재 posts의 모든 칼럼에 붙은 직접 INSERT/UPDATE 권한도 함께 회수한다.
+do $p0_posts_acl$
+declare
+  v_columns text;
+begin
+  select string_agg(quote_ident(a.attname), ', ' order by a.attnum)
+    into v_columns
+    from pg_attribute a
+   where a.attrelid = 'public.posts'::regclass
+     and a.attnum > 0
+     and not a.attisdropped;
+
+  if v_columns is not null then
+    execute format(
+      'revoke insert (%1$s), update (%1$s) on table public.posts from public, anon, authenticated',
+      v_columns
+    );
+  end if;
+end $p0_posts_acl$;
+
+-- ── ② 회원 투표: 과도기 정책 강화 + RPC ──────────────────────────
+-- 정책을 바로 지우면 아직 옛 코드가 도는 동안 회원 투표가 통째로 막힌다.
+-- 그래서 schema22 단계에서는 자기 글·match_id NULL·phase NULL 인 직접 INSERT 만
+-- 임시 허용한다. 이것은 최종 상태가 아니다. 새 코드 배포 후 schema25가 제거한다.
+alter table public.polls enable row level security;
 drop policy if exists "member_insert_polls" on polls;
 create policy "member_insert_polls" on polls for insert to authenticated with check (
   post_id is not null
   and phase is null
   and match_id is null                    -- ★ 공식 경기(match_id)에 못 건다
   and id ~ '^[A-Za-z0-9_-]{1,80}$'
-  and char_length(question) <= 200
+  and char_length(question) between 1 and 200
+  and jsonb_typeof(options) = 'array'
   and jsonb_array_length(options) between 2 and 10
+  and not exists (
+    select 1 from jsonb_array_elements(options) as opt(value)
+     where jsonb_typeof(opt.value) <> 'string'
+        or char_length(btrim(opt.value #>> '{}')) not between 1 and 80
+  )
+  and (select count(*) from jsonb_array_elements(options)) =
+      (select count(distinct btrim(opt.value #>> '{}'))
+         from jsonb_array_elements(options) as opt(value))
   and exists (select 1 from posts where posts.id = polls.post_id
                 and posts.author_id = auth.uid())   -- ★ 자기 글에만
 );
@@ -56,9 +99,28 @@ begin
   if not (coalesce(char_length(p_question), 0) between 1 and 200) then
     raise exception '질문은 1~200자로 입력해 주세요';
   end if;
-  if jsonb_typeof(p_options) is distinct from 'array'
-     or jsonb_array_length(p_options) not between 2 and 10 then
+  if jsonb_typeof(p_options) is distinct from 'array' then
+    raise exception '보기는 JSON 배열이어야 합니다';
+  end if;
+  if jsonb_array_length(p_options) not between 2 and 10 then
     raise exception '보기는 2~10개여야 합니다';
+  end if;
+  if exists (
+    select 1 from jsonb_array_elements(p_options) as opt(value)
+     where jsonb_typeof(opt.value) <> 'string'
+  ) then
+    raise exception '보기는 문자열만 사용할 수 있습니다';
+  end if;
+  if exists (
+    select 1 from jsonb_array_elements(p_options) as opt(value)
+     where char_length(btrim(opt.value #>> '{}')) not between 1 and 80
+  ) then
+    raise exception '각 보기는 공백 제외 1~80자로 입력해 주세요';
+  end if;
+  if (select count(*) from jsonb_array_elements(p_options)) <>
+     (select count(distinct btrim(opt.value #>> '{}'))
+        from jsonb_array_elements(p_options) as opt(value)) then
+    raise exception '중복된 투표 보기는 사용할 수 없습니다';
   end if;
   -- 자기 글에만 붙일 수 있다 (글 실존 + 소유 동시 검사)
   if not exists (select 1 from posts where id = p_post_id and author_id = v_uid) then
@@ -71,6 +133,10 @@ begin
   return jsonb_build_object('id', p_id);
 end $$;
 
+-- PostgreSQL 함수는 새로 만들면 PUBLIC EXECUTE 가 기본으로 붙는다.
+-- 명시적으로 걷어 내지 않으면 anon도 SECURITY DEFINER 함수를 호출할 수 있다.
+revoke execute on function public.create_member_poll(text, text, text, jsonb, boolean, timestamptz)
+  from public, anon, authenticated;
 grant execute on function create_member_poll(text, text, text, jsonb, boolean, timestamptz) to authenticated;
 
 -- ── ③ create_post: 비관리자 match_id 차단 + 관리자만 공식 표시 ────
@@ -137,19 +203,37 @@ begin
   return jsonb_build_object('id', p_id, 'nick', v_nick_out);
 end $$;
 
+revoke execute on function public.create_post(text, text, text, text, text, text, text, text)
+  from public, anon, authenticated;
 grant execute on function create_post(text, text, text, text, text, text, text, text) to anon, authenticated;
 
--- ── ④ update_post 로 공식 표시를 바꿀 수 없는지 확인 ──────────────
---     (schema11 의 update_post 는 title·body·cat 만 갱신하므로 안전 —
---      아래 확인 쿼리로 운영에서도 같은지 검사하세요. 정책 드리프트 가능성 있음)
+-- 새 column/RPC 를 PostgREST가 즉시 알도록 스키마 캐시 갱신을 요청한다.
+-- NOTIFY 자체는 트랜잭션 COMMIT 뒤 전달된다.
+notify pgrst, 'reload schema';
+
+commit;
+
+-- ── ④ 직접 INSERT/UPDATE 차단 + update_post 제한 ──────────────────
+-- schema11의 update_post는 제목·본문만 갱신한다. 위 ACL 회수까지 더해 운영 DB에
+-- 오래된 insert_posts 정책/column grant가 남아 있어도 공식 속성을 직접 쓸 수 없다.
 
 -- ═══ 확인 ═══
 select case
   when exists (select 1 from information_schema.columns
                 where table_name = 'posts' and column_name = 'is_official')
    and exists (select 1 from pg_proc where proname = 'create_member_poll')
+   and not has_any_column_privilege('anon', 'public.posts', 'INSERT')
+   and not has_any_column_privilege('authenticated', 'public.posts', 'INSERT')
+   and not has_any_column_privilege('anon', 'public.posts', 'UPDATE')
+   and not has_any_column_privilege('authenticated', 'public.posts', 'UPDATE')
+   and not has_table_privilege('anon', 'public.posts', 'DELETE')
+   and not has_table_privilege('authenticated', 'public.posts', 'DELETE')
+   and exists (select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace
+                where n.nspname='public' and c.relname='polls' and c.relrowsecurity)
    and exists (select 1 from pg_policies where tablename = 'polls'
-                and policyname = 'member_insert_polls' and with_check like '%match_id is null%')
-  then 'schema22 OK — 회원투표 정책강화+RPC · 비관리자 match_id 차단 · is_official 신설'
+                and policyname = 'member_insert_polls'
+                and lower(coalesce(with_check, '')) like '%match_id is null%'
+                and lower(coalesce(with_check, '')) like '%auth.uid()%')
+  then 'schema22 TRANSITION OK — 제한 직접 INSERT+RPC · 비관리자 match_id 차단 · is_official 신설 (코드 배포 후 schema25 필수)'
   else '실패 — 위 문장들이 전부 돌았는지 확인해 주세요'
 end as "결과";

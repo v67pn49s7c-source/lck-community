@@ -134,13 +134,15 @@ function isMissingFunction(e) {
 // 지난 방문에서 받은 데이터를 브라우저에 저장해 두고, 다음 방문에서는 그것을 먼저
 // 그려서 화면을 즉시 띄운다. 서버 데이터는 뒤에서 받아 와 달라진 게 있으면 알린다.
 // (서버가 서울에 있어 한 번 다녀오는 데만 0.3~1초씩 걸리므로 체감 차이가 크다)
-// v2 = 투표 원본 비공개화. v1 스냅샷에는 **다른 사람들의 표가 통째로** 들어 있으므로
-// 키를 올려 버리고 옛 것은 지운다 (서버만 고쳐서는 이미 방문한 기기에 계속 남는다).
-const SNAP_KEY = "nexus_snap_v2";
+// v3 = 공식 경기방 판별값(is_official·match_id)을 확실히 다시 받는다.
+// v1에는 **다른 사람들의 표가 통째로** 들어 있고, v2에는 공식 경기방 전환 전 값이
+// 남을 수 있으므로 둘 다 지운다 (서버만 고쳐서는 이미 방문한 기기에 계속 남는다).
+const SNAP_KEY = "nexus_snap_v3";
 // 이름 뒤 번호를 올리면 모든 방문자가 로고를 한 번 다시 받는다 —
 // 업로드본을 지우거나 로고를 바꿨는데 캐시(하루) 때문에 옛것이 남을 때 쓴다.
 const LOGO_KEY = "nexus_logos_v2";
 try { localStorage.removeItem("nexus_snap_v1"); } catch (e) {}
+try { localStorage.removeItem("nexus_snap_v2"); } catch (e) {}
 let snapshotUsed = false;
 
 function snapshotSave() {
@@ -205,9 +207,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260809d"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260809d"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260809d"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260809e"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260809e"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260809e"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -460,7 +462,10 @@ function cacheFingerprint() {
   try {
     return [
       Cache.matches.map(m => `${m.id}${m.status}${m.scoreA}${m.scoreB}${m.at}`).join(","),
-      Cache.posts.length, Cache.posts[0] ? Cache.posts[0].id : "-",
+      // 글 수·순서뿐 아니라 각 글의 공식 경기방 연결 상태도 본다. 기존 스냅샷의 글이
+      // 서버에서 공식 경기방으로 승격돼도 이 값이 같으면 새로고침 안내가 뜨지 않았다.
+      JSON.stringify(Cache.posts.map(p => [String(p.id), !!p.official,
+        p.match_id == null ? null : String(p.match_id)])),
       Cache.posts.reduce((n, p) => n + p.comments.length, 0),
       Object.keys(Cache.details).length,
       Cache.players.length, Cache.polls.length, Cache.awards.length,
@@ -521,8 +526,28 @@ function addMatch(m) {
   sb.from("matches").insert(matchToDb(m)).then(r => sbWriteFail(r.error, "addMatch"));
 }
 function updateMatch(id, patch) {
-  Cache.matches = Cache.matches.map(m => m.id === id ? { ...m, ...patch } : m);
-  sb.from("matches").update(matchToDb(patch)).eq("id", id).then(r => sbWriteFail(r.error, "updateMatch"));
+  // 화면은 즉시 갱신하되, 호출자는 반드시 서버 저장 결과를 기다릴 수 있어야 한다.
+  // 특히 관리자의 '경기 저장 → 순위 반영'은 이 Promise가 성공한 뒤에만 이어져야 한다.
+  const previous = Cache.matches.find(m => m.id === id);
+  const optimistic = previous ? { ...previous, ...patch } : null;
+  if (optimistic) Cache.matches = Cache.matches.map(m => m.id === id ? optimistic : m);
+
+  const rollback = () => {
+    // 저장을 기다리는 동안 더 최신 수정이 들어왔다면 그것까지 덮어쓰지 않는다.
+    if (previous) Cache.matches = Cache.matches.map(m => m === optimistic ? previous : m);
+  };
+
+  // select + single까지 붙여 RLS에 막혀 '0행 수정'인데 error가 비어 있는 경우도 실패로 잡는다.
+  return sb.from("matches").update(matchToDb(patch)).eq("id", id).select("id").single()
+    .then(r => {
+      if (sbWriteFail(r.error, "updateMatch")) rollback();
+      return r;
+    })
+    .catch(error => {
+      rollback();
+      sbWriteFail(error, "updateMatch");
+      throw error;
+    });
 }
 function deleteMatch(id) {
   Cache.matches = Cache.matches.filter(m => m.id !== id);

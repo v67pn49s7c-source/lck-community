@@ -4,9 +4,14 @@
 -- audit_p0_read_only.sql 의 결과를 먼저 보고, 삭제·수정 대상 id 를
 -- 아래 틀에 직접 넣어 실행하세요. 이 파일은 그대로 돌리면 아무것도
 -- 하지 않습니다 (대상 id 가 '없음' 이라 매칭되는 행이 없습니다).
+--
+-- ⚠ 실행 순서: audit → schema22 → **이 cleanup** → schema23.
+-- 이 파일은 schema22가 추가한 posts.is_official을 사용하므로 schema22보다 먼저
+-- 실행하면 실패합니다. 한 작업씩 BEGIN…검증 SELECT…COMMIT으로 실행하세요.
 -- ═══════════════════════════════════════════════════════════════════
 
--- ── 감사 ① 대응: 비공식 계정 글의 경기 연결만 해제 (글은 남긴다) ──
+-- ── 감사 ① 대응: 검토 후 비공식으로 판정한 글의 경기 연결만 해제 ──
+-- author_id NULL만으로 비회원/오염을 단정하지 않는다. 아래 id는 사람이 확인한 것만 넣는다.
 -- update posts set match_id = null
 --  where id in ('없음' /* ← 감사 ① 에서 나온 글 id 로 교체 */)
 --    and (author_id is null
@@ -37,7 +42,7 @@
 -- 그러면 배포 후 matchTalkPost(official 만 신뢰)가 그 경기방을 숨긴다
 -- (m7 의 댓글 1개 등 실제 대화가 사라진다). 그래서 **지우지 말고 승격**한다.
 --
--- ⚠ 반드시 audit ⑤(정책)로 이 글들이 정말 관리자 시드인지 눈으로 확인한 뒤 실행.
+-- ⚠ 반드시 audit ①의 작성자·닉네임·경기·댓글 맥락을 눈으로 확인한 뒤 실행.
 --   nick='운영자' 는 관리자 표식이지만(비회원은 anon_nick 강제), 과거 데이터라
 --   아래 조건에 경기 id 를 명시해 **원하는 것만** 켜는 것을 권장한다.
 -- ═══════════════════════════════════════════════════════════════════
@@ -51,11 +56,13 @@
 --    and nick = '운영자';
 
 -- (B) 중복 토론방(감사 ②) 정리 — 댓글이 있거나 더 오래된 글 하나만 남기고
---     나머지는 is_official=false 로 두면 유니크 인덱스(schema23)를 통과한다.
+--     나머지는 match_id=NULL, is_official=false로 경기 연결까지 해제해야
+--     schema23 백필에서 다시 승격되지 않고 유니크 인덱스를 안전하게 통과한다.
 --     ⚠ (A)로 두 글 다 official=true 가 되면 인덱스가 충돌하므로, 중복 경기는
 --     (A)에서 빼고 여기서 하나만 골라 켜세요.
 -- update posts set is_official = true  where id = '남길_글_id';
--- update posts set is_official = false where id = '버릴_글_id';
+-- update posts set match_id = null, is_official = false
+--  where id in ('버릴_글_id' /* ← 나머지 중복 글을 모두 나열 */);
 
 -- 승격 후 확인:
 -- select match_id, count(*) filter (where is_official) as 공식,

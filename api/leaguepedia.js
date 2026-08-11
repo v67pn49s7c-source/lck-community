@@ -19,6 +19,112 @@ const { val, wait, cargo, loadSetting, saveSetting, matchIdOf, stagePicker, auto
 
 const CACHE_MINUTES = 10;
 const isWin = v => /^(1|yes|true)$/i.test(String(v || "").trim());
+const PERSIST_MATCH_RPC = "rpc/persist_leaguepedia_match";
+// 기존 경기 상세를 저장할 때는 일정표가 정한 A/B 팀이 기준이다. 이 두 칸이 빠지면
+// Leaguepedia 1세트 블루팀을 A로 오인해 세트 승패와 선수 편이 다시 뒤집힌다.
+const EXISTING_MATCH_SELECT = "id,lp_id,tid,stage,at,a,b,counted,status,score_a,score_b";
+
+// ScoreboardGames의 승자 두 칸을 서로 대조한다. Winner가 비어 있으면 WinTeam만
+// 쓸 수 있지만, 값이 들어 있는데 1/2가 아니거나 두 칸이 충돌하면 추정하지 않는다.
+function scoreboardWinner(x) {
+  if (!x) return { team: null, invalid: false };
+  const t1 = String(val(x, "Team1") || "").trim();
+  const t2 = String(val(x, "Team2") || "").trim();
+  const code = String(val(x, "Winner") || "").trim();
+  const named = String(val(x, "WinTeam") || "").trim();
+  const declared = [];
+
+  if ((code || named) && (!t1 || !t2 || t1 === t2)) return { team: null, invalid: true };
+  if (code) {
+    if (code === "1") declared.push(t1);
+    else if (code === "2") declared.push(t2);
+    else return { team: null, invalid: true };
+  }
+  if (named) {
+    if (named !== t1 && named !== t2) return { team: null, invalid: true };
+    declared.push(named);
+  }
+  const unique = [...new Set(declared)];
+  if (unique.length > 1) return { team: null, invalid: true };
+  return { team: unique[0] || null, invalid: false };
+}
+
+// PlayerWin과 ScoreboardGames는 어느 하나를 무조건 우선하지 않는다. 각 출처에서
+// 정확히 한 팀만 가리키고, 둘 다 있으면 같은 팀일 때만 승자로 확정한다.
+function resolveGameWinner(teams, scoreboard) {
+  const playerWinners = Object.keys(teams || {}).filter(name => teams[name] && teams[name].win);
+  if (playerWinners.length > 1) return null;
+  const sg = scoreboardWinner(scoreboard);
+  if (sg.invalid) return null;
+  const candidates = [...playerWinners, ...(sg.team ? [sg.team] : [])];
+  const unique = [...new Set(candidates)];
+  return unique.length === 1 ? unique[0] : null;
+}
+
+// 신규 fallback 경기에는 일정 수집기가 가진 BestOf/최종 결과만 종료 증거로 쓴다.
+// 페이지의 원본을 끝까지 받았다는 사실은 '현재 등록된 세트'가 끝이라는 뜻이지,
+// 아직 진행될 다음 세트가 없다는 뜻이 아니다.
+function seriesCompletionProof(match, schedule) {
+  const scoreA = Number(match && match.scoreA), scoreB = Number(match && match.scoreB);
+  if (!Number.isInteger(scoreA) || scoreA < 0 || !Number.isInteger(scoreB) || scoreB < 0) {
+    return { complete: false, reason: "수집 스코어가 올바르지 않음" };
+  }
+
+  const rawBestOf = String(val(schedule || {}, "BestOf") || "").trim();
+  if (rawBestOf) {
+    const bestOf = Number(rawBestOf);
+    if (!Number.isInteger(bestOf) || bestOf < 1 || bestOf % 2 !== 1) {
+      return { complete: false, reason: `BestOf 값을 확인할 수 없음 (${rawBestOf})` };
+    }
+    const scheduleA = String(val(schedule, "Team1") || "").trim();
+    const scheduleB = String(val(schedule, "Team2") || "").trim();
+    const samePair = scheduleA === match.aName && scheduleB === match.bName;
+    const reversePair = scheduleA === match.bName && scheduleB === match.aName;
+    if (!scheduleA || !scheduleB || scheduleA === scheduleB || (!samePair && !reversePair)) {
+      return { complete: false, reason: "BestOf 일정의 두 팀이 수집 경기와 일치하지 않음" };
+    }
+    const requiredWins = Math.floor(bestOf / 2) + 1;
+    const aClinched = scoreA === requiredWins && scoreB < requiredWins;
+    const bClinched = scoreB === requiredWins && scoreA < requiredWins;
+    return aClinched !== bClinched
+      ? { complete: true, source: `BO${bestOf}`, requiredWins }
+      : { complete: false, reason: `BO${bestOf} 종료 필요 승수 ${requiredWins}에 못 미침` };
+  }
+
+  // BestOf가 없는 옛 일정은 일정표의 팀·최종 스코어·승자가 모두 이번 수집 결과와
+  // 정확히 일치할 때만 종료를 인정한다. Winner가 단지 비어 있지 않다는 이유로는 부족하다.
+  if (!schedule) return { complete: false, reason: "BestOf 또는 일정 최종 결과가 없음" };
+  const t1 = String(val(schedule, "Team1") || "").trim();
+  const t2 = String(val(schedule, "Team2") || "").trim();
+  const s1Raw = String(val(schedule, "Team1Score") || "").trim();
+  const s2Raw = String(val(schedule, "Team2Score") || "").trim();
+  const winnerRaw = String(val(schedule, "Winner") || "").trim();
+  const s1 = Number(s1Raw), s2 = Number(s2Raw);
+  if (!t1 || !t2 || !s1Raw || !s2Raw || !winnerRaw
+      || !Number.isInteger(s1) || s1 < 0 || !Number.isInteger(s2) || s2 < 0 || s1 === s2) {
+    return { complete: false, reason: "일정 최종 결과가 완전하지 않음" };
+  }
+  const winner = winnerRaw === "1" || winnerRaw === t1 ? t1
+    : winnerRaw === "2" || winnerRaw === t2 ? t2 : null;
+  const collectedWinner = scoreA > scoreB ? match.aName : scoreB > scoreA ? match.bName : null;
+  const sameOrder = t1 === match.aName && t2 === match.bName && s1 === scoreA && s2 === scoreB;
+  const reverseOrder = t1 === match.bName && t2 === match.aName && s1 === scoreB && s2 === scoreA;
+  return winner && collectedWinner && winner === collectedWinner && (sameOrder || reverseOrder)
+    ? { complete: true, source: "일정 최종 결과", requiredWins: null }
+    : { complete: false, reason: "일정 최종 결과가 수집 결과와 일치하지 않음" };
+}
+
+// 실제 신규 fallback match 행 생성 경로가 이 결과만 사용한다. 테스트도 이 함수를
+// 직접 고정해 1:0 BO3가 다시 done 행으로 변하는 회귀를 막는다.
+function newFallbackCompletion(match, schedule) {
+  const proof = seriesCompletionProof(match, schedule);
+  return {
+    ...proof,
+    matchState: proof.complete
+      ? { status: "done", score_a: Number(match.scoreA), score_b: Number(match.scoreB) }
+      : null,
+  };
+}
 
 // 챔피언 이름 영어 → 한글 (우리 DB·아이콘은 한글 기준)
 const CHAMP_ALIAS = { nunuwillump: "nunu", wukong: "monkeyking" };
@@ -35,6 +141,9 @@ async function loadChampNames() {
 
 // ── 원본 받아오기 (캐시 우선) ──
 const cacheKeyOf = page => "lp_cache_" + page.replace(/[^A-Za-z0-9]+/g, "_").slice(0, 48);
+// schedule-sync.js가 이미 받은 MatchSchedule 원본. fallback 경기를 새로 만들 때
+// BestOf를 다시 외부 호출하지 않고 이 캐시에서 종료 증거를 가져온다.
+const scheduleCacheKeyOf = page => "lp_sched_" + page.replace(/[^A-Za-z0-9]+/g, "_").slice(0, 48);
 
 // Leaguepedia 는 한 번에 500행까지만 준다. 한 라운드는 선수 기록이 2,000행이 넘어서
 // (경기 90 × 세트 3 × 선수 10) 나눠 받아야 한다. 받은 만큼 저장해 두고, 시간이 모자라면
@@ -194,11 +303,14 @@ function sgStats(x, champKo) {
 
 // 팀 이름 기준 기록을 **그 경기의 a/b** 기준으로 뒤집어 담는다.
 // blueName 은 그 세트에 블루 진영이었던 팀 이름 (진영 표시에 쓴다).
-function gameForSave(stats, blueName, teamMap, baseA) {
-  if (!stats || !baseA) return null;
+function gameForSave(stats, blueName, teamMap, baseA, baseB) {
+  if (!stats || !baseA || !baseB) return null;
   const names = Object.keys(stats.byTeam);
   const sideOf = {};                       // 팀 이름 → "a" | "b"
-  names.forEach(n => { const id = teamMap[n]; if (id) sideOf[n] = id === baseA ? "a" : "b"; });
+  names.forEach(n => {
+    const side = sideForTeam(teamMap[n], baseA, baseB);
+    if (side) sideOf[n] = side;
+  });
   if (Object.keys(sideOf).length < 2) return null;   // 한쪽이라도 못 알아보면 담지 않는다
 
   const pair = key => {
@@ -218,6 +330,212 @@ function gameForSave(stats, blueName, teamMap, baseA) {
   });
   if (blueName && sideOf[blueName]) out.blue = sideOf[blueName];
   return Object.keys(out).length ? out : null;
+}
+
+// 팀 id를 실제 저장 경기의 A/B로 바꾼다. 모르는 팀을 무조건 B로 보내면 데이터가
+// 그럴듯하게 오염되므로, 둘 중 어느 쪽인지 증명할 수 없을 때는 null로 실패시킨다.
+function sideForTeam(teamId, baseA, baseB) {
+  if (!teamId || !baseA || !baseB || baseA === baseB) return null;
+  if (teamId === baseA) return "a";
+  if (teamId === baseB) return "b";
+  return null;
+}
+
+/** Leaguepedia 세트 하나를 DB 행으로 바꾼다.
+ *  반환: { row, violations }. violations가 있으면 호출자는 그 세트를 저장하면 안 된다. */
+function detailRowForSave(matchId, set, baseA, baseB, teamMap) {
+  const violations = [];
+  if (!matchId) violations.push("경기 id가 없음");
+  if (!baseA || !baseB || baseA === baseB) violations.push("저장 경기의 A/B 팀을 확인할 수 없음");
+
+  const setIndex = Number(set && set.n) - 1;
+  if (!Number.isInteger(setIndex) || setIndex < 0) violations.push("세트 번호가 올바르지 않음");
+
+  const win = sideForTeam(set && set.winTeam, baseA, baseB);
+  if (!win) violations.push("승리팀을 저장 경기의 A/B와 연결할 수 없음");
+
+  const sourcePlayers = (set && set.players) || [];
+  const linkedPlayers = sourcePlayers.filter(p => p && p.pid);
+  if (linkedPlayers.length !== sourcePlayers.length) {
+    violations.push(`선수 연결 누락 ${sourcePlayers.length - linkedPlayers.length}명`);
+  }
+
+  const players = linkedPlayers.map(p => {
+    const side = sideForTeam(p.team, baseA, baseB);
+    if (!side) violations.push(`선수 ${p.pid}의 팀을 저장 경기 A/B와 연결할 수 없음`);
+    return {
+      pid: p.pid, champ: p.champ, spell: p.spell, k: p.k, d: p.d, a: p.a,
+      cs: p.cs, gold: p.gold, items: p.items, trinket: p.trinket, runes: p.runes, pos: p.pos,
+      dmg: p.dmg, vs: p.vs, penta: p.penta, side,
+    };
+  });
+
+  const uniquePids = new Set(players.map(p => p.pid));
+  if (uniquePids.size !== players.length) violations.push("같은 선수가 한 세트에 중복됨");
+  const sideA = players.filter(p => p.side === "a").length;
+  const sideB = players.filter(p => p.side === "b").length;
+  // 페이지 경계에서 한 세트의 선수 행이 반쪽만 들어온 상태를 기존 상세 위에 덮어쓰지 않는다.
+  if (sideA !== 5 || sideB !== 5) violations.push(`출전 명단이 5:5가 아님 (${sideA}:${sideB})`);
+
+  if (violations.length) return { row: null, violations };
+  const row = { match_id: matchId, set_index: setIndex, win, players };
+  const game = gameForSave(set.stats, set.blueName, teamMap, baseA, baseB);
+  if (game) row.game = game;
+  return { row, violations: [] };
+}
+
+/** 종료 경기 스코어와 어긋난 경기의 상세 행은 전부 격리한다.
+ *  한 경기에서 일부 세트만 차단하면 기존·신규 데이터가 섞여 더 알아보기 어려워진다. */
+function filterSafeDetailRows(matchById, detailRows) {
+  const setsByMatch = {};
+  detailRows.forEach(r =>
+    (setsByMatch[r.match_id] = setsByMatch[r.match_id] || []).push({ win: r.win, _idx: r.set_index }));
+
+  const blocked = new Set(), violations = [];
+  Object.keys(setsByMatch).forEach(mid => {
+    const mr = matchById.get(mid);
+    if (!mr) {
+      blocked.add(mid);
+      violations.push({ matchId: mid, messages: ["경기 스코어·상태를 확인할 수 없음"] });
+      return;
+    }
+    const sets = setsByMatch[mid].slice().sort((x, y) => x._idx - y._idx);
+    const bad = finishedMatchViolations(
+      { status: mr.status, score_a: mr.score_a, score_b: mr.score_b },
+      sets);
+    // 공개 화면은 수집 중인 일부 세트를 보여 줄 수 있지만, DB 저장은 더 엄격해야 한다.
+    // 종료 경기에서 이번 요청이 전 세트를 갖고 있지 않으면 기존 행과 섞여 어느 쪽이
+    // 최신·정상인지 증명할 수 없으므로, 0..최종세트수-1 완전집합일 때만 덮어쓴다.
+    if (mr.status === "done" && mr.score_a != null && mr.score_b != null) {
+      const total = mr.score_a + mr.score_b;
+      const seen = new Set(sets.map(s => s._idx));
+      const complete = sets.length === total
+        && Array.from({ length: total }, (_, i) => i).every(i => seen.has(i));
+      if (!complete) bad.push(`종료 경기 상세가 전 세트 완전집합이 아님 (${sets.length}/${total})`);
+    }
+    if (bad.length) {
+      blocked.add(mid);
+      violations.push({ matchId: mid, messages: bad });
+    }
+  });
+  return {
+    rows: detailRows.filter(r => !blocked.has(r.match_id)),
+    blocked: [...blocked],
+    violations,
+  };
+}
+
+/** 신규 종료 경기는 경기 행과 상세 행을 한 묶음으로 검증한다.
+ *  세트 하나라도 변환·최종 검사에 실패했거나, 최종 스코어만큼의 상세가 0부터
+ *  빠짐없이 모이지 않았으면 둘 다 저장하지 않는다. 기존 경기와 진행 중 경기는
+ *  이 함수의 격리 대상이 아니다. */
+function gateNewFinishedMatches(matchRows, detailRows, buildFailedMatchIds, detailFailedMatchIds) {
+  const buildFailed = new Set(buildFailedMatchIds || []);
+  const detailFailed = new Set(detailFailedMatchIds || []);
+  const detailsByMatch = {};
+  detailRows.forEach(r =>
+    (detailsByMatch[r.match_id] = detailsByMatch[r.match_id] || []).push(r));
+
+  const blocked = new Set(), violations = [];
+  (matchRows || []).forEach(mr => {
+    if (!mr || mr.status !== "done") return;
+    const messages = [];
+    if (buildFailed.has(mr.id)) messages.push("한 세트 이상 상세 변환에 실패함");
+    if (detailFailed.has(mr.id)) messages.push("경기 상세 최종 정합성 검사에 실패함");
+
+    const scoreA = Number(mr.score_a), scoreB = Number(mr.score_b);
+    const validScore = Number.isInteger(scoreA) && scoreA >= 0
+      && Number.isInteger(scoreB) && scoreB >= 0 && scoreA + scoreB > 0;
+    if (!validScore) {
+      messages.push("종료 경기 최종 스코어를 확인할 수 없음");
+    } else {
+      const total = scoreA + scoreB;
+      const sets = detailsByMatch[mr.id] || [];
+      const seen = new Set(sets.map(r => r.set_index));
+      const complete = sets.length === total
+        && Array.from({ length: total }, (_, i) => i).every(i => seen.has(i));
+      if (!complete) messages.push(`신규 종료 경기 상세가 전 세트 완전집합이 아님 (${sets.length}/${total})`);
+    }
+
+    if (messages.length) {
+      blocked.add(mr.id);
+      violations.push({ matchId: mr.id, messages });
+    }
+  });
+
+  return {
+    matchRows: (matchRows || []).filter(r => !blocked.has(r.id)),
+    detailRows: detailRows.filter(r => !blocked.has(r.match_id)),
+    blocked: [...blocked],
+    violations,
+  };
+}
+
+// 경기/상세는 반드시 한 경기씩 같은 DB 트랜잭션으로 보낸다. 신규 경기 행이 상세보다
+// 먼저 남거나, 상세 일부만 저장된 채 요청이 끊기는 상태를 REST 여러 번 호출로 만들지 않는다.
+// 대회(tid)만 고치는 기존 경기 역시 같은 RPC에 넣어 상세와 함께 실패/성공하게 한다.
+function buildPersistenceBundles(matchRows, detailRows, tidFixRows) {
+  const matchById = new Map();
+  (matchRows || []).forEach(row => {
+    if (!row || !row.id || matchById.has(row.id)) throw new Error("저장할 경기 id가 없거나 중복됩니다");
+    matchById.set(row.id, row);
+  });
+
+  const detailsById = new Map();
+  (detailRows || []).forEach(row => {
+    if (!row || !row.match_id) throw new Error("저장할 세트의 경기 id가 없습니다");
+    const rows = detailsById.get(row.match_id) || [];
+    rows.push(row);
+    detailsById.set(row.match_id, rows);
+  });
+
+  const tidById = new Map();
+  (tidFixRows || []).forEach(row => {
+    if (!row || !row.id || !row.tid) throw new Error("대회 교정 대상 id/tid가 없습니다");
+    if (tidById.has(row.id) && tidById.get(row.id) !== row.tid) {
+      throw new Error(`한 경기의 대회 교정값이 충돌합니다: ${row.id}`);
+    }
+    tidById.set(row.id, row.tid);
+  });
+
+  // 세 가지 입력의 합집합을 써야 상세가 없는 tid 전용 교정도 누락되지 않는다.
+  const ids = [...new Set([
+    ...matchById.keys(), ...detailsById.keys(), ...tidById.keys(),
+  ])];
+  return ids.map(matchId => {
+    const match = matchById.get(matchId) || null;
+    const details = detailsById.get(matchId) || [];
+    // 신규 fallback 경기만 단독으로 생기는 경로는 허용하지 않는다.
+    if (match && !details.length) {
+      throw new Error(`신규 경기 ${matchId}의 상세가 없어 원자 저장을 중단합니다`);
+    }
+    return {
+      matchId,
+      match,
+      details,
+      tid: tidById.get(matchId) || null,
+    };
+  });
+}
+
+async function persistMatchBundles(sbCall, matchRows, detailRows, tidFixRows) {
+  const bundles = buildPersistenceBundles(matchRows, detailRows, tidFixRows);
+  for (const bundle of bundles) {
+    await sbCall(PERSIST_MATCH_RPC, {
+      method: "POST",
+      body: JSON.stringify({
+        p_match_id: bundle.matchId,
+        p_match: bundle.match,
+        p_details: bundle.details,
+        p_tid: bundle.tid,
+      }),
+    });
+  }
+  return bundles;
+}
+
+function shouldBlockIncompleteFallback(prev, pageDone) {
+  return !prev && !pageDone;
 }
 
 // 세트 번호: GameId 끝의 숫자 (…_Week 10_9_3 → 3)
@@ -277,7 +595,7 @@ module.exports = async (req, res) => {
     const champKo = await loadChampNames();
     const ko = await loadNameMaps();          // 아이템·룬·스펠 영어 → 한글
     const roster = await sb("players?select=id,nick,team");
-    const existing = await sb("matches?select=id,lp_id,tid,stage,at,counted,status,score_a,score_b");
+    const existing = await sb(`matches?select=${EXISTING_MATCH_SELECT}`);
     const byLpMatch = {};
     existing.forEach(m => { if (m.lp_id) byLpMatch[m.lp_id] = m; });
     let stageRecords = [];
@@ -292,6 +610,7 @@ module.exports = async (req, res) => {
     let rows = [], games = null, cached = false;
     const sgWarnAll = [], cacheWarnAll = [];
     const pageOf = {};                    // 경기 → 어느 대회 페이지에서 왔는지
+    const seriesMetaByLp = new Map();     // MatchSchedule의 BestOf·공식 최종 결과
     const doneOf = {};                    // 대회 페이지별로 끝까지 받았는지
     const progress = [];
     // ⚠ **아직 못 받은 대회를 먼저** 받는다.
@@ -308,6 +627,15 @@ module.exports = async (req, res) => {
 
     for (let i = 0; i < order.length; i++) {
       const pg = order[i];
+      // 일정 수집기가 받아 둔 정본 메타만 쓴다. 없으면 신규 fallback 경기는 아래에서
+      // 보수적으로 차단한다. 원본 페이지 완료 여부를 시리즈 종료 증거로 쓰지 않는다.
+      try {
+        const cachedSchedule = JSON.parse((await loadSetting(scheduleCacheKeyOf(pg))) || "null");
+        (cachedSchedule && Array.isArray(cachedSchedule.rows) ? cachedSchedule.rows : []).forEach(r => {
+          const lpId = String(val(r, "MatchId") || "").trim();
+          if (lpId) seriesMetaByLp.set(lpId, r);
+        });
+      } catch { /* 일정 캐시가 없거나 깨졌으면 신규 fallback 경기만 차단한다 */ }
       // 남은 시간을 남은 대회 수로 나눠 준다 (한 대회가 시간을 다 쓰지 않게)
       const left = order.length - i;
       const remain = started + BUDGET_MS - Date.now();
@@ -347,16 +675,15 @@ module.exports = async (req, res) => {
       g.players.push(r);
     });
 
-    // 세트 단위 기록을 그 세트에 붙인다 (+ PlayerWin 칸이 없는 옛 대회는 승패도 여기서 채운다)
+    // 세트 단위 기록을 그 세트에 붙인다. 승자는 아래에서 PlayerWin과 Winner/WinTeam을
+    // 교차 검증한 뒤 정한다 — 한 출처를 먼저 true로 합치면 충돌을 알아낼 수 없다.
     if (games) {
       games.forEach(x => {
         const g = byGame[val(x, "GameId")];
         if (!g) return;
         const t1 = val(x, "Team1"), t2 = val(x, "Team2");
-        const winner = String(val(x, "Winner")) === "1" ? t1 : t2;
         g.teams[t1] = g.teams[t1] || { side: "1", win: false };
         g.teams[t2] = g.teams[t2] || { side: "2", win: false };
-        g.teams[winner].win = true;
         g.at = g.at || val(x, "DateTime UTC");
         g.sg = x;                       // 스코어보드 재료 (밴픽·오브젝트·골드·시간)
       });
@@ -387,7 +714,7 @@ module.exports = async (req, res) => {
         //     그래서 여기서는 a/b 로 확정하지 말고 **이긴 팀 id** 를 그대로 들고 가서,
         //     저장 직전에 실제 경기의 a 와 대조해 a/b 를 정한다.
         //     (이 구분을 안 해서 7경기 16세트의 승패가 통째로 뒤집혀 저장돼 있었다 — 2026-08-07)
-        const winnerName = names.find(n => g.teams[n].win) || null;
+        const winnerName = resolveGameWinner(g.teams, g.sg);
         const winIsA = winnerName === m.aName;
         if (winnerName) { if (winIsA) m.scoreA++; else m.scoreB++; }
 
@@ -513,18 +840,28 @@ module.exports = async (req, res) => {
 
     // ── 저장 (한 번에 묶어서) ──
     const matchRows = [], detailRows = [];
+    let rejectedDetailSets = 0;
+    const rejectedDetailMatchIds = new Set();
+    const blockedFallbackMatchIds = new Set();
     const prevInfoById = {};   // 기존 경기의 status·스코어 (정합성 검사가 신규뿐 아니라 기존도 보게)
     const pickers = {};
     matches.forEach(m => {
       const prev = byLpMatch[m.lpMatchId];
       const id = prev ? prev.id : matchIdOf(m.lpMatchId);
-      const done = m.scoreA + m.scoreB > 0;
       const pg = pageOf[m.lpMatchId] || pages[0];
       const fallbackTid = tidOf[pg] || null;
       // 일정 갱신이 이미 만들어 둔 경기는 손대지 않는다 — 일정·스코어·그룹의 주인은 그쪽이다.
-      // 아직 없는 경기는, 그 대회를 **끝까지 받았을 때만** 만든다.
-      // (덜 받은 상태로 만들면 세트를 덜 세어 스코어가 1:0 처럼 틀리게 들어간다)
-      if (prev || !doneOf[pg]) {
+      // 아직 없는 경기는 대회를 끝까지 받고, 아래에서 시리즈 종료까지 증명될 때만 만든다.
+      // (페이지 완료만으로는 진행 중 BO3의 1:0을 최종 결과로 오인할 수 있다)
+      // 페이지를 끝까지 받지 못했고 일정표에도 없는 신규 fallback은 경기 행이 없다.
+      // 상세뿐 아니라 POM까지 반드시 같은 경기 id로 차단해야 orphan 수상이 생기지 않는다.
+      if (shouldBlockIncompleteFallback(prev, doneOf[pg])) {
+        blockedFallbackMatchIds.add(id);
+        rejectedDetailSets += m.sets.length;
+        warnings.push(`정합성 ${id}: 대회 페이지를 끝까지 받지 못함 — 신규 fallback 경기·상세·POM 저장 차단`);
+        return;
+      }
+      if (prev) {
         // 이 경기가 종료 상태로 저장돼 있으면 정합성 검사 대상에 넣는다 (아래 블록).
         // 여기서 안 담으면 m8류(기존 경기 재수집에서 win 뒤집힘)를 수집 단계가 통째로 놓친다.
         if (prev) prevInfoById[id] = prev;
@@ -536,24 +873,26 @@ module.exports = async (req, res) => {
         // ★ 승패·편 가르기의 기준은 **실제 저장된 경기의 a** 다.
         //   Leaguepedia 의 1세트 블루팀(m.a)과 다를 수 있고, 다르면 전부 뒤집힌다.
         const baseA = prev ? prev.a : m.a;
+        const baseB = prev ? prev.b : m.b;
         m.sets.forEach(s => {
-          const win = s.winTeam && baseA ? (s.winTeam === baseA ? "a" : "b") : s.win;
-          const players = s.players.filter(p => p.pid).map(p => ({
-            pid: p.pid, champ: p.champ, spell: p.spell, k: p.k, d: p.d, a: p.a,
-            cs: p.cs, gold: p.gold, items: p.items, trinket: p.trinket, runes: p.runes, pos: p.pos,
-            dmg: p.dmg, vs: p.vs, penta: p.penta,
-            side: p.team && baseA ? (p.team === baseA ? "a" : "b") : null,
-          }));
-          // ⚠ 스코어보드 값이 없으면 game 칸을 **아예 보내지 않는다.**
-          //   빈 객체를 보내면 이미 잘 들어가 있던 밴픽·오브젝트가 통째로 지워진다
-          //   (덜 받은 상태로 저장할 때마다 그런 일이 났다 — 2026-08-07)
-          const game = gameForSave(s.stats, s.blueName, teamMap, baseA);
-          if (players.length) {
-            const row = { match_id: id, set_index: s.n - 1, win, players };
-            if (game) row.game = game;
-            detailRows.push(row);
+          const built = detailRowForSave(id, s, baseA, baseB, teamMap);
+          if (built.row) detailRows.push(built.row);
+          else {
+            rejectedDetailSets++;
+            rejectedDetailMatchIds.add(id);
+            warnings.push(`정합성 ${id} ${s.n}세트: ${built.violations[0]} — 상세 저장 차단`);
           }
         });
+        return;
+      }
+      // 신규 fallback 경기는 단 한 세트라도 있으면 done으로 만들던 옛 추정을 금지한다.
+      // 일정표 BestOf의 필요 승수(또는 완전히 일치하는 공식 최종 결과)가 증명돼야만
+      // 경기 행과 상세를 만든다. 증거가 없으면 upcoming으로 위장해 넣지도 않는다.
+      const completion = newFallbackCompletion(m, seriesMetaByLp.get(m.lpMatchId));
+      if (!completion.matchState) {
+        blockedFallbackMatchIds.add(id);
+        rejectedDetailSets += m.sets.length;
+        warnings.push(`정합성 ${id}: ${completion.reason} — 신규 fallback 경기와 상세 저장 차단`);
         return;
       }
       // 일정 갱신(schedule-sync)이 정해 둔 대회·그룹·시각을 덮어쓰지 않는다.
@@ -567,25 +906,16 @@ module.exports = async (req, res) => {
         stage: prev ? prev.stage : canonStage(stageRecords, pick(m.a, m.b) || pg.split("/").pop()),
         at: prev ? prev.at : ((m.at || "").replace(" ", "T") + (m.at ? "Z" : "")),
         a: m.a, b: m.b, label: "", odds_a: 2, odds_b: 2,
-        // 이미 순위에 반영한 경기는 스코어·상태를 건드리지 않는다
-        status: (prev && prev.counted) ? prev.status : (done ? "done" : "upcoming"),
-        score_a: (prev && prev.counted) ? prev.score_a : (done ? m.scoreA : null),
-        score_b: (prev && prev.counted) ? prev.score_b : (done ? m.scoreB : null),
+        ...completion.matchState,
       });
-      // 새로 만드는 경기도 같은 규칙 — 여기서는 저장할 a 가 m.a 다
+      // 새로 만드는 경기도 같은 규칙 — 여기서는 저장할 a/b 가 m.a/m.b 다
       m.sets.forEach(s => {
-        const win = s.winTeam && m.a ? (s.winTeam === m.a ? "a" : "b") : s.win;
-        const players = s.players.filter(p => p.pid).map(p => ({
-          pid: p.pid, champ: p.champ, spell: p.spell, k: p.k, d: p.d, a: p.a,
-          cs: p.cs, gold: p.gold, items: p.items, trinket: p.trinket, runes: p.runes, pos: p.pos,
-          dmg: p.dmg, vs: p.vs, penta: p.penta,
-          side: p.team && m.a ? (p.team === m.a ? "a" : "b") : null,
-        }));
-        const game = gameForSave(s.stats, s.blueName, teamMap, m.a);
-        if (players.length) {
-          const row = { match_id: id, set_index: s.n - 1, win, players };
-          if (game) row.game = game;      // 없으면 칸을 빼서 기존 값을 지키다
-          detailRows.push(row);
+        const built = detailRowForSave(id, s, m.a, m.b, teamMap);
+        if (built.row) detailRows.push(built.row);
+        else {
+          rejectedDetailSets++;
+          rejectedDetailMatchIds.add(id);
+          warnings.push(`정합성 ${id} ${s.n}세트: ${built.violations[0]} — 상세 저장 차단`);
         }
       });
     });
@@ -597,42 +927,34 @@ module.exports = async (req, res) => {
 
     // ── 수집 직후 정합성 검사 (P0-2) ─────────────────────────────
     // 세트 승수가 최종 스코어와 안 맞으면(예: BFX 0:2 BRO 인데 두 세트가 a 승)
-    // 저장은 하되 **경고에 올려** 관리자가 바로 본다. 화면 쪽(live.html)은
-    // 같은 판정으로 세트 승 배지를 숨기므로 잘못된 표시는 나가지 않는다.
+    // 해당 경기의 상세를 **전부 저장하지 않고** 경고에 올린다. 한 세트만 빼고 쓰면
+    // 기존·신규 행이 섞여 더 알아보기 어려운 데이터가 되므로 경기 단위로 격리한다.
     //
     // ⚠ 이번 수집이 세트를 건드린 **모든** 경기를 본다 — 신규(matchRowsU)뿐 아니라
     //   기존(prevInfoById)까지. m8 사고가 바로 기존 경기의 win 뒤집힘이라, 신규만
     //   보던 예전 검사는 그 계열을 구조적으로 못 잡았다 (적대적 검토 발견 2·5).
-    {
-      const setsByMatch = {};
-      detailRows.forEach(r =>
-        (setsByMatch[r.match_id] = setsByMatch[r.match_id] || []).push({ win: r.win, _idx: r.set_index }));
-      Object.keys(setsByMatch).forEach(mid => {
-        const mr = dedup.get(mid) || prevInfoById[mid];
-        if (!mr || mr.status !== "done") return;   // 아직 종료 아니면 부분 수집 — 검사 보류
-        const bad = finishedMatchViolations(
-          { status: "done", score_a: mr.score_a, score_b: mr.score_b },
-          setsByMatch[mid].slice().sort((x, y) => x._idx - y._idx));
-        if (bad.length) warnings.push(`정합성 ${mid}: ${bad[0]} — 관리자 확인 필요`);
-      });
-    }
+    const matchMeta = new Map(dedup);
+    Object.entries(prevInfoById).forEach(([id, row]) => {
+      if (!matchMeta.has(id)) matchMeta.set(id, row);
+    });
+    const checkedDetails = filterSafeDetailRows(matchMeta, detailRows);
+    checkedDetails.violations.forEach(x =>
+      warnings.push(`정합성 ${x.matchId}: ${x.messages[0]} — 이 경기 상세 ${
+        detailRows.filter(r => r.match_id === x.matchId).length}세트 저장 차단`));
+    const gatedNewMatches = gateNewFinishedMatches(
+      matchRowsU, checkedDetails.rows, rejectedDetailMatchIds, checkedDetails.blocked);
+    gatedNewMatches.violations.forEach(x =>
+      warnings.push(`정합성 ${x.matchId}: ${x.messages[0]} — 신규 종료 경기와 상세 저장 차단`));
+    const matchRowsToSave = gatedNewMatches.matchRows;
+    const detailRowsToSave = gatedNewMatches.detailRows;
+    const blockedNewMatchIds = new Set([...blockedFallbackMatchIds, ...gatedNewMatches.blocked]);
+    const blockedNewMatches = blockedNewMatchIds.size;
+    const blockedDetailSets = rejectedDetailSets + (detailRows.length - detailRowsToSave.length);
 
-    // return=minimal — 이게 없으면 저장한 만큼(수백 KB)을 응답으로 그대로 되받아 읽는다.
-    const PREF = { prefer: "resolution=merge-duplicates,return=minimal" };
-    if (matchRowsU.length) {
-      await sb("matches?on_conflict=id", { method: "POST", headers: PREF, body: JSON.stringify(matchRowsU) });
-    }
-    // 세트 상세는 한 행이 크다(선수 10명 + 밴픽·오브젝트). 통째로 보내면 요청 하나가 1MB 를 넘는다.
-    for (let i = 0; i < detailRows.length; i += 60) {
-      await sb("match_details?on_conflict=match_id,set_index", {
-        method: "POST", headers: PREF, body: JSON.stringify(detailRows.slice(i, i + 60)),
-      });
-    }
-    // 기존 경기가 엉뚱한 대회에 들어가 있으면 **대회만** 바로잡는다.
-    // (스코어·스테이지·시각은 건드리지 않는다 — 그건 일정 갱신의 몫이다)
-    if (tidFixRows.length) {
-      await sb("matches?on_conflict=id", { method: "POST", headers: PREF, body: JSON.stringify(tidFixRows) });
-    }
+    // 한 경기의 신규 행·상세·대회 교정을 SECURITY DEFINER RPC 한 번으로 묶는다.
+    // 함수 안 검증/저장 하나라도 실패하면 그 경기 묶음 전체가 롤백된다. 직접 REST
+    // upsert fallback은 두지 않는다. 그래야 RPC 미적용 상태에서 부분 저장이 재발하지 않는다.
+    await persistMatchBundles(sb, matchRowsToSave, detailRowsToSave, tidFixRows);
 
     // ── 경기 MVP(POM) ─────────────────────────────────────
     // LCK 공식 제도: 경기마다 MVP 1명에게 100pt. Leaguepedia 는 **세트마다** MVP 를 주므로
@@ -666,6 +988,7 @@ module.exports = async (req, res) => {
       Object.entries(mvpByMatch).forEach(([lpMid, counts]) => {
         const id = (byLpMatch[lpMid] || {}).id || (byMatch[lpMid] ? matchIdOf(lpMid) : null);
         if (!id) return;                       // 우리 경기표에 없는 경기는 건너뛴다
+        if (blockedNewMatchIds.has(id)) return; // 정합성 실패로 새 경기 자체를 격리한 경우
         const best = Object.entries(counts).sort((x, y) => y[1] - x[1])[0];
         const pid = best && findPid(best[0]);
         if (pid) pomRows.push({ match_id: id, player_id: pid, pts: 100, label: "경기 MVP" });
@@ -703,16 +1026,36 @@ module.exports = async (req, res) => {
     try {
       await saveSetting("lp_last_run", JSON.stringify({
         at: Date.now(), by: byCron ? "자동" : "관리자",
-        page, 경기: matchRowsU.length, 세트: detailRows.length,
+        page, 경기: matchRowsToSave.length, 세트: detailRowsToSave.length,
+        차단된경기: blockedNewMatches, 차단된세트: blockedDetailSets,
         끝까지: allDone, 경고: warnings.slice(0, 3),
       }));
     } catch { /* 기록에 실패해도 수집 자체는 성공이다 */ }
 
-    return ok(res, { ...summary, 저장함: true, 저장된경기: matchRowsU.length, 저장된세트: detailRows.length,
+    return ok(res, { ...summary, 저장함: true, 저장된경기: matchRowsToSave.length, 저장된세트: detailRowsToSave.length,
+                     차단된경기: blockedNewMatches, 차단된세트: blockedDetailSets,
                      POM저장: pomSaved, POM상세: pomInfo, 선수등록: madePlayers,
                      대회고침: tidFixRows.length, 경고: warnings,
                      대회: [...new Set(Object.values(tidOf).filter(Boolean))].join(", ") });
   } catch (e) {
     return fail(res, 500, e.message || String(e));
   }
+};
+
+// 네트워크나 운영 DB 없이 수집기의 가장 위험한 팀 기준 변환을 회귀 테스트한다.
+// Vercel은 module.exports 함수만 호출하므로 런타임 동작에는 영향을 주지 않는다.
+module.exports.__test = {
+  EXISTING_MATCH_SELECT,
+  PERSIST_MATCH_RPC,
+  scoreboardWinner,
+  resolveGameWinner,
+  seriesCompletionProof,
+  newFallbackCompletion,
+  sideForTeam,
+  detailRowForSave,
+  filterSafeDetailRows,
+  gateNewFinishedMatches,
+  buildPersistenceBundles,
+  persistMatchBundles,
+  shouldBlockIncompleteFallback,
 };
