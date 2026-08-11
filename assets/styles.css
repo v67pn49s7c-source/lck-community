@@ -63,7 +63,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260811c") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260811d") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -721,6 +721,59 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
 }
 .live-banner .lb-team { display: flex; flex-direction: column; align-items: center; gap: 6px; font-weight: 800; }
 .live-banner .lb-score { font-size: 30px; font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+
+/* ── 경기 홈·오늘 경기 선택 ── */
+.schedule-cta { display: flex; flex-direction: column; gap: 7px; padding: 15px 14px; color: var(--text-sub); }
+.schedule-cta b { color: var(--text); font-size: var(--fs-md); }
+.schedule-cta span { font-size: var(--fs-sm); line-height: 1.6; }
+.schedule-cta .btn-primary { align-self: flex-start; margin-top: 5px; }
+.match-overview-card .day-label:first-child { border-top: 0; }
+.match-switcher { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--bg-soft); }
+.match-switcher-label { flex: 0 0 auto; color: var(--text-dim); font-size: var(--fs-xs); font-weight: 800; }
+.match-switcher-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; flex: 1; min-width: 0; }
+.match-switcher-options a {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0;
+  padding: 7px 9px; border: 1px solid var(--line); background: var(--card); color: var(--text-sub);
+}
+.match-switcher-options a:hover, .match-switcher-options a.active { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+.match-switcher-options em { font-style: normal; font-size: 10px; color: var(--text-dim); white-space: nowrap; }
+.match-switcher-options b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.match-switcher-options b span { color: var(--text-dim); font-size: 10px; font-weight: 600; }
+
+/* 종료 경기 한국 공식 다시보기 */
+.replay-frame { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; }
+.replay-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.replay-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--line); }
+.replay-meta b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.replay-meta span { flex: 0 0 auto; color: var(--accent); font-size: var(--fs-sm); font-weight: 700; }
+.replay-pending { display: flex; flex-direction: column; gap: 5px; padding: 18px 14px; color: var(--text-sub); }
+.replay-pending b { color: var(--text); font-size: var(--fs-md); }
+.replay-pending span { font-size: var(--fs-sm); line-height: 1.6; }
+
+/* 경기 본문을 우선하고 팬 참여 기능은 오른쪽의 좁은 보조 영역에 둔다. */
+.live-layout { grid-template-columns: minmax(0, 1fr) 340px; }
+.live-main, .live-side { min-width: 0; }
+.live-rating-tools { display: flex; align-items: center; justify-content: space-between; gap: 7px; padding: 8px 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.live-side .poll-box { padding: 10px; }
+.live-side .poll-q { font-size: var(--fs-sm); margin-bottom: 7px; }
+.live-side .poll-choice { padding: 7px 9px; margin: 4px 0; font-size: var(--fs-sm); }
+.live-side .poll-opt-result { margin: 7px 0; }
+.live-side .por-break { gap: 6px; font-size: 9px; }
+.live-side .frate-vs { grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); }
+.live-side .fv-teamhead { padding: 7px 8px; font-size: 11px; gap: 4px; }
+.live-side .fv-teamhead .team-logo { width: 16px !important; height: 16px !important; }
+.live-side .fv-pos svg { width: 15px; height: 15px; }
+.live-side .fv-pos span, .live-side .fr-cuts, .live-side .fr-respect, .live-side .rr-my { display: none; }
+.live-side .frate { padding: 7px; }
+.live-side .fr-head { gap: 4px; min-height: 21px; }
+.live-side .fr-player b { font-size: 11px; }
+.live-side .fr-badge { min-width: 31px; padding: 2px 5px; font-size: 11px; }
+.live-side .fr-pog, .live-side .chip-pom { padding: 1px 3px; font-size: 8px; }
+.live-side .fr-pog em, .live-side .chip-pom em { display: none; }
+.live-side .fr-mine { gap: 2px; margin-top: 5px; }
+.live-side .rr-scores { min-width: 0; flex-wrap: wrap; gap: 2px; }
+.live-side .frate-vs .rr-btn { flex: 1 0 17%; max-width: none; height: 23px; font-size: 9px; }
+.live-side .admin-note { padding: 8px 10px; font-size: 10px; }
 .live-badge {
   display: inline-flex; align-items: center; gap: 5px;
   font-size: var(--fs-xs); font-weight: 800; color: #fff;
@@ -1381,6 +1434,8 @@ a.bracket-match:hover { border-color: var(--accent); }
   .page-title { flex: 1 0 100%; min-width: 0; }
   .page-title-row > div { flex: 1 1 100%; }
   .page-title-row select { flex: 1 1 auto; min-width: 0 !important; }
+  .live-layout { grid-template-columns: 1fr; }
+  .live-side { position: static; }
 }
 
 /* 좁은 화면: 팬심 평점 좌우 배치 유지 + 내용 간략화 (라벨 숨기고 점·숫자만) */
@@ -1488,6 +1543,48 @@ a.bracket-match:hover { border-color: var(--accent); }
   .dt-items .dd-ic, .dt-spell .dd-ic { width: 24px; height: 24px; }
   .dt-runes .dd-ic { width: 26px; height: 26px; }
   .dt-pos { width: 19px; height: 19px; flex-basis: 19px; }
+
+  /* 팀 게시판은 표 머리를 접고 분류·제목·추천만 카드 한 줄로 다시 배치한다.
+     고정 폭 열이 화면을 밀어 제목과 글쓰기 버튼이 잘리던 문제를 막는다. */
+  #board-root { min-width: 0; overflow: hidden; }
+  #board-root .board-toolbar { display: block; min-width: 0; }
+  #board-root .board-toolbar .filter-tabs {
+    display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-bottom: 8px;
+  }
+  #board-root .board-toolbar .filter-tabs::-webkit-scrollbar { display: none; }
+  #board-root .board-toolbar .filter-tabs button { flex: 0 0 auto; white-space: nowrap; }
+  #board-root .board-search { width: 100%; min-width: 0; }
+  #board-root table.board-table, #board-root table.board-table tbody { display: block; width: 100%; }
+  #board-root table.board-table thead { display: none; }
+  #board-root table.board-table tr {
+    display: grid; grid-template-columns: 64px minmax(0, 1fr) 38px; width: 100%;
+    align-items: center; border-bottom: 1px solid var(--line);
+  }
+  #board-root table.board-table td { display: block; width: auto; border: 0; padding: 10px 5px; min-width: 0; }
+  #board-root table.board-table .col-no,
+  #board-root table.board-table .col-nick,
+  #board-root table.board-table .col-date,
+  #board-root table.board-table .col-views { display: none; }
+  #board-root table.board-table .col-cat { width: auto; }
+  #board-root table.board-table .col-title { min-width: 0; }
+  #board-root table.board-table .col-title a { min-width: 0; overflow: hidden; }
+  #board-root table.board-table .title-text { min-width: 0; }
+  #board-root table.board-table .col-up { width: auto; text-align: right; padding-right: 10px; }
+  #board-root table.board-table tr:has(.empty-note) { display: block; }
+  #board-root .board-foot { justify-content: flex-start; min-height: 56px; }
+  #board-root .board-foot .btn-primary { right: 10px; }
+  .team-hero-inner { padding: 13px 12px; gap: 10px; min-width: 0; }
+  .team-hero-inner .team-logo { width: 44px !important; height: 44px !important; }
+  .team-hero-info { min-width: 0; }
+  .team-hero-info h1 { font-size: 18px; word-break: keep-all; }
+  .team-hero-info .desc { overflow-wrap: anywhere; line-height: 1.55; }
+
+  .match-switcher { display: block; padding: 9px 10px; }
+  .match-switcher-label { display: block; margin-bottom: 6px; }
+  .match-switcher-options { grid-template-columns: 1fr; }
+  .match-switcher-options a { padding: 7px 8px; }
+  .replay-meta { align-items: flex-start; }
+  .live-side .frate-vs { grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); }
 }
 
 /* 좁은 화면: 경기 행 압축 (시간 · 팀 · 예측%) */
@@ -1766,10 +1863,12 @@ a.bracket-match:hover { border-color: var(--accent); }
 /* 드래곤 종류 · 영혼 */
 .sb-pb-side.drake { gap: 6px; align-items: center; font-size: var(--fs-md); }
 .sb-drake { display: inline-flex; align-items: center; gap: 1px; line-height: 1; }
+.sb-drake-icon { width: 22px; height: 22px; object-fit: contain; }
+.sb-drake > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .sb-drake b { font-size: 11px; font-weight: 800; color: var(--text-sub); }
 .sb-soul {
-  font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 3px;
-  background: var(--accent-solid); color: #fff; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 800;
+  padding: 3px 7px; border-radius: 3px; background: var(--accent-solid); color: #fff; white-space: nowrap;
 }
 /* 다시보기·공식 전적·패치 */
 .sb-links {

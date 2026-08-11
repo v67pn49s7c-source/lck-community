@@ -17,21 +17,22 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260811c">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260811c">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260811d">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260811d">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260811c">
+  <link rel="stylesheet" href="assets/styles.css?v=20260811d">
 </head>
 <body>
   <main class="page">
-    <div class="container layout">
-      <div class="stack">
+    <div class="container layout live-layout">
+      <div class="stack live-main">
         <section class="card">
           <div class="card-head">
             <h1 class="card-title" id="live-title">오늘의 경기</h1>
             <span class="card-more" id="live-when"></span>
           </div>
+          <div class="match-switcher" id="match-switcher" style="display:none"></div>
           <div class="live-banner" id="live-banner"></div>
           <div class="stream-links" id="stream-links" style="display:none"></div>
         </section>
@@ -43,12 +44,12 @@
           <div id="preview-body"></div>
         </section>
 
-        <section class="card" id="fanpulse-card" style="display:none">
+        <section class="card" id="replay-card" style="display:none">
           <div class="card-head">
-            <h2 class="card-title">팬심지수 <span class="sub">전체 · 양 팀 팬 · 기타(제3팀·미등록) 여론 비교</span></h2>
-            <span class="card-more">비회원도 투표 가능</span>
+            <h2 class="card-title">한국어 다시보기 <span class="sub">LCK 공식 YouTube</span></h2>
+            <a class="card-more" id="replay-channel" target="_blank" rel="noopener noreferrer">공식 채널 ›</a>
           </div>
-          <div id="fanpulse-body"></div>
+          <div id="replay-body"></div>
         </section>
 
         <section class="card" id="details-card" style="display:none">
@@ -59,18 +60,6 @@
           <div id="details-body"></div>
         </section>
 
-        <section class="card" id="rating-card" style="display:none">
-          <div class="card-head">
-            <h2 class="card-title">팬심 평점 <span class="sub">세트별로, 그 세트에 나온 선수만</span></h2>
-            <span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-              <div class="filter-tabs" id="rating-sets"></div>
-              <span class="card-more" id="rating-status"></span>
-              <button class="card-more" id="rating-share" style="font-weight:700">📷 결과 카드 저장</button>
-            </span>
-          </div>
-          <div id="rating-body"></div>
-        </section>
-
         <section class="card" id="talk-card" style="display:none">
           <div class="card-head">
             <h2 class="card-title">경기 토론 <span class="sub" id="talk-sub"></span></h2>
@@ -78,15 +67,27 @@
           </div>
           <div id="talk-body"></div>
         </section>
-
       </div>
 
-      <aside class="stack">
-        <section class="card">
+      <aside class="stack live-side">
+        <section class="card" id="fanpulse-card" style="display:none">
           <div class="card-head">
-            <h2 class="card-title">오늘·다음 경기</h2>
+            <h2 class="card-title">팬심지수 <span class="sub">팬덤별 여론</span></h2>
+            <span class="card-more">투표</span>
           </div>
-          <div id="upcoming-list"></div>
+          <div id="fanpulse-body"></div>
+        </section>
+
+        <section class="card" id="rating-card" style="display:none">
+          <div class="card-head">
+            <h2 class="card-title">팬심 평점 <span class="sub">세트별 선수 평가</span></h2>
+            <button class="card-more" id="rating-share" style="font-weight:700">결과 저장</button>
+          </div>
+          <div class="live-rating-tools">
+            <div class="filter-tabs" id="rating-sets"></div>
+            <span class="card-more" id="rating-status"></span>
+          </div>
+          <div id="rating-body"></div>
         </section>
 
         <section class="card">
@@ -99,20 +100,35 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260811c"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260811c"></script>
-  <script src="assets/invariants.js?v=20260811c"></script>
-  <script src="assets/store.js?v=20260811c"></script>
-  <script src="assets/app.js?v=20260811c"></script>
-  <script src="assets/ddragon.js?v=20260811c"></script>
-  <script src="assets/race.js?v=20260811c"></script>
+  <script src="assets/data.js?v=20260811d"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260811d"></script>
+  <script src="assets/invariants.js?v=20260811d"></script>
+  <script src="assets/store.js?v=20260811d"></script>
+  <script src="assets/app.js?v=20260811d"></script>
+  <script src="assets/ddragon.js?v=20260811d"></script>
+  <script src="assets/race.js?v=20260811d"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
 
     // 대상 경기: URL 지정 > LIVE 중 > 다음 경기
     const qid = new URLSearchParams(location.search).get("match");
-    const match = getMatches().find(m => m.id === qid) || liveMatch() || nextMatch();
+    let match = getMatches().find(m => m.id === qid) || liveMatch() || nextMatch();
+
+    function renderMatchSwitcher() {
+      const el = document.getElementById("match-switcher");
+      if (!match) { el.style.display = "none"; return; }
+      const sameDay = sortedMatches().filter(m => knownTeams(m) && fmtDayKey(m.at) === fmtDayKey(match.at));
+      if (sameDay.length < 2) { el.style.display = "none"; return; }
+      el.style.display = "";
+      el.innerHTML = `<span class="match-switcher-label">${isTodayKST(match.at) ? "오늘 경기 선택" : fmtDay(match.at)}</span>
+        <div class="match-switcher-options">${sameDay.map((m, i) => `
+          <a href="live.html?match=${q(m.id)}" class="${m.id === match.id ? "active" : ""}"
+            aria-current="${m.id === match.id ? "page" : "false"}">
+            <em>${i + 1}경기 · ${fmtTime(m.at)}</em>
+            <b>${slotName(m.a)} <span>vs</span> ${slotName(m.b)}</b>
+          </a>`).join("")}</div>`;
+    }
 
     function renderBanner() {
       const el = document.getElementById("live-banner");
@@ -146,6 +162,37 @@
       el.innerHTML = `<span class="sl-label">${match.status === "live" ? "지금 중계 중" : "중계 보기"}</span>`
         + links.map(l => `<a class="sl-btn ${l.key}" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">
              ${esc(l.name)}<em>${esc(l.note)}</em></a>`).join("");
+    }
+
+    // Leaguepedia VOD는 먼저 올라오는 Global 영상일 수 있다. 종료 경기에서는
+    // 한국 LCK 공식 채널 RSS만 별도로 확인하고, 아직 없으면 업로드 대기 상태를 보여 준다.
+    async function renderReplay() {
+      const card = document.getElementById("replay-card");
+      if (!match || match.status !== "done" || !knownTeams(match)) { card.style.display = "none"; return; }
+      card.style.display = "";
+      const body = document.getElementById("replay-body");
+      body.innerHTML = `<div class="replay-pending"><b>한국어 다시보기를 확인하고 있습니다</b><span>LCK 공식 채널 업로드를 기다려 주세요.</span></div>`;
+      try {
+        const a = TEAM_MAP[match.a]?.abbr || match.a;
+        const b = TEAM_MAP[match.b]?.abbr || match.b;
+        const response = await fetch(`/api/lck-vod?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}&at=${encodeURIComponent(match.at)}`);
+        const data = response.ok ? await response.json() : null;
+        const channel = document.getElementById("replay-channel");
+        if (data?.channelUrl) channel.href = data.channelUrl;
+        if (data?.status === "ready" && /^[A-Za-z0-9_-]{6,20}$/.test(data.videoId || "")) {
+          body.innerHTML = `<div class="replay-frame"><iframe
+            src="https://www.youtube-nocookie.com/embed/${esc(data.videoId)}" title="${esc(data.title || "LCK 한국어 다시보기")}"
+            loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
+            <a class="replay-meta" href="${esc(data.url)}" target="_blank" rel="noopener noreferrer">
+              <b>${esc(data.title || "LCK 한국어 다시보기")}</b><span>YouTube에서 보기 ›</span></a>`;
+        } else {
+          body.innerHTML = `<div class="replay-pending"><b>한국어 다시보기 준비 중</b>
+            <span>경기 종료 후 보통 24시간 안에 LCK 한국 공식 채널에 올라옵니다. Global 영상은 대신 연결하지 않습니다.</span></div>`;
+        }
+      } catch {
+        body.innerHTML = `<div class="replay-pending"><b>한국어 다시보기 준비 중</b><span>잠시 후 다시 확인해 주세요.</span></div>`;
+      }
     }
 
     // ── 팬심지수 (경기별 투표 + 팬덤별 결과) ──
@@ -482,24 +529,15 @@
       });
     }
 
-    // 사이드: 다가오는 경기 목록
-    function renderUpcoming() {
-      const ms = sortedMatches().filter(m => m.status !== "done").slice(0, 6);
-      document.getElementById("upcoming-list").innerHTML =
-        ms.map(m => `
-          <a class="post-row" href="/match/${q(m.id)}">
-            <span style="display:flex;align-items:center;gap:5px;font-weight:700">${slotLogoHTML(m.a, 18)} ${slotName(m.a)}</span>
-            <span style="color:var(--text-dim);font-size:11px">vs</span>
-            <span style="display:flex;align-items:center;gap:5px;font-weight:700">${slotLogoHTML(m.b, 18)} ${slotName(m.b)}</span>
-            <span class="post-meta" style="margin-left:auto">${m.status === "live" ? "LIVE" : fmtWhen(m.at)}</span>
-          </a>`).join("") || `<div class="empty-note">예정된 경기가 없습니다</div>`;
-    }
-
+    renderMatchSwitcher();
     renderBanner();
+    renderReplay();
     // 중계 링크·팬 평점·투표 결과는 지난 방문 스냅샷에 없거나 오래됐을 수 있어,
     // 서버 데이터가 도착하면 다시 그린다
     storeFresh.then(() => {
-      renderStreams(); renderFanPulse(); renderRatingPanel(); renderPreview(); renderTalk();
+      match = getMatches().find(m => m.id === (qid || match?.id)) || liveMatch() || nextMatch();
+      renderMatchSwitcher(); renderBanner(); renderStreams(); renderReplay(); renderFanPulse();
+      renderDetails(); renderRatingPanel(); renderPreview(); renderTalk(); setupSidebarStandings();
     }).catch(() => {});
     renderFanPulse();
     renderDetails();
@@ -507,7 +545,6 @@
     renderRatingPanel();
     renderPreview();
     renderTalk();
-    renderUpcoming();
     setupSidebarStandings();
     renderFooter();
   });

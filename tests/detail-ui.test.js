@@ -70,6 +70,7 @@ vm.runInContext(source + "\n;globalThis.__ddTest = { DD, ddInit, ddLookup, ddIte
   assert(live.includes('class="dt-pos"'), "선수 포지션 아이콘이 있어야 함");
   assert(css.includes(".dt-champ .dd-nm { display: none; }"), "상세 표에서는 챔피언 이름을 숨겨야 함");
   assert(css.includes(".dt-dmg-meter > i > b"), "딜량 막대 채움 스타일이 있어야 함");
+  assert(css.includes(".sb-drake-icon"), "드래곤 종류는 이모지 대신 공식 아이콘으로 보여야 함");
   console.log("✓ 경기 상세 아이콘·딜량 UI 회귀 테스트 통과");
 })().catch(error => {
   console.error(error);

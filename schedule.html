@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="description" content="2026 LCK 전 경기 일정과 결과를 대회·라운드별로 확인하세요. 경기별 세트 스코어와 선수 기록까지.">
+  <link rel="canonical" href="https://lck-community.vercel.app/schedule.html">
+  <meta property="og:url" content="https://lck-community.vercel.app/schedule.html">
+  <meta property="og:site_name" content="The Nexus">
+  <meta property="og:locale" content="ko_KR">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LCK 전체 경기 일정 — The Nexus</title>
+  <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "dark";</script>
+  <meta property="og:title" content="LCK 전체 경기 일정 — The Nexus">
+  <meta property="og:description" content="2026 LCK 전 경기 일정과 결과를 대회·라운드별로 확인하세요.">
+  <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/og-default.png">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260811d">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260811d">
+  <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
+  <link rel="stylesheet" href="assets/styles.css?v=20260811d">
+</head>
+<body>
+  <main class="page">
+    <div class="container layout">
+      <div class="stack">
+        <div class="page-title-row">
+          <h1 class="page-title">전체 경기 일정 <span class="sub">일정 · 결과</span></h1>
+          <div><select id="tournament-select" style="min-width:200px"></select></div>
+        </div>
+        <section class="card">
+          <div class="board-toolbar"><div class="filter-tabs" id="stage-tabs"></div></div>
+          <div id="matches-body"></div>
+        </section>
+      </div>
+      <aside class="stack">
+        <section class="card">
+          <div class="card-head"><h2 class="card-title">다음 경기 예측</h2><span class="card-more" id="predict-when"></span></div>
+          <div class="predict-widget" id="predict-widget"></div>
+        </section>
+        <section class="card">
+          <div class="card-head"><h2 class="card-title">LCK 순위</h2></div>
+          <div id="standings-body"></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+  <script src="assets/data.js?v=20260811d"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260811d"></script>
+  <script src="assets/store.js?v=20260811d"></script>
+  <script src="assets/app.js?v=20260811d"></script>
+  <script src="assets/race.js?v=20260811d"></script>
+  <script>
+  storeReady.then(async () => {
+    renderHeader("경기", null);
+    const state = { tid: null, stage: "전체" };
+    function renderTournamentSelect() {
+      const ts = getTournaments();
+      const sel = document.getElementById("tournament-select");
+      if (!ts.length) { sel.innerHTML = `<option>등록된 대회 없음</option>`; return; }
+      state.tid = state.tid || ts[0].id;
+      sel.innerHTML = ts.map(t => `<option value="${t.id}" ${t.id === state.tid ? "selected" : ""}>${esc(t.name)}</option>`).join("");
+      sel.onchange = () => { state.tid = sel.value; state.stage = "전체"; renderStageTabs(); renderMatches(); updateBracketLink(); };
+      updateBracketLink();
+    }
+    function updateBracketLink() {
+      const a = document.querySelector('.sub-nav-inner a[href^="bracket.html"]');
+      if (a) a.href = "bracket.html?t=" + encodeURIComponent(state.tid || "");
+    }
+    function renderStageTabs() {
+      const t = getTournaments().find(x => x.id === state.tid);
+      const el = document.getElementById("stage-tabs");
+      const stages = ["전체", ...(t ? t.stages : [])];
+      el.innerHTML = stages.map(s => `<button data-stage="${esc(s)}" class="${state.stage === s ? "active" : ""}">${esc(s)}</button>`).join("");
+      el.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+        state.stage = b.dataset.stage; renderStageTabs(); renderMatches();
+      }));
+    }
+    function renderMatches() {
+      let ms = sortedMatches().filter(m => m.tid === state.tid);
+      if (state.stage !== "전체") ms = ms.filter(m => m.stage === state.stage);
+      document.getElementById("matches-body").innerHTML = scheduleHTML(ms, { showStage: true });
+    }
+    const draw = () => { renderTournamentSelect(); renderStageTabs(); renderMatches(); };
+    draw();
+    storeFresh.then(draw).catch(() => {});
+    raceWarmExact(changed => { if (changed) renderMatches(); });
+    initSidebar();
+    renderFooter();
+  });
+  </script>
+</body>
+</html>
