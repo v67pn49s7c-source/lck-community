@@ -63,7 +63,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260812e") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260812f") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -868,32 +868,48 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
 .team-card .tc-record { font-size: var(--fs-xs); color: var(--text-dim); }
 
 /* ── 선수·팀 발견형 페이지 ── */
-.player-finder { margin-bottom: 14px; }
 .sr-only {
   position: absolute !important; width: 1px !important; height: 1px !important;
   padding: 0 !important; margin: -1px !important; overflow: hidden !important;
   clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important;
 }
-.player-team-picker {
-  display: grid; grid-template-columns: repeat(11, minmax(54px, 1fr)); gap: 6px;
-  padding: 12px 14px 10px; border-bottom: 1px solid var(--line);
+/* ── 선수 필터 — 데스크톱은 오른쪽 사이드, 모바일은 '필터' 버튼으로 여는 시트 ── */
+.roster-results-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.roster-tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.player-search-field { min-width: 0; }
+.player-search-field input { min-height: 38px; padding: 7px 11px; width: 200px; max-width: 100%; }
+.filter-toggle {
+  display: none; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px;
+  font-size: var(--fs-sm); font-weight: 800; color: var(--text);
+  background: var(--card); border: 1px solid var(--accent); border-radius: 10px;
 }
-.player-team-picker button {
-  min-width: 0; min-height: 56px; display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 3px; padding: 5px 3px; color: var(--text-sub);
-  background: transparent; border: 1px solid transparent; font-size: 10px; font-weight: 800;
+.filter-toggle svg { width: 17px; height: 17px; }
+.filter-badge {
+  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent-solid); color: #fff; font-size: 10px; font-weight: 800;
 }
-.player-team-picker button > span { min-height: 32px; display: flex; align-items: center; font-size: 10px; }
-.player-team-picker button .team-logo { width: 32px !important; height: 32px !important; }
-.player-team-picker button:hover { background: var(--bg-soft); border-color: var(--line); }
-.player-team-picker button.active { color: var(--text); background: var(--bg-soft); border-color: var(--accent); }
-.player-filter-bar { display: grid; grid-template-columns: minmax(180px, 280px) minmax(420px, 1fr); gap: 12px; align-items: center; padding: 10px 14px; }
-.player-filter-field, .player-position-filter { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.filter-panel-head { display: flex; align-items: center; justify-content: space-between; }
+.filter-close { display: none; padding: 4px; color: var(--text-dim); background: none; border: 0; }
+.filter-close svg { width: 20px; height: 20px; }
+.filter-panel-body { display: grid; gap: 16px; padding: 12px 14px 14px; }
+.filter-group { display: grid; gap: 8px; min-width: 0; }
+/* .chip-row 의 flex 가 파일 뒤쪽에 있어 그대로 두면 그것이 이긴다 — 특이도를 올린다 */
+.filter-panel .filter-pos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.filter-panel .filter-pos button { padding: 7px 4px; text-align: center; }
+.filter-team-list { display: grid; gap: 3px; max-height: 340px; overflow-y: auto; }
+.filter-team-list button {
+  display: flex; align-items: center; gap: 9px; width: 100%; min-height: 40px;
+  padding: 6px 10px; border-radius: 9px; border: 1px solid transparent;
+  background: transparent; color: var(--text-sub); font-size: var(--fs-sm); font-weight: 800; text-align: left;
+}
+.filter-team-list button .team-logo { width: 22px !important; height: 22px !important; flex: 0 0 22px; }
+.filter-team-list button:hover { background: var(--bg-soft); color: var(--text); }
+.filter-team-list button.active { background: var(--accent-solid); border-color: var(--accent-solid); color: #fff; }
+.filter-backdrop { display: none; }
+.player-filter-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .player-filter-field > span, .filter-label, .compare-controls label > span { color: var(--text-dim); font-size: var(--fs-xs); font-weight: 800; }
 .player-filter-field input, .player-filter-field select, .compare-controls select { width: 100%; min-width: 0; }
-.player-search-field input { min-height: 38px; padding: 7px 11px; }
-.player-position-filter .chip-row { flex-wrap: nowrap; }
-.player-position-filter .chip-row button { flex: 1 1 auto; padding-inline: 8px; }
 .player-page-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; align-items: start; }
 .player-main-column, .player-insights { min-width: 0; }
 .player-insights { display: grid; gap: 14px; position: sticky; top: 78px; }
@@ -1618,10 +1634,42 @@ a.bracket-match:hover { border-color: var(--accent); }
   .btn-icon { flex-shrink: 0; }
   .user-chip { max-width: 72px; }
   .team-grid { grid-template-columns: repeat(2, 1fr); }
-  .player-team-picker { grid-template-columns: repeat(6, minmax(48px, 1fr)); }
-  .player-filter-bar { grid-template-columns: minmax(180px, .7fr) minmax(360px, 1.3fr); }
   .player-page-grid { grid-template-columns: 1fr; }
   .player-insights { grid-template-columns: 1fr 1fr; position: static; }
+
+  /* ── 좁은 화면: 필터는 '필터' 버튼으로 여는 전체화면 시트가 된다 ──
+     사이드로 두면 결과 위에 세로로 길게 쌓여 정작 선수 목록이 밀린다. */
+  .filter-toggle { display: inline-flex; }
+  .filter-close { display: block; }
+  .filter-panel {
+    position: fixed; left: 0; right: 0; top: 56px; bottom: 0; z-index: 200;
+    margin: 0; border-radius: 14px 14px 0 0; border-bottom: 0;
+    display: flex; flex-direction: column;
+    transform: translateY(101%); visibility: hidden;
+    transition: transform .22s ease, visibility .22s;
+  }
+  .filter-panel-head { flex: 0 0 auto; }
+  .filter-panel-body {
+    flex: 1 1 auto; overflow-y: auto; align-content: start;
+    /* 하단 탭바에 마지막 팀이 가리지 않게 */
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+  .filter-team-list { max-height: none; }
+  .filter-team-list button { min-height: 46px; font-size: var(--fs-md); }
+  .filter-team-list button .team-logo { width: 26px !important; height: 26px !important; flex-basis: 26px; }
+  .filter-panel .filter-pos button { min-height: 44px; font-size: var(--fs-sm); }
+  body.filter-open .filter-panel { transform: none; visibility: visible; }
+  body.filter-open { overflow: hidden; }
+  .filter-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 190;
+    background: rgba(0, 0, 0, .5);
+    /* 닫혀 있을 때 화면을 덮은 채로 클릭을 삼키면 안 된다 */
+    opacity: 0; pointer-events: none; transition: opacity .22s ease;
+  }
+  body.filter-open .filter-backdrop { opacity: 1; pointer-events: auto; }
+  @media (prefers-reduced-motion: reduce) {
+    .filter-panel, .filter-backdrop { transition: none; }
+  }
   .compare-result { grid-template-columns: 130px minmax(220px, 280px) 130px; }
   .compare-summary { grid-column: 1 / -1; }
   .matchup-lanes { grid-template-columns: repeat(5, minmax(150px, 1fr)); overflow-x: auto; }
@@ -1658,13 +1706,6 @@ a.bracket-match:hover { border-color: var(--accent); }
 
 /* 좁은 화면: 팬심 평점 좌우 배치 유지 + 내용 간략화 (라벨 숨기고 점·숫자만) */
 @media (max-width: 720px) {
-  .player-filter-bar { grid-template-columns: 1fr; gap: 10px; }
-  .player-position-filter { grid-column: auto; }
-  .player-team-picker { display: flex; overflow-x: auto; padding-inline: 10px; scrollbar-width: none; }
-  .player-team-picker::-webkit-scrollbar { display: none; }
-  .player-team-picker button { flex: 0 0 58px; }
-  .player-position-filter .chip-row { overflow-x: auto; padding-bottom: 2px; }
-  .player-position-filter .chip-row button { flex: 0 0 auto; }
   .player-insights { grid-template-columns: 1fr; }
   .discovery-list { min-height: 0; }
   .matchup-lanes { grid-template-columns: repeat(5, minmax(132px, 1fr)); }
