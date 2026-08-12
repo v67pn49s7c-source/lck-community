@@ -243,9 +243,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260812n")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260812n")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812n")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260813a")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260813a")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260813a")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -295,7 +295,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812n");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260813a");
 
   renderTabBar(groupName);
 }
@@ -1701,6 +1701,15 @@ const SOUL_AT = 4;
 //   전체가 n마리면 영혼 원소는 최소 (n-2)마리 — 즉 가장 많은 원소가 영혼이다.
 // 단정할 수 없으면(동수라 어느 쪽인지 모를 때) null 을 돌려주고 종류를 말하지 않는다.
 // (아는 것보다 더 말하지 않는다)
+// 원소 드래곤 마리 수 — **장로를 뺀 값**.
+// ⚠ 리그피디아의 dragons 총계에는 장로가 포함돼 있다 (전 세트 확인: 불일치 16건이
+//   전부 `총계 = 원소합 + 장로`). 그대로 쓰면 장로를 먹은 팀만 드래곤 칸이 하나 더
+//   생겨 "용은 4마리까지인데 왜 5칸이지" 가 된다.
+function elementalDragons(g, side) {
+  const d = ((g.drakes || {})[side]) || {};
+  return Math.max(0, (+((g.dragons || {})[side]) || 0) - (+d.elder || 0));
+}
+
 function soulKind(g) {
   const tot = {};
   ["a", "b"].forEach(s => {
@@ -1793,30 +1802,35 @@ function setScoreboardHTML(match, set) {
   // 종류가 기록되지 않은 세트는 마리 수만큼 무채색 칸으로 둔다.
   const drakeSlots = s => {
     const d = (g.drakes || {})[s] || {};
+    // 3번째부터는 전부 영혼 원소이므로, **영혼 원소를 맨 뒤로** 놓으면 실제 잡은 순서에
+    // 가깝게 읽히고 영혼 표시도 마지막 칸에 자연스럽게 붙는다.
+    const order = Object.keys(DRAKE_KO)
+      .filter(k => k !== "elder")                          // 장로는 위 목표물 칸으로 뺐다
+      .sort((x, y) => (x === soulKindNow ? 1 : 0) - (y === soulKindNow ? 1 : 0));
     const out = [];
-    Object.keys(DRAKE_KO).forEach(k => {
-      if (k === "elder") return;                          // 장로는 위 목표물 칸으로 뺐다
-      for (let i = 0; i < (+d[k] || 0); i++) out.push(k);
-    });
-    const total = +((g.dragons || {})[s]) || 0;
-    while (out.length < total) out.push(null);
+    order.forEach(k => { for (let i = 0; i < (+d[k] || 0); i++) out.push(k); });
+    while (out.length < elementalDragons(g, s)) out.push(null);   // 종류가 기록 안 된 마리
     return out;
   };
+  const soulKindNow = soulKind(g);
   // 드래곤 칸 — 영혼이 4마리째에 나오므로 **한 팀당 최소 4칸**을 깔아 두고,
   // 먹은 자리에만 그 용의 속성 아이콘을 채운다. 빈 칸은 점선 — 영혼까지 얼마나
   // 남았는지가 칸만 봐도 읽힌다.
   const drakeSlotN = Math.max(SOUL_AT, drakeSlots("a").length, drakeSlots("b").length);
   // 영혼은 **4마리째 칸 자체를 강조**해서 보여 준다 — 옆에 글자로 또 적으면
   // 칸을 만들어 둔 의미가 없고 자리만 넓게 먹는다.
-  const soulKindNow = soulKind(g);
   const drakeRow = (s, flip) => {
     const taken = drakeSlots(s);
     const gotSoul = taken.length >= SOUL_AT;
+    // 영혼 표시는 **영혼 원소 칸**에 붙인다. 자리 번호로 붙이면 엉뚱한 원소 칸에
+    // "화학공학 드래곤 — 마공학 영혼" 처럼 앞뒤가 안 맞는 안내가 나온다.
+    const soulIdx = !gotSoul ? -1
+      : (soulKindNow && taken.lastIndexOf(soulKindNow) >= 0 ? taken.lastIndexOf(soulKindNow) : SOUL_AT - 1);
     const soulNm = soulKindNow ? `${DRAKE_KO[soulKindNow]} 영혼` : "드래곤 영혼";
     const slots = taken.concat(Array(Math.max(0, drakeSlotN - taken.length)).fill(undefined));
     return slots.map((k, i) => {
       // 영혼을 완성시킨 칸 = 먹은 것 중 4번째
-      const isSoul = gotSoul && i === SOUL_AT - 1;
+      const isSoul = i === soulIdx;
       const cls = "obj-chip drake" + (isSoul ? " got-soul" : "");
       const style = isSoul ? ` style="--soul-color:${soulKindNow ? DRAKE_COLOR[soulKindNow] : "var(--accent-solid)"}"` : "";
       if (k === undefined) return `<span class="obj-chip drake empty" title="아직 안 먹은 드래곤"><span class="obj-ic" aria-hidden="true"></span></span>`;

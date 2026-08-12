@@ -44,8 +44,11 @@ assert(/objLine\(objChips\("a", false\), objChips\("b", true\)/.test(app),
 assert(/objLine\(drakeRow\("a", true\), drakeRow\("b", false\)/.test(app),
   "드래곤도 좌우 대립이어야 함");
 // 영혼은 옆에 글자로 또 적지 않고 **4마리째 칸 자체**를 강조한다
-assert(app.includes("const isSoul = gotSoul && i === SOUL_AT - 1") && app.includes("got-soul"),
+assert(app.includes("const isSoul = i === soulIdx") && app.includes("got-soul"),
   "영혼은 4마리째 칸을 강조해서 표시해야 함");
+// 자리 번호로 붙이면 "화학공학 칸 — 마공학 영혼" 처럼 앞뒤가 안 맞는다
+assert(app.includes("taken.lastIndexOf(soulKindNow)"),
+  "영혼 표시는 영혼 원소 칸에 붙어야 함");
 assert(/\.obj-chip\.drake\.got-soul \{[^}]*box-shadow/.test(css),
   "영혼 칸에 강조 테두리가 있어야 함");
 assert(!app.includes("soulBadge"), "영혼을 별도 글자 배지로 또 적으면 안 됨");
@@ -54,6 +57,19 @@ assert(live.includes('class="replay-full-btn chzzk"') && live.includes('class="r
   "풀 영상 다시보기 버튼(치지직·SOOP)이 있어야 함");
 assert(live.includes("매치 다시보기") && !live.includes("한국어 다시보기"),
   "카드 이름은 '매치 다시보기' 여야 함");
+// 원소 드래곤 칸 수 — 장로를 빼야 한다.
+// 리그피디아의 dragons 총계에 장로가 섞여 있어서, 장로를 먹은 팀만 칸이 5개가 됐다
+// (사장님이 발견. HLE vs DK 2세트: dragons=5, 원소합=4, 장로=1. 전 세트 훑으니 16건).
+const edSrc = app.slice(app.indexOf("function elementalDragons"), app.indexOf("function soulKind"));
+const elementalDragons = new Function(edSrc + "; return elementalDragons;")();
+assert.strictEqual(elementalDragons({ dragons: { a: 5 }, drakes: { a: { chemtech: 1, hextech: 2, mountain: 1, elder: 1 } } }, "a"), 4,
+  "장로를 뺀 원소 드래곤만 세야 함 (실제 사고 데이터)");
+assert.strictEqual(elementalDragons({ dragons: { a: 1 }, drakes: { a: { elder: 1 } } }, "a"), 0,
+  "장로만 먹었으면 원소 드래곤 칸은 0이어야 함");
+assert.strictEqual(elementalDragons({ dragons: { b: 4 }, drakes: { b: { ocean: 1, chemtech: 3 } } }, "b"), 4,
+  "장로가 없으면 총계가 그대로 원소 드래곤 수여야 함");
+assert.strictEqual(elementalDragons({}, "a"), 0, "기록이 없으면 0");
+
 assert(app.includes("const drakeSlotN = Math.max(SOUL_AT"),
   "드래곤은 영혼까지 남은 칸이 보이게 최소 4칸을 깔아야 함");
 // 거울상은 CSS 가 아니라 **순서를 뒤집어서** 만든다 — 같은 목표물이 마주 보게.
