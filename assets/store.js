@@ -210,9 +210,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260813g"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260813g"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260813g"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260813h"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260813h"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260813h"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -260,7 +260,7 @@ async function fetchAll() {
     // select("*") 를 쓰면 이 요청 전체가 권한 오류로 실패한다. 목록에 필요한 칸만 적는다.
     // 본문은 글을 열 때 loadPostBody() 가 서버 창구(get_post_body)로 따로 받는다.
     sb.from("posts")
-      .select("id,team,cat,title,nick,author_team,author_id,match_id,is_official,up,views,created_at")
+      .select("id,team,cat,title,nick,author_team,author_id,match_id,ref_match_id,is_official,up,views,created_at")
       .order("created_at", { ascending: false }),
     sb.from("comments").select("*").order("created_at"),
     // 예측·평점·투표·반응·댓글추천은 원본 대신 **집계 + 내 표**만 받는다 (왕복 1회)
@@ -319,6 +319,16 @@ async function fetchAll() {
   Cache.records = (r.data || []).map(x => ({ id: x.id, name: x.name, ord: x.ord, records: x.records || [], in_total: x.in_total }));
   Cache.players = pl.data || [];
 
+  // schema27(ref_match_id)을 아직 안 돌린 DB 에서도 글 목록이 죽지 않게 —
+  // 그 칸만 빼고 한 번 더 받는다. (SQL 이 먼저, 코드가 나중이지만 순서가 어긋나도 살아남는다)
+  if (po.error && /ref_match_id/.test(po.error.message || "")) {
+    console.warn("[store] ref_match_id 칸 없음 — 경기 첨부 없이 불러옵니다 (schema27 실행 필요)");
+    const retry = await sb.from("posts")
+      .select("id,team,cat,title,nick,author_team,author_id,match_id,is_official,up,views,created_at")
+      .order("created_at", { ascending: false });
+    po.data = retry.data; po.error = retry.error;
+  }
+
   const commentsByPost = {};
   (co.data || []).forEach(c => {
     (commentsByPost[c.post_id] = commentsByPost[c.post_id] || []).push({
@@ -337,6 +347,8 @@ async function fetchAll() {
     id: x.id, team: x.team, cat: x.cat, title: x.title, nick: x.nick,
     body: keepBody[x.id] || "", bodyLoaded: Object.prototype.hasOwnProperty.call(keepBody, x.id),
     author_team: x.author_team || null, match_id: x.match_id || null,
+    // 글이 인용한 경기 (공식 경기방을 가리키는 match_id 와 다른 칸 — schema27)
+    refMatch: x.ref_match_id || null,
     author_id: x.author_id || null,   // 마이페이지 '내가 쓴 글'. 비회원 글은 null.
     official: !!x.is_official,        // 공식 경기 토론방 (schema22 — 관리자만 켤 수 있다)
     up: x.up, views: x.views, ts: Date.parse(x.created_at), comments: commentsByPost[x.id] || [],
@@ -784,6 +796,19 @@ async function loadPostBody(id) {
   if (r.error) { sbErr(r.error, "loadPostBody"); return { ok: false }; }
   if (r.data == null) return { ok: false };   // 자격 없음 — 서버의 최종 판정
   return keep(r.data);
+}
+
+// 글에 '참조 경기' 붙이기/떼기 (회원 본인 글만 — 서버가 다시 확인한다)
+// create_post 의 인자 목록은 건드리지 않는다. 인자가 하나라도 어긋나면 배포 순서에
+// 따라 글쓰기가 통째로 죽기 때문에, 투표 첨부와 같은 방식으로 **글을 만든 뒤** 부른다.
+async function setPostRefMatch(postId, matchId) {
+  const r = await sb.rpc("set_post_ref_match", { p_post_id: postId, p_match_id: matchId || "" });
+  // schema27 을 아직 안 돌린 DB — 첨부만 조용히 건너뛴다 (글쓰기는 이미 끝났다)
+  if (isMissingFunction(r.error)) return { skipped: true };
+  if (r.error) { sbErr(r.error, "setPostRefMatch"); return { error: r.error }; }
+  const p = Cache.posts.find(x => x.id === postId);
+  if (p) p.refMatch = matchId || null;
+  return {};
 }
 
 // 글 수정 (비회원은 비밀번호, 회원은 본인 글, 관리자는 전부)

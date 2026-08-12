@@ -151,6 +151,51 @@ function postBodyHTML(text) {
   return html;
 }
 
+// ── 글에 붙은 '참조 경기' 카드 ────────────────────────────
+// 접힌 상태는 스코어·날짜만. 펼치면 세트별 밴픽까지 보인다.
+// 경기 ID 만 저장하고 카드는 볼 때 그린다 — 원본 결과가 고쳐지면 카드도 저절로 따라간다.
+function refMatchCardHTML(matchId) {
+  const m = getMatches().find(x => x.id === matchId);
+  if (!m || !knownTeams(m)) return "";                 // 지워졌거나 팀을 모르는 경기
+  const A = TEAM_MAP[m.a], B = TEAM_MAP[m.b];
+  const done = m.status === "done";
+  const aWin = done && (m.scoreA ?? 0) > (m.scoreB ?? 0);
+  const bWin = done && (m.scoreB ?? 0) > (m.scoreA ?? 0);
+
+  // 세트별 밴픽 — 경기 페이지와 같은 재료(match_details.game)를 쓰되 훨씬 간략하게.
+  const sets = ((typeof getDetails === "function" && getDetails(m.id)) || {}).sets || [];
+  const champs = (list, kind) => (list || []).map(c =>
+    `<span class="rm-ch ${kind}" title="${esc(c)}">${ddChampHTML(c, 24) || esc(c)}</span>`).join("");
+  const setRows = sets.map((st, i) => {
+    const g = st.game || {};
+    if (!g.picks && !g.bans) return "";
+    const side = (key, kind, s) => `<span class="rm-side">${champs((g[key] || {})[s], kind)}</span>`;
+    return `<div class="rm-set">
+      <b class="rm-set-no">${(st._idx ?? i) + 1}세트</b>
+      <div class="rm-set-body">
+        <div class="rm-line"><em>픽</em>${side("picks", "pick", "a")}<i>vs</i>${side("picks", "pick", "b")}</div>
+        <div class="rm-line"><em>밴</em>${side("bans", "ban", "a")}<i>vs</i>${side("bans", "ban", "b")}</div>
+      </div>
+    </div>`;
+  }).filter(Boolean).join("");
+
+  const body = setRows
+    ? `<div class="rm-sets">${setRows}</div>`
+    : `<div class="rm-empty">이 경기의 세트별 밴픽 기록이 아직 없습니다.</div>`;
+
+  return `<details class="ref-match">
+    <summary>
+      <span class="rm-team ${aWin ? "win" : ""}">${teamLogoHTML(A, 26)}<b>${esc(A.abbr)}</b></span>
+      <span class="rm-score">${done ? `${m.scoreA ?? 0} : ${m.scoreB ?? 0}` : "VS"}</span>
+      <span class="rm-team r ${bWin ? "win" : ""}"><b>${esc(B.abbr)}</b>${teamLogoHTML(B, 26)}</span>
+      <span class="rm-when">${fmtMD(m.at)}${m.label || m.stage ? ` · ${esc(m.label || m.stage)}` : ""}</span>
+      <span class="rm-open">밴픽 보기</span>
+    </summary>
+    ${body}
+    <a class="rm-more" href="live.html?match=${q(m.id)}">경기 전체 기록 보기 ›</a>
+  </details>`;
+}
+
 // 이 글을 **읽을** 수 있나 — 팀 게시판 글은 그 팀 팬 회원만 열어 볼 수 있다.
 //   · 목록(제목)까지는 누구나 볼 수 있지만, 글을 열면 여기서 막힌다
 //   · 응원팀은 30일에 한 번만 바꿀 수 있어(schema19) 팀을 옮겨 다니며 훔쳐볼 수 없다
@@ -318,6 +363,7 @@ async function initPostPage() {
         </div>
       </div>
       <div class="post-content">${postBodyHTML(cur.body)}</div>
+      ${cur.refMatch ? refMatchCardHTML(cur.refMatch) : ""}
       ${poll ? `<div class="poll-box" id="post-poll" style="border-top:1px solid var(--line)"></div>` : ""}
       <div class="post-actions" style="flex-wrap:wrap">
         ${REACTION_KINDS.map(k => `
@@ -460,6 +506,20 @@ async function initPostPage() {
   }).catch(() => {});
   initPostSidebar(post.team);
   renderFooter();
+
+  // 경기 카드의 세트별 밴픽은 **나중에** 채운다.
+  //   · 세트 상세(match_details)는 글 화면에서 첫 그림을 막지 않으려고 뒤늦게 받는다
+  //   · 챔피언 아이콘 주소도 ddInit 이 끝나야 정해진다
+  // 둘 다 준비되면 카드만 다시 그린다. 사용자가 이미 펼쳐 놨으면 건드리지 않는다.
+  if (post.refMatch) {
+    Promise.all([
+      typeof loadDetailsLater === "function" ? loadDetailsLater() : Promise.resolve(),
+      typeof ddInit === "function" ? ddInit() : Promise.resolve(),
+    ]).then(() => {
+      const card = document.querySelector("#post-view .ref-match");
+      if (card && !card.open) card.outerHTML = refMatchCardHTML(post.refMatch);
+    }).catch(() => {});
+  }
 }
 
 // ── 글쓰기 페이지 ──
@@ -471,8 +531,21 @@ async function initWritePage() {
   const matchId = params.get("match") || null;
   const form = document.getElementById("write-form");
 
-  // 회원만 투표 첨부 가능 (서버 규칙과 동일)
+  // 회원만 투표·경기 첨부 가능 (서버 규칙과 동일)
   if (Auth.session) document.getElementById("poll-attach-wrap").style.display = "";
+  // 경기 첨부 — 끝난 경기만, 최근 순으로. 글 하나에 경기 하나.
+  if (Auth.session) {
+    const wrap = document.getElementById("match-attach-wrap");
+    const sel = document.getElementById("match-attach");
+    if (wrap && sel) {
+      const done = sortedMatches().filter(m => m.status === "done" && knownTeams(m))
+        .sort((x, y) => new Date(y.at) - new Date(x.at)).slice(0, 60);
+      sel.innerHTML = `<option value="">첨부 안 함</option>` + done.map(m =>
+        `<option value="${esc(m.id)}">${fmtMD(m.at)} ${esc(slotName(m.a))} ${m.scoreA ?? 0}:${m.scoreB ?? 0} ${esc(slotName(m.b))}</option>`).join("");
+      if (matchId && done.some(m => m.id === matchId)) sel.value = matchId;   // ?match= 로 들어왔으면 미리 골라 둔다
+      wrap.style.display = "";
+    }
+  }
   document.getElementById("poll-attach")?.addEventListener("change", e => {
     const f = document.getElementById("poll-fields");
     f.style.display = e.target.checked ? "flex" : "none";
@@ -559,6 +632,11 @@ async function initWritePage() {
       fail("글을 등록하지 못했습니다.\n" + (error.message || ""));
       return;
     }
+    // 경기 첨부 (회원) — 글이 저장된 뒤에 따로 건다.
+    // create_post 의 인자 목록을 늘리지 않는 이유는 위 store.js 주석과 같다.
+    const refPick = Auth.session ? (document.getElementById("match-attach")?.value || "") : "";
+    if (refPick) await setPostRefMatch(pid, refPick);
+
     // 투표 첨부 (회원) — RPC 로만 만든다. match_id 는 넘기지 않는다:
     // 회원 투표가 경기(match_id)에 걸리면 공식 팬심지수 화면에 끼어들 수 있어
     // 서버가 금지한다 (schema22 · P0-1).

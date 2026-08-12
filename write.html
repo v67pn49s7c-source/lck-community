@@ -13,10 +13,10 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260813g">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260813g">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260813h">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260813h">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260813g">
+  <link rel="stylesheet" href="assets/styles.css?v=20260813h">
 </head>
 <body>
   <main class="page">
@@ -49,6 +49,12 @@
             <div class="form-hint" id="write-pw-hint">비밀번호는 이 글을 수정·삭제할 때 씁니다. 잊어버리면 되돌릴 수 없어요.</div>
             <input id="write-title" placeholder="제목을 입력하세요" required maxlength="80">
             <textarea id="write-body" placeholder="내용을 입력하세요. 비방·혐오 표현, 불법 베팅·중계 링크는 제재됩니다." required></textarea>
+
+            <div id="match-attach-wrap" style="display:none; border:1px solid var(--line); padding:13px; background:var(--bg-soft)">
+              <div class="form-label" style="margin-bottom:7px">경기 첨부 <span style="font-weight:400; color:var(--text-dim)">(선택 · 끝난 경기 하나)</span></div>
+              <select id="match-attach" style="width:100%"></select>
+              <div class="form-hint" style="margin-top:6px">고른 경기의 스코어 카드가 글에 붙습니다. 카드를 누르면 세트별 밴픽까지 펼쳐집니다.</div>
+            </div>
 
             <div id="poll-attach-wrap" style="display:none; border:1px solid var(--line); padding:12px; background:var(--bg-soft)">
               <label style="display:flex; gap:7px; align-items:center; font-weight:700; cursor:pointer">
@@ -93,11 +99,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260813g"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260813g"></script>
-  <script src="assets/store.js?v=20260813g"></script>
-  <script src="assets/app.js?v=20260813g"></script>
-  <script src="assets/board.js?v=20260813g"></script>
+  <script src="assets/data.js?v=20260813h"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260813h"></script>
+  <script src="assets/store.js?v=20260813h"></script>
+  <script src="assets/app.js?v=20260813h"></script>
+  <script src="assets/board.js?v=20260813h"></script>
   <script>initWritePage();</script>
 </body>
 </html>

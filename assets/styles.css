@@ -66,7 +66,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260813g") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260813h") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -2309,6 +2309,38 @@ a.bracket-match:hover { border-color: var(--accent); }
 .fav-pick button.active { border-color: var(--pick-color); border-width: 2px; color: var(--text);
   background: color-mix(in srgb, var(--pick-color) 14%, transparent); }
 .fav-pick button[disabled] { opacity: .45; cursor: not-allowed; }
+
+/* ── 글에 붙은 참조 경기 카드 ── */
+.ref-match {
+  margin: 15px 0 4px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg-soft); overflow: hidden;
+}
+.ref-match > summary {
+  display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
+  padding: 13px 15px; cursor: pointer; list-style: none;
+}
+.ref-match > summary::-webkit-details-marker { display: none; }
+.rm-team { display: inline-flex; align-items: center; gap: 7px; color: var(--text-sub); }
+.rm-team b { font-size: var(--fs-md); font-weight: 800; }
+.rm-team.win b { color: var(--text); }
+.rm-score { font-size: var(--fs-lg); font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.rm-when { font-size: var(--fs-xs); color: var(--text-dim); font-weight: 700; }
+.rm-open { margin-left: auto; font-size: var(--fs-xs); font-weight: 800; color: var(--accent); white-space: nowrap; }
+.ref-match[open] .rm-open::after { content: " 접기"; }
+.ref-match:not([open]) .rm-open::after { content: " ▾"; }
+.rm-sets { display: grid; gap: 9px; padding: 0 15px 13px; }
+.rm-set { display: flex; align-items: flex-start; gap: 11px; padding-top: 10px; border-top: 1px solid var(--line); }
+.rm-set-no { flex: 0 0 auto; font-size: var(--fs-xs); font-weight: 800; color: var(--text-dim); padding-top: 4px; }
+.rm-set-body { display: grid; gap: 5px; min-width: 0; }
+.rm-line { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.rm-line > em { font-style: normal; font-size: var(--fs-xs); font-weight: 800; color: var(--text-dim); flex: 0 0 auto; }
+.rm-line > i { font-style: normal; font-size: var(--fs-xs); color: var(--text-dim); }
+.rm-side { display: inline-flex; gap: 3px; }
+.rm-ch .dd-ic { width: 24px; height: 24px; margin: 0; border-radius: 4px; }
+.rm-ch .dd-nm { display: none; }
+.rm-ch.ban .dd-ic { filter: grayscale(1); opacity: .55; }
+.rm-empty, .rm-more { display: block; padding: 0 15px 13px; font-size: var(--fs-sm); color: var(--text-dim); }
+.rm-more { color: var(--accent); text-decoration: none; font-weight: 700; }
 
 /* 글 본문에 박히는 유튜브 영상 */
 .post-content .post-embed {
