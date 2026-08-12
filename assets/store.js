@@ -210,9 +210,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260812d"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260812d"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812d"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260812e"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260812e"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812e"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -760,8 +760,18 @@ function addPost(p, pw) {
 //   → { ok: true, body } | { ok: false }  (ok:false = 읽을 자격이 없거나 글이 없다)
 // 서버가 자격을 판정하므로, 브라우저 코드를 건너뛰고 직접 요청해도 본문은 나오지 않는다.
 async function loadPostBody(id) {
-  const cached = Cache.posts.find(x => x.id === id);
-  if (cached && cached.bodyLoaded) return { ok: true, body: cached.body };
+  const have = Cache.posts.find(x => x.id === id);
+  if (have && have.bodyLoaded) return { ok: true, body: have.body };
+
+  // ⚠ 캐시 항목은 **기다린 뒤에 다시 찾는다.** 기다리는 사이 fetchAll 이 끝나면
+  //   Cache.posts 가 통째로 새 객체로 갈리는데, 기다리기 전에 잡아 둔 참조에 본문을
+  //   쓰면 버려진 객체에 쓰는 꼴이 되어 화면에는 본문이 빈칸으로 남는다.
+  //   (2026-08-12 실제로 이 순서 때문에 글 본문이 안 보였다)
+  const keep = body => {
+    const cur = Cache.posts.find(x => x.id === id);
+    if (cur) { cur.body = body; cur.bodyLoaded = true; }
+    return { ok: true, body };
+  };
 
   const r = await sb.rpc("get_post_body", { p_id: id });
   // schema26 을 아직 적용하지 않은 DB — 예전처럼 직접 읽는다.
@@ -769,13 +779,11 @@ async function loadPostBody(id) {
   if (isMissingFunction(r.error)) {
     const f = await sb.from("posts").select("body").eq("id", id).maybeSingle();
     if (f.error || !f.data) return { ok: false };
-    if (cached) { cached.body = f.data.body || ""; cached.bodyLoaded = true; }
-    return { ok: true, body: f.data.body || "" };
+    return keep(f.data.body || "");
   }
   if (r.error) { sbErr(r.error, "loadPostBody"); return { ok: false }; }
   if (r.data == null) return { ok: false };   // 자격 없음 — 서버의 최종 판정
-  if (cached) { cached.body = r.data; cached.bodyLoaded = true; }
-  return { ok: true, body: r.data };
+  return keep(r.data);
 }
 
 // 글 수정 (비회원은 비밀번호, 회원은 본인 글, 관리자는 전부)

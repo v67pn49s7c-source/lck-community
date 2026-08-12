@@ -408,20 +408,24 @@ async function initPostPage() {
   // 반응·댓글 추천 수는 서버 집계에서 오므로, 스냅샷으로 먼저 그렸다면 도착 후 다시 그린다.
   // 단, 댓글을 쓰고 있거나 수정 폼을 열어 둔 상태면 건드리지 않는다 (쓰던 글이 날아간다).
   storeFresh.then(async () => {
-    const busy = [...document.querySelectorAll("#post-view textarea, #post-view input")]
-      .some(el => el === document.activeElement || (el.value || "").trim());
-    if (busy) return;
     // 서버 확인이 끝나면 자격이 달라져 있을 수 있다 (로그인 만료·응원팀 변경).
     // 목록을 새로 받으면서 본문이 비었다면 다시 받아 보고, 거절당하면 잠금 화면으로 바꾼다.
+    // ⚠ 본문 복구는 아래 busy 검사보다 **먼저** 한다. 댓글 칸에 값이 하나라도 있으면
+    //   (닉네임 자동 입력 등) busy 로 잡혀 본문이 영영 빈칸으로 남았다.
     const fresh = getPost(id);
     if (!fresh) return;
     if (!canReadPost(fresh)) { showLocked(); return; }
     if (!fresh.bodyLoaded) {
       const again = await loadPostBody(id);
       if (!again.ok) { showLocked(); return; }
-      fresh.body = again.body;
     }
-    render();
+    const busy = [...document.querySelectorAll("#post-view textarea, #post-view input")]
+      .some(el => el === document.activeElement || (el.value || "").trim());
+    if (!busy) { render(); return; }
+    // 쓰던 글이 날아가지 않게 전체를 다시 그리지 않고 본문 칸만 채운다
+    const box = document.querySelector("#post-view .post-content");
+    const cur = getPost(id);
+    if (box && cur && !box.textContent.trim()) box.textContent = cur.body || "";
   }).catch(() => {});
   initPostSidebar(post.team);
   renderFooter();
