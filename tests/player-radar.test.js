@@ -6,6 +6,7 @@ const store = fs.readFileSync("assets/store.js", "utf8");
 const app = fs.readFileSync("assets/app.js", "utf8");
 const playerPage = fs.readFileSync("player.html", "utf8");
 const playersPage = fs.readFileSync("players.html", "utf8");
+const styles = fs.readFileSync("assets/styles.css", "utf8");
 
 const start = store.indexOf("function radarRole");
 const end = store.indexOf("// 선수의 경기별 평점 목록", start);
@@ -104,8 +105,21 @@ assert(playersPage.includes("radarRole(pa.pos) !== radarRole(pb.pos)"),
 assert(playersPage.includes('<aside class="player-insights"') &&
   playersPage.indexOf("이번 주 평점 상승") > playersPage.indexOf("player-main-column"),
   "평점 상승과 팬 관심 선수는 선수 명단 옆 보조 영역에 있어야 함");
-assert(playersPage.includes('<details class="card compare-card">') &&
+assert(playersPage.includes('<details class="card compare-card" open>') &&
   playersPage.includes("compare-player-portrait") && playersPage.includes("playerAvatarHTML(p"),
-  "육각형 비교는 접을 수 있는 별도 도구이며 선수 상반신 이미지를 함께 보여야 함");
+  "육각형 비교는 접을 수 있되 **기본으로 펼쳐져** 있어야 함 (접힌 채 페이지 끝에 있어 아무도 못 봤다)");
+// 두 열 바깥 맨 아래가 아니라 본문 열 안에 있어야 실제로 눈에 들어온다
+assert(playersPage.indexOf('<details class="card compare-card"') > playersPage.indexOf('id="rosters"') &&
+  playersPage.indexOf('<details class="card compare-card"') < playersPage.indexOf('<aside class="player-insights"'),
+  "육각형 비교는 선수 명단 바로 아래, 본문 열(player-main-column) 안에 있어야 함");
+
+// 선수 목록 카드는 얼굴이 보여야 한다 — 예전엔 72px 아바타라 누구인지 알 수 없었다
+assert(playersPage.includes('class="team-card roster-card"') &&
+  playersPage.includes('playerAvatarHTML(p, t.color, "xl")'),
+  "선수 목록 카드는 큰 사진(xl)을 써야 함");
+assert(/\.team-card\.roster-card \.player-avatar \{[^}]*width: 100%/.test(styles),
+  "선수 목록 카드 사진은 카드 폭을 채워야 함");
+assert(/\.roster-grid \{[^}]*auto-fill/.test(styles),
+  "선수 목록 그리드는 카드가 커진 만큼 폭에 맞춰 접혀야 함 (teams.html 팀 카드는 건드리지 않는다)");
 
 console.log("✓ 포지션별 선수 육각형 지표 회귀 테스트 통과");

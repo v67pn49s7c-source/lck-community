@@ -17,10 +17,10 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260812f">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260812f">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260812g">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260812g">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260812f">
+  <link rel="stylesheet" href="assets/styles.css?v=20260812g">
 </head>
 <body>
   <main class="page">
@@ -57,6 +57,21 @@
             </div>
           </div>
           <div id="rosters"></div>
+
+          <!-- 페이지 맨 아래(두 열 바깥)에 접힌 채로 있어 아무도 못 봤다.
+               선수 목록 바로 아래, 본문 열 안으로 옮기고 기본으로 펼쳐 둔다. -->
+          <details class="card compare-card" open>
+            <summary>
+              <span><b id="compare-title">동일 포지션 육각형 비교</b><small>두 선수의 역할별 강점을 한눈에 비교</small></span>
+              <span class="compare-open-label" aria-hidden="true"></span>
+            </summary>
+            <div class="compare-controls">
+              <label><span>선수 A</span><select id="compare-player-a"></select></label>
+              <span class="compare-vs" aria-hidden="true">VS</span>
+              <label><span>선수 B</span><select id="compare-player-b"></select></label>
+            </div>
+            <div id="player-compare-result" class="compare-result"></div>
+          </details>
         </div>
 
         <aside class="player-insights" aria-label="선수 필터 및 발견">
@@ -106,26 +121,14 @@
         </aside>
       </div>
 
-      <details class="card compare-card">
-        <summary>
-          <span><b id="compare-title">동일 포지션 육각형 비교</b><small>두 선수의 역할별 강점을 한눈에 비교</small></span>
-          <span class="compare-open-label" aria-hidden="true"></span>
-        </summary>
-        <div class="compare-controls">
-          <label><span>선수 A</span><select id="compare-player-a"></select></label>
-          <span class="compare-vs" aria-hidden="true">VS</span>
-          <label><span>선수 B</span><select id="compare-player-b"></select></label>
-        </div>
-        <div id="player-compare-result" class="compare-result"></div>
-      </details>
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260812f"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260812f"></script>
-  <script src="assets/store.js?v=20260812f"></script>
-  <script src="assets/app.js?v=20260812f"></script>
-  <script src="assets/player-photos.js?v=20260812f"></script>
+  <script src="assets/data.js?v=20260812g"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260812g"></script>
+  <script src="assets/store.js?v=20260812g"></script>
+  <script src="assets/app.js?v=20260812g"></script>
+  <script src="assets/player-photos.js?v=20260812g"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("선수", null);
@@ -292,18 +295,18 @@
           <h2 class="card-title">${t.name} <span class="sub team-text" style="--team-color:${t.color}">${t.abbr}</span></h2>
           <a class="card-more" href="team.html?team=${t.id}">팀 게시판 ›</a>
         </div>
-        <div class="team-grid" style="padding:14px">
+        <div class="team-grid roster-grid" style="padding:14px">
           ${players.map(p => {
             const c = latestMatchRating(p.id);
             return `
-            <a class="team-card" style="--team-color:${t.color}" href="player.html?id=${q(p.id)}">
-              ${playerAvatarHTML(p, t.color, false)}
-              <div style="text-align:center">
-                <div class="tc-abbr">${esc(p.pos)}</div>
-                <div class="tc-name">${esc(p.nick)}</div>
-                <div class="tc-record">${esc(p.name)}</div>
-                <div class="tc-record">${c ? "최근 경기 " + c.avg + "점 (" + c.n + "명)" : "평점 없음"}</div>
-              </div>
+            <a class="team-card roster-card" style="--team-color:${t.color}" href="player.html?id=${q(p.id)}">
+              <span class="rc-pos">${esc(p.pos)}</span>
+              ${playerAvatarHTML(p, t.color, "xl")}
+              <span class="rc-info">
+                <b class="tc-name">${esc(p.nick)}</b>
+                <small class="tc-record">${esc(t.abbr)} · ${esc(p.name)}</small>
+                <small class="tc-record">${c ? "최근 경기 " + c.avg + "점 (" + c.n + "명)" : "평점 없음"}</small>
+              </span>
             </a>`;
           }).join("")}
         </div>

@@ -77,10 +77,12 @@ function playerPhotoURL(p, size) {
 }
 
 // 아바타: 사진이 있으면 상반신 사진, 없으면(또는 로드 실패 시) 이니셜 카드
+// big: false | true | "xl"("xl" = 선수 목록 카드처럼 사진을 크게 쓰는 자리)
 function playerAvatarHTML(p, color, big) {
-  const cls = "player-avatar" + (big ? " big" : "");
+  const xl = big === "xl";
+  const cls = "player-avatar" + (xl ? " xl" : big ? " big" : "");
   const initial = esc((p.nick || "").slice(0, 2));
-  const u = playerPhotoURL(p, big ? 256 : 160);
+  const u = playerPhotoURL(p, xl ? 384 : big ? 256 : 160);
   if (!u) return `<span class="${cls}" style="--team-color:${color}">${initial}</span>`;
   return `<img class="${cls} photo" style="--team-color:${color}" src="${u}" alt="${esc(p.nick)}" loading="lazy"
       onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex'">` +

@@ -63,7 +63,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260812f") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260812g") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -866,6 +866,34 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
 .team-card .tc-name { font-weight: 800; font-size: var(--fs-md); }
 .team-card .tc-abbr { font-size: var(--fs-xs); color: var(--team-color); font-weight: 800; letter-spacing: .04em; }
 .team-card .tc-record { font-size: var(--fs-xs); color: var(--text-dim); }
+
+/* ── 선수 목록 카드 — 얼굴이 보이게 사진을 카드 폭 전체로 ──
+   예전에는 72px 아바타가 네모칸 안에 작게 들어가 누구인지 알아볼 수 없었다.
+   (teams.html 의 팀 카드는 그대로 두려고 .roster-* 로 따로 둔다) */
+.roster-grid { grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); }
+.team-card.roster-card {
+  position: relative; align-items: stretch; gap: 0; padding: 0;
+  overflow: hidden; text-align: left;
+}
+.team-card.roster-card .player-avatar {
+  width: 100%; height: auto; aspect-ratio: 4 / 5;
+  border: 0; border-bottom: 0; clip-path: none;
+  font-size: 30px;
+}
+.team-card.roster-card img.player-avatar { object-fit: cover; object-position: center 18%; }
+.roster-card .rc-pos {
+  position: absolute; top: 8px; left: 8px; z-index: 2;
+  padding: 3px 8px; border-radius: 6px;
+  font-size: 10px; font-weight: 800; letter-spacing: .04em;
+  color: #fff; background: rgba(12, 14, 20, .68);
+  backdrop-filter: blur(4px);
+}
+.roster-card .rc-info {
+  display: grid; gap: 2px; padding: 9px 11px 11px;
+  border-top: 2px solid var(--team-color, var(--accent));
+}
+.roster-card .tc-name { line-height: 1.25; }
+.roster-card .tc-record { line-height: 1.4; }
 
 /* ── 선수·팀 발견형 페이지 ── */
 .sr-only {
