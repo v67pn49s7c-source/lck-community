@@ -17,11 +17,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260812g">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260812g">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260812h">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260812h">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260812g">
+  <link rel="stylesheet" href="assets/styles.css?v=20260812h">
 </head>
 <body>
   <main class="page">
@@ -100,13 +100,13 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260812g"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260812g"></script>
-  <script src="assets/invariants.js?v=20260812g"></script>
-  <script src="assets/store.js?v=20260812g"></script>
-  <script src="assets/app.js?v=20260812g"></script>
-  <script src="assets/ddragon.js?v=20260812g"></script>
-  <script src="assets/race.js?v=20260812g"></script>
+  <script src="assets/data.js?v=20260812h"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260812h"></script>
+  <script src="assets/invariants.js?v=20260812h"></script>
+  <script src="assets/store.js?v=20260812h"></script>
+  <script src="assets/app.js?v=20260812h"></script>
+  <script src="assets/ddragon.js?v=20260812h"></script>
+  <script src="assets/race.js?v=20260812h"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -255,6 +255,13 @@
       };
       const col = (on, html) => (on ? html : "");
 
+      // 경기 시간("29:24") → 분. 분당 지표(DPM·CS/분)는 이걸로만 낼 수 있다.
+      // 시간이 없는 세트에서는 분당 칸을 아예 그리지 않는다 (0으로 채우면 거짓말이 된다).
+      const lenM = (() => {
+        const m = String(((set.game || {}).len) || "").match(/(\d+)\s*:\s*(\d+)/);
+        return m ? (+m[1] + +m[2] / 60) : 0;
+      })();
+
       const half = (list, teamId) => {
         const t = TEAM_MAP[teamId];
         const winner = set.win === "a" ? match.a : match.b;
@@ -268,37 +275,53 @@
         <div class="table-scroll">
         <table class="detail-table" style="--team-color:${t ? t.color : "#888"}">
           <colgroup>
-            <col class="c-player"><col class="c-champ">${col(has.spell, `<col class="c-spell">`)}<col class="c-kda">
-            ${col(has.dmg, `<col class="c-dmg">`)}<col class="c-cs"><col class="c-gold">
-            ${col(has.items, `<col class="c-items">`)}${col(has.runes, `<col class="c-runes">`)}
+            <col class="c-player"><col class="c-kda">${col(has.dmg, `<col class="c-dmg">`)}
+            <col class="c-vs"><col class="c-cs"><col class="c-gold">${col(has.items, `<col class="c-items">`)}
           </colgroup>
-          <thead><tr><th>선수</th><th>챔피언</th>${col(has.spell, "<th>스펠</th>")}<th>KDA</th>
-            ${col(has.dmg, "<th>딜량</th>")}<th>CS</th><th>골드</th>
-            ${col(has.items, "<th>아이템</th>")}${col(has.runes, "<th>룬</th>")}</tr></thead>
+          <thead><tr><th>선수</th><th>KDA</th>${col(has.dmg, "<th>딜량</th>")}
+            <th class="ta-r">시야</th><th class="ta-r">CS</th><th class="ta-r">골드</th>
+            ${col(has.items, "<th>아이템</th>")}</tr></thead>
           <tbody>
             ${list.map(p => {
               const pl = getPlayer(p.pid);
               const pos = lanePos(p) || (pl && pl.pos) || "";
               const dmg = +p.dmg || 0;
-              const dmgPct = dmg > 0 ? Math.max(5, Math.round(dmg / maxDmg * 100)) : 0;
-              const dmgLabel = dmg > 0 ? (Math.round(dmg / 100) / 10) + "k" : "-";
+              const dmgPct = dmg > 0 ? Math.max(4, Math.round(dmg / maxDmg * 100)) : 0;
+              const k = +p.k || 0, dd = +p.d || 0, as = +p.a || 0;
+              const ratio = dd ? ((k + as) / dd).toFixed(2) : "Perfect";
+              const cs = +p.cs || 0;
               return `<tr>
-                <td class="dt-player"><span class="dt-player-line">
-                  <span class="dt-pos" title="${esc(pos)}" aria-label="포지션 ${esc(pos)}">${posIcon(pos)}</span>
-                  ${pl ? `<a href="player.html?id=${q(pl.id)}">${esc(pl.nick)}</a>` : esc(p.pid)}
-                </span></td>
-                <td class="dt-champ">${ddChampHTML(p.champ, 44)}</td>
-                ${col(has.spell, `<td class="dt-spell" data-k="스펠">${ddSpellHTML(p.spell)}</td>`)}
-                <td class="dt-kda" data-k="KDA"><b>${p.k}</b> / <em>${p.d}</em> / ${p.a}</td>
-                ${col(has.dmg, `<td class="dt-num dt-dmg" data-k="딜량">
-                  <div class="dt-dmg-meter" aria-label="딜량 ${dmgLabel}"><span>${dmgLabel}</span>
-                    <i aria-hidden="true"><b style="width:${dmgPct}%"></b></i></div>
+                <td class="dt-player">
+                  <span class="dt-p">
+                    <span class="dt-face">
+                      ${ddChampHTML(p.champ, 46)}
+                      ${has.spell ? `<span class="dt-mini">${ddSpellHTML(p.spell)}</span>` : ""}
+                      ${has.runes ? `<span class="dt-mini">${ddRunesHTML(p.runes)}</span>` : ""}
+                    </span>
+                    <span class="dt-id">
+                      ${pl ? `<a href="player.html?id=${q(pl.id)}">${esc(pl.nick)}</a>`
+                           : `<b>${esc(p.pid)}</b>`}
+                      <small>${esc(p.champ || "")}${pos ? ` · ${esc(pos)}` : ""}</small>
+                    </span>
+                  </span>
+                </td>
+                <td class="dt-kda" data-k="KDA">
+                  <span class="dt-kda-n"><b>${k}</b> / <em>${dd}</em> / ${as}</span>
+                  <!-- 이 숫자에 '평점'이라고 붙이면 이 사이트의 팬 평점과 헷갈린다.
+                       열 이름이 이미 KDA 이므로 비율만 적는다. -->
+                  <small>${ratio}</small>
+                </td>
+                ${col(has.dmg, `<td class="dt-dmg" data-k="딜량">
+                  <span class="dt-dmg-n"><b>${dmg ? dmg.toLocaleString() : "-"}</b>${
+                    dmg && lenM ? `<small>DPM ${Math.round(dmg / lenM)}</small>` : ""}</span>
+                  <i aria-hidden="true"><b style="width:${dmgPct}%"></b></i>
                 </td>`)}
-                <td class="dt-num dt-cs" data-k="CS">${p.cs}</td>
-                <td class="dt-num dt-gold" data-k="골드">${p.gold}k</td>
+                <td class="dt-num dt-vs" data-k="시야">${p.vs != null ? p.vs : "-"}</td>
+                <td class="dt-num dt-cs" data-k="CS"><b>${cs}</b>${
+                  lenM ? `<small>${(cs / lenM).toFixed(1)}</small>` : ""}</td>
+                <td class="dt-num dt-gold" data-k="골드">${p.gold}K</td>
                 ${col(has.items, `<td class="dt-items" data-k="아이템">${ddItemsHTML(p.items)}${
                   p.trinket ? `<span class="dt-trinket">${ddItemsAny(p.trinket)}</span>` : ""}</td>`)}
-                ${col(has.runes, `<td class="dt-runes" data-k="룬">${ddRunesHTML(p.runes)}</td>`)}
               </tr>`;
             }).join("")}
           </tbody>

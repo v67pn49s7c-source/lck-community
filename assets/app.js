@@ -243,9 +243,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260812g")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260812g")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812g")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260812h")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260812h")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812h")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -295,7 +295,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812g");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812h");
 
   renderTabBar(groupName);
 }
@@ -1639,21 +1639,43 @@ async function initHome() {
 // game 안의 a/b 는 **언제나 그 경기의 a팀/b팀** 기준이다 (블루/레드가 아니다).
 // 블루가 어느 쪽이었는지는 game.blue 가 따로 알려 준다.
 
-const SB_ROWS = [
-  { k: "kills",   name: "킬",     fmt: v => v },
-  { k: "gold",    name: "골드",   fmt: v => (Math.round(v / 100) / 10) + "K" },
-  { k: "towers",  name: "타워",   fmt: v => v },
-  { k: "inhib",   name: "억제기", fmt: v => v },
-  { k: "barons",  name: "바론",   fmt: v => v },
-  { k: "dragons", name: "드래곤", fmt: v => v },
-  { k: "heralds", name: "전령",   fmt: v => v },
-  // optional = 시즌·패치에 따라 맵에 없을 수 있는 오브젝트.
-  // 양쪽 다 0 이면 줄을 아예 그리지 않는다 — 없는 오브젝트를 "0 : 0" 으로 보여 주면
-  // 그게 있는 건데 아무도 못 먹은 것처럼 읽힌다.
-  // (아타칸은 2026 시즌 맵에 없다. 칸은 계속 받아 두니, 다시 생기면 저절로 나타난다)
-  { k: "grubs",   name: "공허충", fmt: v => v, optional: true },
-  { k: "atakhan", name: "아타칸", fmt: v => v, optional: true },
+// 목표물 — 막대그래프 대신 **아이콘 + 개수**로 보여 준다.
+// 예전에는 항목마다 좌우로 뻗는 막대를 그렸는데, 0 이 많은 줄이 대부분이라
+// 빈 막대만 8줄 늘어서서 정작 무엇을 얼마나 먹었는지가 안 읽혔다.
+//
+// optional = 시즌·패치에 따라 맵에 없을 수 있는 목표물.
+// 양쪽 다 0 이면 아예 그리지 않는다 — 없는 목표물을 "0" 으로 보여 주면
+// 그게 있는 건데 아무도 못 먹은 것처럼 읽힌다.
+// (아타칸은 2026 시즌 맵에 없다. 칸은 계속 받아 두니, 다시 생기면 저절로 나타난다)
+const SB_OBJ = [
+  { k: "barons",  name: "바론" },
+  { k: "heralds", name: "전령" },
+  { k: "grubs",   name: "공허충", optional: true },
+  { k: "atakhan", name: "아타칸", optional: true },
+  { k: "towers",  name: "타워" },
+  { k: "inhib",   name: "억제기" },
 ];
+
+// 목표물 아이콘 — 외부에서 받아오지 않고 직접 그린다 (요청 0회, 테마 자동 대응).
+// 선(stroke)으로 그려야 18px 에서도 형태가 뭉개지지 않는다.
+const OBJ_SVG = {
+  barons:  `<path d="M4 8.5c0-3 3.6-4.8 8-4.8s8 1.8 8 4.8c0 4.2-3.6 9.3-8 11.3C7.6 17.8 4 12.7 4 8.5z"/>
+            <path d="M9.2 9h.01M14.8 9h.01" stroke-width="2.6" stroke-linecap="round"/>
+            <path d="M10 14.4l.9 2.2M14 14.4l-.9 2.2"/>`,
+  heralds: `<path d="M2.5 12S6.6 6.2 12 6.2 21.5 12 21.5 12 17.4 17.8 12 17.8 2.5 12 2.5 12z"/>
+            <circle cx="12" cy="12" r="2.6"/>`,
+  grubs:   `<circle cx="8.2" cy="10" r="3.1"/><circle cx="15.4" cy="7.9" r="2.5"/><circle cx="13.6" cy="15.4" r="3.1"/>`,
+  atakhan: `<path d="M12 2.8v18.4M4.6 7.1l14.8 9.8M19.4 7.1L4.6 16.9"/><circle cx="12" cy="12" r="3"/>`,
+  towers:  `<path d="M9.2 20.6h5.6M10.3 20.6V10.2M13.7 20.6V10.2M7.4 10.2h9.2l-1.6-3.1H9z"/>
+            <path d="M9.6 7.1V4.3L12 2.6l2.4 1.7v2.8"/>`,
+  inhib:   `<path d="M12 2.9l7.4 4.3v9.6L12 21.1l-7.4-4.3V7.2z"/><path d="M12 8.1l3.2 1.9v4l-3.2 1.9-3.2-1.9v-4z"/>`,
+};
+function objIconHTML(kind) {
+  const d = OBJ_SVG[kind];
+  if (!d) return "";
+  return `<svg class="obj-ic" viewBox="0 0 24 24" aria-hidden="true" fill="none"
+    stroke="currentColor" stroke-width="1.7" stroke-linejoin="round">${d}</svg>`;
+}
 
 // 드래곤 종류 — 리그피디아가 종류별로 세어 준다.
 // ⚠ '영혼'은 드래곤 4마리를 먼저 모은 팀이 얻는다. 종류는 몇 번째 용이었는지에 달렸는데
@@ -1687,11 +1709,12 @@ function setScoreboardHTML(match, set) {
                                               : `<span class="sb-side red">레드</span>`) : "";
   const head = (t, s, won) => `
     <div class="sb-team ${s}">
-      ${teamLogoHTML(t, 22)}
-      <b class="team-text" style="--team-color:${t.color}">${esc(t.abbr)}</b>
-      ${sideChip(s)}
-      ${suspect ? `<span class="sb-wl l" title="세트 기록이 최종 스코어와 달라 확인 중입니다">검수 중</span>`
-                : `<span class="sb-wl ${won ? "w" : "l"}">${won ? "승" : "패"}</span>`}
+      ${teamLogoHTML(t, 40)}
+      <span class="sb-team-txt">
+        <b class="team-text" style="--team-color:${t.color}">${esc(t.abbr)}</b>
+        <small>${suspect ? `<span class="sb-wl l" title="세트 기록이 최종 스코어와 달라 확인 중입니다">검수 중</span>`
+                         : `<span class="sb-wl ${won ? "w" : "l"}">${won ? "승리" : "패배"}</span>`}${sideChip(s)}</small>
+      </span>
     </div>`;
 
   // 밴·픽 — 순서 그대로. 밴은 흐리게 + 사선.
@@ -1707,43 +1730,58 @@ function setScoreboardHTML(match, set) {
     </div>`;
   };
 
-  // 비교 막대 — 가운데 항목 이름을 두고 양쪽으로 뻗는다.
-  // 길이는 그 줄의 큰 값 기준(a/max, b/max)이라 두 값의 차이가 그대로 보인다.
-  // 합계 100% 로 나누면 "0 대 0" 같은 줄에서 한쪽이 꽉 차 보여 오해를 준다.
-  const bars = SB_ROWS.map(r => {
+  // 킬·골드는 위쪽 큰 점수와 한 줄 요약으로 (막대 없이 숫자로 바로 읽힌다)
+  const kA = +((g.kills || {}).a) || 0, kB = +((g.kills || {}).b) || 0;
+  const gA = +((g.gold || {}).a) || 0, gB = +((g.gold || {}).b) || 0;
+  const kFmt = v => (Math.round(v / 100) / 10) + "K";
+  const goldLine = (gA || gB) ? `
+    <div class="sb-gold" role="group" aria-label="골드 ${kFmt(gA)} 대 ${kFmt(gB)}">
+      <span class="${gA >= gB ? "hi" : ""}">${kFmt(gA)}</span>
+      <em>골드</em>
+      <span class="${gB >= gA ? "hi" : ""}">${kFmt(gB)}</span>
+    </div>` : "";
+
+  // 목표물 — 팀별로 한 줄씩, 아이콘 + 개수만. 0 은 흐리게 둬서 대비로 읽히게 한다.
+  const objChips = s => SB_OBJ.map(r => {
     const v = g[r.k];
     if (!v || (v.a == null && v.b == null)) return "";
-    const a = +v.a || 0, b = +v.b || 0, max = Math.max(a, b);
-    if (r.optional && !max) return "";        // 맵에 없는 오브젝트는 줄을 만들지 않는다
-    const w = x => (max ? Math.round((x / max) * 1000) / 10 : 0);
-    return `<div class="sb-row" role="group" aria-label="${esc(r.name)} ${esc(String(r.fmt(a)))} 대 ${esc(String(r.fmt(b)))}">
-      <span class="sb-v ${a >= b ? "hi" : ""}">${esc(String(r.fmt(a)))}</span>
-      <span class="sb-bar l">${a ? `<i style="width:${w(a)}%;background:${A.color}"></i>` : ""}</span>
-      <span class="sb-k">${esc(r.name)}</span>
-      <span class="sb-bar r">${b ? `<i style="width:${w(b)}%;background:${B.color}"></i>` : ""}</span>
-      <span class="sb-v ${b >= a ? "hi" : ""}">${esc(String(r.fmt(b)))}</span>
-    </div>`;
+    if (r.optional && !((+v.a || 0) + (+v.b || 0))) return "";   // 맵에 없는 목표물은 그리지 않는다
+    const n = +v[s] || 0;
+    return `<span class="obj-chip obj-${r.k}${n ? "" : " zero"}" title="${esc(r.name)} ${n}">
+      ${objIconHTML(r.k)}<b>${n}</b><i>${esc(r.name)}</i></span>`;
   }).join("");
 
-  // 드래곤 종류 — 종류별 개수를 아이콘으로. 4마리를 모았으면 '영혼'.
-  const drakeSide = s => {
+  // 드래곤 — 종류별 아이콘 + 개수. 4마리를 모았으면 '영혼'.
+  // 종류가 기록되지 않은 세트는 마리 수만이라도 보여 준다.
+  const drakeChips = s => {
     const d = (g.drakes || {})[s];
-    if (!d) return "";
-    const total = (g.dragons || {})[s] || 0;
-    const chips = Object.keys(DRAKE_KO).filter(k => d[k]).map(k => {
-      const nm = DRAKE_KO[k];
-      const full = k === "elder" ? nm : `${nm} 드래곤`;
-      return `<span class="sb-drake" title="${esc(full)} ${d[k]}마리">${drakeIconHTML(k, full)}${d[k] > 1 ? `<b>${d[k]}</b>` : ""}</span>`;
-    }).join("");
+    const total = +((g.dragons || {})[s]) || 0;
+    let chips = "";
+    if (d) {
+      chips = Object.keys(DRAKE_KO).filter(k => d[k]).map(k => {
+        const nm = DRAKE_KO[k];
+        const full = k === "elder" ? nm : `${nm} 드래곤`;
+        return `<span class="obj-chip drake" title="${esc(full)} ${d[k]}마리">
+          <img class="obj-ic drake-ic" src="${DRAKE_ICON_ROOT}${k === "elder" ? "dragon_elder.png" : `dragon_${k}.png`}"
+               alt="" loading="lazy" decoding="async"><b>${d[k]}</b><i>${esc(nm)}</i></span>`;
+      }).join("");
+    }
+    if (!chips) chips = `<span class="obj-chip drake${total ? "" : " zero"}" title="드래곤 ${total}">
+      <img class="obj-ic drake-ic" src="${DRAKE_ICON_ROOT}dragon_elder.png" alt="" loading="lazy" decoding="async"><b>${total}</b><i>드래곤</i></span>`;
     return chips + (total >= SOUL_AT
-      ? `<span class="sb-soul" title="드래곤 4마리 — 드래곤 영혼 획득"><span aria-hidden="true">✦</span> 영혼</span>` : "");
+      ? `<span class="obj-chip soul" title="드래곤 4마리 — 드래곤 영혼 획득"><span class="obj-ic soul-ic" aria-hidden="true">✦</span><b></b><i>영혼</i></span>` : "");
   };
-  const drakeRow = (g.drakes && (g.drakes.a || g.drakes.b))
-    ? `<div class="sb-pb">
-         <div class="sb-pb-side drake">${drakeSide("a")}</div>
-         <div class="sb-pb-lb">드래곤</div>
-         <div class="sb-pb-side drake r">${drakeSide("b")}</div>
-       </div>` : "";
+
+  const objRow = (t, s) => `
+    <div class="sb-obj-row" style="--team-color:${t.color}">
+      <span class="sb-obj-team">${teamLogoHTML(t, 18)}<b>${esc(t.abbr)}</b></span>
+      <span class="sb-obj-chips">${objChips(s)}${drakeChips(s)}</span>
+    </div>`;
+  const objBlock = `<div class="sb-obj">
+      <div class="sb-obj-lb">목표물</div>
+      ${objRow(A, "a")}
+      ${objRow(B, "b")}
+    </div>`;
 
   const links = [
     g.mh ? `<a href="${esc(g.mh)}" target="_blank" rel="noopener">라이엇 전적</a>` : "",
@@ -1753,11 +1791,14 @@ function setScoreboardHTML(match, set) {
   return `<div class="scoreboard">
     <div class="sb-head">
       ${head(A, "a", wonA)}
-      <div class="sb-len">${g.len ? esc(g.len) : ""}<span>경기 시간</span></div>
+      <div class="sb-score">
+        <b class="${kA >= kB ? "hi" : ""}">${kA}</b><em>:</em><b class="${kB >= kA ? "hi" : ""}">${kB}</b>
+        <span>${g.len ? esc(g.len) : "경기 시간"}</span>
+      </div>
       ${head(B, "b", !wonA)}
     </div>
-    ${bars ? `<div class="sb-bars">${bars}</div>` : ""}
-    ${drakeRow}
+    ${goldLine}
+    ${objBlock}
     ${pickBanRow("픽", "picks", "pick")}
     ${pickBanRow("밴", "bans", "ban")}
     ${links ? `<div class="sb-links">${links}</div>` : ""}

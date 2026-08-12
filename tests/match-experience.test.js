@@ -28,7 +28,14 @@ assert(!app.includes('g.vod ? `<a'), "Leaguepedia/Global VOD를 다시보기로 
 
 assert(app.includes("DRAKE_ICON_ROOT") && app.includes("dragon_elder.png"),
   "드래곤과 장로드래곤은 공식 게임 자산 아이콘을 사용해야 함");
-assert(app.includes("✦</span> 영혼"), "드래곤 4마리 획득 팀에는 영혼을 명시해야 함");
+assert(app.includes('class="obj-chip soul"') && app.includes("✦"),
+  "드래곤 4마리 획득 팀에는 영혼을 명시해야 함");
+// 목표물은 막대그래프가 아니라 아이콘 + 개수로 — 0 만 늘어선 빈 막대는 읽히지 않았다
+assert(!app.includes("SB_ROWS") && app.includes("SB_OBJ") && app.includes("function objIconHTML"),
+  "목표물은 비교 막대가 아니라 아이콘으로 보여야 함");
+assert(!css.includes(".sb-bars") && !css.includes(".sb-row {"),
+  "쓰이지 않는 목표물 막대 스타일이 남아 있으면 안 됨");
+assert(app.includes('class="sb-score"'), "킬 점수는 표 위에 크게 보여야 함");
 assert(css.includes("#board-root table.board-table tr") && css.includes("grid-template-columns: 64px minmax(0, 1fr) 38px"),
   "모바일 팀 게시판 행은 화면 폭 안의 3열 카드로 바뀌어야 함");
 assert(/@media \(max-width: 960px\)[\s\S]*?#board-root table\.board-table tr[\s\S]*?grid-template-columns: 72px minmax\(0, 1fr\) 52px/.test(css),

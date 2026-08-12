@@ -65,12 +65,18 @@ vm.runInContext(source + "\n;globalThis.__ddTest = { DD, ddInit, ddLookup, ddIte
     "이벤트 변형 챔피언보다 정식 챔피언 id를 우선해야 함");
   assert(storage.has("nexus_dd_v6"), "새 다국어 매핑 캐시를 저장해야 함");
 
-  assert(live.includes('class="dt-dmg-meter"'), "딜량 막대 UI가 있어야 함");
-  assert(live.includes('ddChampHTML(p.champ, 44)'), "상세 챔피언 초상화는 큰 크기로 요청해야 함");
-  assert(live.includes('class="dt-pos"'), "선수 포지션 아이콘이 있어야 함");
-  assert(css.includes(".dt-champ .dd-nm { display: none; }"), "상세 표에서는 챔피언 이름을 숨겨야 함");
-  assert(css.includes(".dt-dmg-meter > i > b"), "딜량 막대 채움 스타일이 있어야 함");
-  assert(css.includes(".sb-drake-icon"), "드래곤 종류는 이모지 대신 공식 아이콘으로 보여야 함");
+  assert(live.includes('class="dt-dmg"'), "딜량 막대 UI가 있어야 함");
+  assert(live.includes('ddChampHTML(p.champ, 46)'), "상세 챔피언 초상화는 큰 크기로 요청해야 함");
+  assert(live.includes('${esc(p.champ || "")}${pos ? ` · ${esc(pos)}` : ""}'),
+    "선수 이름 아래에 챔피언과 포지션을 함께 보여야 함");
+  assert(css.includes(".dt-face .dd-nm { display: none; }"), "상세 표에서는 챔피언 이름을 숨겨야 함");
+  assert(css.includes(".dt-dmg > i > b"), "딜량 막대 채움 스타일이 있어야 함");
+  assert(css.includes(".obj-chip .drake-ic"), "드래곤 종류는 이모지 대신 공식 아이콘으로 보여야 함");
+  // 분당 지표는 경기 시간이 있을 때만 — 없는데 0으로 채우면 거짓말이 된다
+  assert(live.includes("DPM ${Math.round(dmg / lenM)}") && live.includes("(cs / lenM).toFixed(1)"),
+    "경기 시간이 있으면 DPM 과 분당 CS 를 보여야 함");
+  assert(/lenM \? `<small>DPM/.test(live) && /lenM \? `<small>\$\{\(cs \/ lenM\)/.test(live),
+    "경기 시간이 없는 세트에서는 분당 지표를 그리지 않아야 함");
   console.log("✓ 경기 상세 아이콘·딜량 UI 회귀 테스트 통과");
 })().catch(error => {
   console.error(error);
