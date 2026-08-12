@@ -53,8 +53,31 @@ assert(/\.obj-chip\.drake\.got-soul \{[^}]*box-shadow/.test(css),
   "영혼 칸에 강조 테두리가 있어야 함");
 assert(!app.includes("soulBadge"), "영혼을 별도 글자 배지로 또 적으면 안 됨");
 // 유튜브는 하이라이트, 풀 영상은 치지직·SOOP
-assert(live.includes('class="replay-full-btn chzzk"') && live.includes('class="replay-full-btn soop"'),
-  "풀 영상 다시보기 버튼(치지직·SOOP)이 있어야 함");
+assert(live.includes("/api/full-vod?a=") && live.includes('btn("chzzk"') && live.includes('btn("soop"'),
+  "풀 영상은 검색어가 아니라 **실제 영상 주소**를 받아 걸어야 함");
+assert(!live.includes("chzzk.naver.com/search?query="),
+  "검색어만 채운 링크는 검색창에 글자만 들어가고 영상이 안 나온다 — 쓰면 안 됨");
+const fullVod = require("../api/full-vod.js")._test;
+// 치지직: 세트별 풀 VOD 만, 1세트부터. 하이라이트·인터뷰·다른 경기는 제외.
+const czRows = [
+  { videoTitle: "KT vs DK 게임 2 VOD | 08.12 | 2026 LCK", videoNo: 2, publishDate: "2026-08-12 22:24" },
+  { videoTitle: "KT vs DK 게임 1 VOD | 08.12 | 2026 LCK", videoNo: 1, publishDate: "2026-08-12 21:14" },
+  { videoTitle: "KT vs DK | 매치 112 하이라이트 | 2026 LCK", videoNo: 3, publishDate: "2026-08-12 22:14" },
+  { videoTitle: "DK Siwoo 인터뷰 | KT vs DK | 2026 LCK", videoNo: 4, publishDate: "2026-08-12 23:37" },
+  { videoTitle: "DNS vs NS 게임 3 VOD | 08.12 | 2026 LCK", videoNo: 5, publishDate: "2026-08-12 20:29" },
+];
+assert.deepStrictEqual(fullVod.pickChzzk(czRows, "KT", "DK", "2026-08-12T10:00:00Z").map(v => v.no), [1, 2],
+  "치지직은 그 경기 세트 풀 VOD 만 1세트부터 골라야 함");
+// SOOP: 공식 계정(aflol) 것만 — 팬이 올린 클립은 제외
+const spRows = [
+  { title_name: "[KT vs DK] 전체보기 / 2026 LCK 정규 시즌", title_no: "100", user_id: "aflol", reg_date: "2026-08-12 23:00" },
+  { title_name: "[클립][KT vs DK] 전체보기", title_no: "200", user_id: "karin1213", reg_date: "2026-08-12 23:10" },
+];
+assert.deepStrictEqual(fullVod.pickSoop(spRows, "KT", "DK", "2026-08-12T10:00:00Z").map(v => v.no), ["100"],
+  "SOOP 은 공식 계정 영상만 골라야 함");
+assert.strictEqual(fullVod.hasTeam("DNS vs BRO 전체보기", "NS"), false, "NS 를 DNS 일부로 오인하면 안 됨");
+assert.strictEqual(fullVod.nearMatch("2025-08-12 23:00", "2026-08-12T10:00:00Z"), false,
+  "지난 시즌 동명 경기를 연결하면 안 됨");
 assert(live.includes("매치 다시보기") && !live.includes("한국어 다시보기"),
   "카드 이름은 '매치 다시보기' 여야 함");
 // 원소 드래곤 칸 수 — 장로를 빼야 한다.

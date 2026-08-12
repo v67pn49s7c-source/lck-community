@@ -63,7 +63,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260813a") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260813b") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -2318,6 +2318,15 @@ a.bracket-match:hover { border-color: var(--accent); }
 .replay-full-btn.chzzk { background: #00ffa3; color: #101010; }
 .replay-full-btn.soop { background: #1f47ff; }
 .replay-full-btn:hover { filter: brightness(1.08); }
+/* 아직 안 올라온 곳 — 눌러도 되지만 공식 채널로만 간다는 걸 색으로 알린다 */
+.replay-full-btn.off { background: var(--bg-soft); color: var(--text-dim); border-color: var(--line); }
+/* 치지직은 세트별로 올라온다 — 2·3세트는 작은 버튼으로 */
+.replay-full-set {
+  display: inline-flex; align-items: center; min-height: 32px; padding: 0 10px;
+  border-radius: 8px; font-size: var(--fs-xs); font-weight: 800; text-decoration: none;
+  color: var(--text-sub); background: var(--bg-soft); border: 1px solid var(--line);
+}
+.replay-full-set:hover { color: var(--text); border-color: var(--accent); }
 
 /* 다시보기·공식 전적·패치 */
 .sb-links {

@@ -17,11 +17,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260813a">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260813a">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260813b">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260813b">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260813a">
+  <link rel="stylesheet" href="assets/styles.css?v=20260813b">
 </head>
 <body>
   <main class="page">
@@ -100,13 +100,13 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260813a"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260813a"></script>
-  <script src="assets/invariants.js?v=20260813a"></script>
-  <script src="assets/store.js?v=20260813a"></script>
-  <script src="assets/app.js?v=20260813a"></script>
-  <script src="assets/ddragon.js?v=20260813a"></script>
-  <script src="assets/race.js?v=20260813a"></script>
+  <script src="assets/data.js?v=20260813b"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260813b"></script>
+  <script src="assets/invariants.js?v=20260813b"></script>
+  <script src="assets/store.js?v=20260813b"></script>
+  <script src="assets/app.js?v=20260813b"></script>
+  <script src="assets/ddragon.js?v=20260813b"></script>
+  <script src="assets/race.js?v=20260813b"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -173,17 +173,36 @@
       const body = document.getElementById("replay-body");
       const a = TEAM_MAP[match.a]?.abbr || match.a;
       const b = TEAM_MAP[match.b]?.abbr || match.b;
-      // 유튜브에는 매치 하이라이트가 올라오고, **풀 영상(전체보기)** 은 치지직·SOOP 에 올라온다.
-      // 두 곳은 공개 API 로 특정 경기의 영상 주소를 집어낼 방법이 없어서, 그 경기 제목으로
-      // 검색된 화면을 열어 준다 (LCK 공식 제목이 "[KT vs DK] 전체보기" 라 바로 걸린다).
-      const fullVodBtns = `
-        <div class="replay-full">
-          <span class="replay-full-lb">풀 영상 다시보기</span>
-          <a class="replay-full-btn chzzk" target="_blank" rel="noopener noreferrer"
-             href="https://chzzk.naver.com/search?query=${encodeURIComponent(`${a} vs ${b} 전체보기`)}">치지직</a>
-          <a class="replay-full-btn soop" target="_blank" rel="noopener noreferrer"
-             href="https://www.sooplive.co.kr/search?szLocation=total_search&szSearchType=total&szKeyword=${encodeURIComponent(`${a} vs ${b} LCK`)}">SOOP</a>
+      // 유튜브에는 매치 하이라이트만 올라오고, **풀 영상(전체 경기)** 은 치지직·SOOP 에 있다.
+      // 두 곳 다 공식 계정 영상 목록을 받아 **그 경기 영상 주소를 자동으로** 집어낸다.
+      // (예전에는 검색어만 채운 링크였는데, 검색창에 글자만 들어가고 영상이 안 나왔다)
+      let fullVodBtns = "";
+      const drawFull = () => {
+        const el = document.getElementById("replay-full");
+        if (el) el.outerHTML = fullVodBtns;
+      };
+      const fullVodHTML = data => {
+        const btn = (cls, label, item, channelUrl) => item
+          ? `<a class="replay-full-btn ${cls}" target="_blank" rel="noopener noreferrer"
+               href="${esc(item.url)}" title="${esc(item.title)}">${label}</a>`
+          : `<a class="replay-full-btn ${cls} off" target="_blank" rel="noopener noreferrer"
+               href="${esc(channelUrl)}" title="아직 안 올라왔습니다 — 공식 채널로 이동">${label}</a>`;
+        const cz = (data?.chzzk?.items || []), sp = (data?.soop?.items || []);
+        // 치지직은 세트별로 올라온다 — 1세트만 대표로 걸고 나머지는 세트 버튼으로
+        const czExtra = cz.slice(1).map((v, i) => `<a class="replay-full-set" target="_blank" rel="noopener noreferrer"
+            href="${esc(v.url)}" title="${esc(v.title)}">${i + 2}세트</a>`).join("");
+        return `<div class="replay-full" id="replay-full">
+          <span class="replay-full-lb">풀 영상</span>
+          ${btn("chzzk", "치지직", cz[0], data?.chzzk?.channelUrl || "https://chzzk.naver.com")}
+          ${czExtra}
+          ${btn("soop", "SOOP", sp[0], data?.soop?.channelUrl || "https://www.sooplive.co.kr")}
         </div>`;
+      };
+      fullVodBtns = `<div class="replay-full" id="replay-full"><span class="replay-full-lb">풀 영상 찾는 중…</span></div>`;
+      fetch(`/api/full-vod?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}&at=${encodeURIComponent(match.at)}`)
+        .then(r => (r.ok ? r.json() : null))
+        .then(d => { fullVodBtns = fullVodHTML(d); drawFull(); })
+        .catch(() => { fullVodBtns = fullVodHTML(null); drawFull(); });
       body.innerHTML = `<div class="replay-pending"><b>매치 다시보기를 확인하고 있습니다</b><span>LCK 공식 채널 업로드를 기다려 주세요.</span></div>` + fullVodBtns;
       try {
         const response = await fetch(`/api/lck-vod?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}&at=${encodeURIComponent(match.at)}`);
