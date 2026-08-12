@@ -55,6 +55,9 @@ assert(!app.includes("soulBadge"), "영혼을 별도 글자 배지로 또 적으
 // 유튜브는 하이라이트, 풀 영상은 치지직·SOOP
 assert(live.includes("/api/full-vod?a=") && live.includes('btn("chzzk"') && live.includes('btn("soop"'),
   "풀 영상은 검색어가 아니라 **실제 영상 주소**를 받아 걸어야 함");
+// 치지직에는 그 경기만 담은 풀영상이 없다 — 세트별로 건다
+assert(live.includes("치지직 1세트") && live.includes("replay-full-set"),
+  "치지직은 세트별 풀영상을 세트 수만큼 걸어야 함");
 assert(!live.includes("chzzk.naver.com/search?query="),
   "검색어만 채운 링크는 검색창에 글자만 들어가고 영상이 안 나온다 — 쓰면 안 됨");
 const fullVod = require("../api/full-vod.js")._test;
