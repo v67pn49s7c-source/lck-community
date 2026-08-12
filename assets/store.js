@@ -137,12 +137,15 @@ function isMissingFunction(e) {
 // v3 = 공식 경기방 판별값(is_official·match_id)을 확실히 다시 받는다.
 // v1에는 **다른 사람들의 표가 통째로** 들어 있고, v2에는 공식 경기방 전환 전 값이
 // 남을 수 있으므로 둘 다 지운다 (서버만 고쳐서는 이미 방문한 기기에 계속 남는다).
-const SNAP_KEY = "nexus_snap_v3";
+// v4 = 본문(body)을 목록에서 받지 않게 됐다(schema26). v3 스냅샷에는 팀 게시판 본문이
+// 남아 있어, 응원팀을 바꾼 뒤에도 그 기기에서만 옛 본문이 보일 수 있으므로 버린다.
+const SNAP_KEY = "nexus_snap_v4";
 // 이름 뒤 번호를 올리면 모든 방문자가 로고를 한 번 다시 받는다 —
 // 업로드본을 지우거나 로고를 바꿨는데 캐시(하루) 때문에 옛것이 남을 때 쓴다.
 const LOGO_KEY = "nexus_logos_v2";
 try { localStorage.removeItem("nexus_snap_v1"); } catch (e) {}
 try { localStorage.removeItem("nexus_snap_v2"); } catch (e) {}
+try { localStorage.removeItem("nexus_snap_v3"); } catch (e) {}
 let snapshotUsed = false;
 
 function snapshotSave() {
@@ -207,9 +210,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260812c"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260812c"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812c"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260812d"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260812d"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812d"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -253,7 +256,12 @@ async function fetchAll() {
     sb.from("matches").select("*").order("at"),
     sb.from("stage_records").select("*").order("ord"),
     sb.from("players").select("*"),
-    sb.from("posts").select("*").order("created_at", { ascending: false }),
+    // ⚠ body(본문)는 **일부러 받지 않는다.** schema26 이 body 컬럼 읽기 권한을 회수했으므로
+    // select("*") 를 쓰면 이 요청 전체가 권한 오류로 실패한다. 목록에 필요한 칸만 적는다.
+    // 본문은 글을 열 때 loadPostBody() 가 서버 창구(get_post_body)로 따로 받는다.
+    sb.from("posts")
+      .select("id,team,cat,title,nick,author_team,author_id,match_id,is_official,up,views,created_at")
+      .order("created_at", { ascending: false }),
     sb.from("comments").select("*").order("created_at"),
     // 예측·평점·투표·반응·댓글추천은 원본 대신 **집계 + 내 표**만 받는다 (왕복 1회)
     sb.rpc("get_fan_stats", { p_voter: anonId() }),
@@ -319,8 +327,15 @@ async function fetchAll() {
       author_id: c.author_id || null, post_id: c.post_id,
     });
   });
+  // 이미 받아 둔 본문은 지키고 넘긴다. 안 그러면 글을 보는 중에 서버 데이터가 도착할 때마다
+  // 본문이 빈칸으로 덮여 화면이 깜빡인다 (목록 응답에는 본문이 없기 때문이다).
+  const keepBody = {};
+  (Cache.posts || []).forEach(p => { if (p.bodyLoaded) keepBody[p.id] = p.body; });
+
   Cache.posts = (po.data || []).map(x => ({
-    id: x.id, team: x.team, cat: x.cat, title: x.title, body: x.body, nick: x.nick,
+    // body 는 목록에서 받지 않는다 (위 select 참고). 글을 열 때만 서버 창구로 받는다.
+    id: x.id, team: x.team, cat: x.cat, title: x.title, nick: x.nick,
+    body: keepBody[x.id] || "", bodyLoaded: Object.prototype.hasOwnProperty.call(keepBody, x.id),
     author_team: x.author_team || null, match_id: x.match_id || null,
     author_id: x.author_id || null,   // 마이페이지 '내가 쓴 글'. 비회원 글은 null.
     official: !!x.is_official,        // 공식 경기 토론방 (schema22 — 관리자만 켤 수 있다)
@@ -711,6 +726,7 @@ function addPost(p, pw) {
   p.author_team = Auth.profile?.fav_team || null;
   p.id = "p" + Date.now();
   p.ts = Date.now(); p.views = 0; p.up = 0; p.comments = [];
+  p.bodyLoaded = true;   // 방금 내가 쓴 본문이라 서버에 다시 물어볼 필요가 없다
   // 공식 경기방 표시를 서버(create_post)와 **같은 조건**으로 로컬에도 낙관적으로 건다.
   // 안 하면 관리자 sync 가드(official 기준)가 방금 만든 글을 못 보고 매번 다시 만든다.
   p.official = !!(Auth.profile?.is_admin && p.match_id && /^\[경기 토론\]/.test(p.title || ""));
@@ -739,6 +755,29 @@ function addPost(p, pw) {
   return p.id;
 }
 
+// ── 본문 받아오기 ────────────────────────────────────────
+// 목록에는 본문이 없다(schema26). 글을 열 때 이 창구로만 받는다.
+//   → { ok: true, body } | { ok: false }  (ok:false = 읽을 자격이 없거나 글이 없다)
+// 서버가 자격을 판정하므로, 브라우저 코드를 건너뛰고 직접 요청해도 본문은 나오지 않는다.
+async function loadPostBody(id) {
+  const cached = Cache.posts.find(x => x.id === id);
+  if (cached && cached.bodyLoaded) return { ok: true, body: cached.body };
+
+  const r = await sb.rpc("get_post_body", { p_id: id });
+  // schema26 을 아직 적용하지 않은 DB — 예전처럼 직접 읽는다.
+  // (코드가 SQL 보다 먼저 배포돼도 글이 빈칸으로 보이지 않게 하는 안전장치)
+  if (isMissingFunction(r.error)) {
+    const f = await sb.from("posts").select("body").eq("id", id).maybeSingle();
+    if (f.error || !f.data) return { ok: false };
+    if (cached) { cached.body = f.data.body || ""; cached.bodyLoaded = true; }
+    return { ok: true, body: f.data.body || "" };
+  }
+  if (r.error) { sbErr(r.error, "loadPostBody"); return { ok: false }; }
+  if (r.data == null) return { ok: false };   // 자격 없음 — 서버의 최종 판정
+  if (cached) { cached.body = r.data; cached.bodyLoaded = true; }
+  return { ok: true, body: r.data };
+}
+
 // 글 수정 (비회원은 비밀번호, 회원은 본인 글, 관리자는 전부)
 function editPost(id, pw, title, body) {
   return sb.rpc("update_post", { p_id: id, p_pw: pw || null, p_title: title, p_body: body })
@@ -746,7 +785,7 @@ function editPost(id, pw, title, body) {
       sbErr(r.error, "editPost");
       if (!r.error) {
         const p = Cache.posts.find(x => x.id === id);
-        if (p) { p.title = title; p.body = body; }
+        if (p) { p.title = title; p.body = body; p.bodyLoaded = true; }
       }
       return r;
     });

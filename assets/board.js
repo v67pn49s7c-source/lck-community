@@ -120,24 +120,34 @@ function canCommentHere(post) {
   if (Auth.profile && Auth.profile.is_admin) return true;
   return !!(Auth.profile && Auth.profile.fav_team === team);
 }
-// 이 글을 **읽을** 수 있나 — 팀 게시판 글은 그 팀 팬만 열어 볼 수 있다.
+// 이 글을 **읽을** 수 있나 — 팀 게시판 글은 그 팀 팬 회원만 열어 볼 수 있다.
 //   · 목록(제목)까지는 누구나 볼 수 있지만, 글을 열면 여기서 막힌다
 //   · 응원팀은 30일에 한 번만 바꿀 수 있어(schema19) 팀을 옮겨 다니며 훔쳐볼 수 없다
 //   · 공지는 팀 게시판에도 걸리므로 예외로 둔다 (운영 안내는 누구나 읽어야 한다)
+//
+// ⚠ **이 판정은 안내용이다. 진짜 차단은 서버가 한다** (schema26 의 get_post_body).
+//   그래서 규칙이 서버와 **정확히 같아야** 한다 — 특히 비회원은 읽을 수 없다.
+//   서버는 비회원이 어느 팀 팬인지 확인할 방법이 없다(응원팀이 브라우저에만 있다).
+//   여기서 localStorage 의 응원팀을 인정해 버리면, 화면은 열리는데 본문만 비는
+//   이상한 상태가 된다.
 function canReadPost(post) {
   const team = post && post.team;
   if (!team) return true;
   if (post.cat === "공지") return true;
-  if (Auth.profile && Auth.profile.is_admin) return true;
-  return getFavTeam() === team;
+  if (!Auth.profile) return false;            // 비회원 — 서버가 신원을 확인할 수 없다
+  if (Auth.profile.is_admin) return true;
+  return Auth.profile.fav_team === team;
 }
 function whyNoRead(post) {
   const t = TEAM_MAP[post.team];
   const name = t ? t.name : "이 팀";
-  const my = getFavTeam();
-  if (!my) return `${name} 팬들끼리 이야기하는 게시판입니다. 응원팀을 ${t ? t.abbr : ""} 로 고르면 읽을 수 있습니다.`;
-  const myName = (TEAM_MAP[my] || {}).name || "중립";
-  return `${name} 팬 전용 게시판입니다. 내 응원팀은 ${myName} 이라 이 글은 볼 수 없습니다.`;
+  const abbr = t ? t.abbr : "";
+  if (!Auth.session) {
+    return `${name} 팬들끼리 이야기하는 게시판입니다. 가입하고 응원팀을 ${abbr} 로 정하면 읽을 수 있습니다.`;
+  }
+  const my = Auth.profile && Auth.profile.fav_team;
+  if (!my) return `${name} 팬 전용 게시판입니다. 응원팀을 ${abbr} 로 정하면 읽을 수 있습니다.`;
+  return `${name} 팬 전용 게시판입니다. 내 응원팀은 ${(TEAM_MAP[my] || {}).name || "중립"} 이라 이 글은 볼 수 없습니다.`;
 }
 
 function whyNoComment(post) {
@@ -183,7 +193,7 @@ async function initPostPage() {
   // ── 팀 게시판 잠금 ──
   // 다른 팀 팬은 **글을 열 수 없다.** 목록에서 제목까지는 보이지만 여기서 막힌다.
   // 조회수·본문·댓글 어느 것도 그리기 전에 끝내야 한다 (본문이 meta 설명으로도 새면 안 된다).
-  if (!canReadPost(post)) {
+  const showLocked = () => {
     const lt = TEAM_MAP[post.team];
     setPageIdentity(["id"], {
       title: `${lt ? lt.name : "팀"} 팬 게시판 — The Nexus`,
@@ -197,14 +207,21 @@ async function initPostPage() {
         <p>${esc(whyNoRead(post))}</p>
         <div class="post-locked-acts">
           <a class="btn-secondary" href="team.html?team=${q(post.team)}">게시판 목록으로</a>
-          ${getFavTeam() === null
-            ? `<a class="btn-primary" href="index.html">응원팀 고르기</a>`
+          ${!Auth.session
+            ? `<a class="btn-primary" href="login.html">가입하고 읽기</a>`
             : `<a class="btn-secondary" href="my.html">내 응원팀 보기</a>`}
         </div>
       </div>`;
     initPostSidebar(post.team); renderFooter();
-    return;
-  }
+  };
+  if (!canReadPost(post)) { showLocked(); return; }
+
+  // ── 본문 받아오기 ──
+  // 목록에는 본문이 없다(schema26). 여기서 서버 창구로 받으며, **서버가 최종 판정자**다.
+  // 위 canReadPost 를 통과했더라도 서버가 거절하면(응원팀이 방금 바뀌었다든지) 잠금 화면.
+  const got = await loadPostBody(id);
+  if (!got.ok) { showLocked(); return; }
+  post.body = got.body;
 
   // 조회수 (세션당 1회)
   const seenKey = "lck_seen_" + id;
@@ -390,10 +407,21 @@ async function initPostPage() {
   render();
   // 반응·댓글 추천 수는 서버 집계에서 오므로, 스냅샷으로 먼저 그렸다면 도착 후 다시 그린다.
   // 단, 댓글을 쓰고 있거나 수정 폼을 열어 둔 상태면 건드리지 않는다 (쓰던 글이 날아간다).
-  storeFresh.then(() => {
+  storeFresh.then(async () => {
     const busy = [...document.querySelectorAll("#post-view textarea, #post-view input")]
       .some(el => el === document.activeElement || (el.value || "").trim());
-    if (!busy) render();
+    if (busy) return;
+    // 서버 확인이 끝나면 자격이 달라져 있을 수 있다 (로그인 만료·응원팀 변경).
+    // 목록을 새로 받으면서 본문이 비었다면 다시 받아 보고, 거절당하면 잠금 화면으로 바꾼다.
+    const fresh = getPost(id);
+    if (!fresh) return;
+    if (!canReadPost(fresh)) { showLocked(); return; }
+    if (!fresh.bodyLoaded) {
+      const again = await loadPostBody(id);
+      if (!again.ok) { showLocked(); return; }
+      fresh.body = again.body;
+    }
+    render();
   }).catch(() => {});
   initPostSidebar(post.team);
   renderFooter();
