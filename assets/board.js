@@ -120,6 +120,37 @@ function canCommentHere(post) {
   if (Auth.profile && Auth.profile.is_admin) return true;
   return !!(Auth.profile && Auth.profile.fav_team === team);
 }
+// ── 본문 꾸미기 (유튜브 영상 · 링크) ─────────────────────
+// 글에 붙여넣은 유튜브 주소를 **영상 틀**로 바꿔 준다. 입력칸을 따로 두지 않고
+// 주소만 붙여넣으면 되게 했다.
+//
+// ⚠ 임의 HTML 은 절대 허용하지 않는다. 먼저 전부 escape 한 뒤, **우리가 아는 모양**
+//   (유튜브 주소·일반 http 주소)만 골라 바꾼다. 이렇게 해야 남의 계정을 훔치는
+//   악성 스크립트가 글에 섞여 들어올 수 없다.
+const YT_MAX = 3;                       // 한 글에 영상은 3개까지 (나머지는 링크로 남는다)
+const YT_URL = /https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:[^\s&]*&)*v=|shorts\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})(?:[^\s]*)?/g;
+const ANY_URL = /https?:\/\/[^\s<]+/g;
+
+function youtubeEmbedHTML(id) {
+  return `<span class="post-embed"><iframe
+    src="https://www.youtube-nocookie.com/embed/${id}" title="유튜브 영상"
+    loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
+    allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowfullscreen></iframe></span>`;
+}
+
+function postBodyHTML(text) {
+  let html = esc(text || "");
+  // ① 유튜브 먼저 (영상 틀로)
+  let used = 0;
+  html = html.replace(YT_URL, (whole, id) => (used++ < YT_MAX ? youtubeEmbedHTML(id) : whole));
+  // ② 남은 주소는 눌러서 열리는 링크로. 새 창 + noopener 로 원래 창을 못 건드리게 한다.
+  html = html.replace(ANY_URL, u =>
+    (/^https?:\/\/www\.youtube-nocookie\.com/.test(u) ? u
+      : `<a href="${u}" target="_blank" rel="noopener noreferrer nofollow ugc">${u}</a>`));
+  return html;
+}
+
 // 이 글을 **읽을** 수 있나 — 팀 게시판 글은 그 팀 팬 회원만 열어 볼 수 있다.
 //   · 목록(제목)까지는 누구나 볼 수 있지만, 글을 열면 여기서 막힌다
 //   · 응원팀은 30일에 한 번만 바꿀 수 있어(schema19) 팀을 옮겨 다니며 훔쳐볼 수 없다
@@ -286,7 +317,7 @@ async function initPostPage() {
           <span>추천 ${cur.up}</span>
         </div>
       </div>
-      <div class="post-content">${esc(cur.body)}</div>
+      <div class="post-content">${postBodyHTML(cur.body)}</div>
       ${poll ? `<div class="poll-box" id="post-poll" style="border-top:1px solid var(--line)"></div>` : ""}
       <div class="post-actions" style="flex-wrap:wrap">
         ${REACTION_KINDS.map(k => `

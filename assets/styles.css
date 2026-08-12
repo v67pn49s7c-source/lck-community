@@ -66,7 +66,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260813f") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260813g") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -2310,6 +2310,14 @@ a.bracket-match:hover { border-color: var(--accent); }
   background: color-mix(in srgb, var(--pick-color) 14%, transparent); }
 .fav-pick button[disabled] { opacity: .45; cursor: not-allowed; }
 
+/* 글 본문에 박히는 유튜브 영상 */
+.post-content .post-embed {
+  display: block; margin: 12px 0; max-width: 680px;
+  aspect-ratio: 16 / 9; background: #000; border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+}
+.post-content .post-embed iframe { width: 100%; height: 100%; border: 0; display: block; }
+.post-content a { color: var(--accent); text-decoration: underline; word-break: break-all; }
+
 /* 풀 영상 다시보기 — 유튜브에는 하이라이트만 올라오고 전체 경기는 치지직·SOOP 에 있다 */
 .replay-full { display: flex; align-items: center; gap:9px; flex-wrap: wrap; padding:11px 15px 13px; }
 .replay-full-lb { font-size: var(--fs-xs); font-weight: 800; color: var(--text-dim); }
@@ -2388,6 +2396,11 @@ a.bracket-match:hover { border-color: var(--accent); }
 .team-logo.has-light .lg-light { display: none; }
 :root[data-theme="light"] .team-logo.has-light .lg-dark { display: none; }
 :root[data-theme="light"] .team-logo.has-light .lg-light { display: block; }
+/* ⚠ 팀 게시판 머리띠는 **테마와 상관없이 늘 어두운 배경**이다(팀 색 그라데이션).
+   그래서 라이트 모드에서도 여기서는 흰색 로고를 써야 한다.
+   안 그러면 BRO·DK·DNS·KRX 처럼 원래 로고가 흰 팀은 어두운 띠 위에서 사라진다. */
+:root[data-theme="light"] .team-hero .team-logo.has-light .lg-dark { display: block; }
+:root[data-theme="light"] .team-hero .team-logo.has-light .lg-light { display: none; }
 
 @media (max-width: 960px) {
   .home-match-inner { grid-template-columns: 108px minmax(0, 1fr); gap:8px; }
