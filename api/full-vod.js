@@ -32,11 +32,30 @@ function hasTeam(title, team) {
 // 경기 기록이 아닌 것 — 하이라이트·인터뷰·클립은 '풀 영상'이 아니다
 const NOT_FULL = /(하이라이트|HIGHLIGHT|인터뷰|INTERVIEW|클립|CLIP|매드무비|비하인드|티저|TEASER|프리뷰|쇼츠|SHORTS?)/i;
 
-// 경기 시작 3시간 전보다 이르면 그 경기 영상이 아니다 (전 시즌 동명 경기 방지)
+// 같은 대진이 시즌에 여러 번 있다. 날짜로 좁히지 않으면 8/9 경기 화면에 8/12 영상이 걸린다.
+//   · 올라온 시각이 경기 시작 3시간 전 ~ 이틀 뒤 안이어야 한다
+// (두 API 의 시각은 KST 문자열이고 경기 시각은 UTC 라, 문자열은 KST 로 읽는다)
+const parseKST = v => {
+  const t = String(v || "").trim();
+  if (!t) return NaN;
+  const m = t.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4] - 9, +m[5]) : Date.parse(t);
+};
 const nearMatch = (published, at) => {
-  const p = Date.parse(published || ""), m = Date.parse(at || "");
+  const p = parseKST(published), m = Date.parse(at || "");
   if (!Number.isFinite(p) || !Number.isFinite(m)) return true;
-  return p >= m - 3 * 60 * 60 * 1000 && p <= m + 7 * 24 * 60 * 60 * 1000;
+  return p >= m - 3 * 60 * 60 * 1000 && p <= m + 2 * 24 * 60 * 60 * 1000;
+};
+
+// 치지직 제목에는 "| 08.12 |" 처럼 경기 날짜가 박혀 있다 — 있으면 그것으로 못 박는다.
+const titleDateOK = (title, at) => {
+  const m = String(title || "").match(/\|\s*(\d{2})\.(\d{2})\s*\|/);
+  if (!m) return true;                                   // 날짜가 없는 제목은 시각으로만 판단
+  const d = new Date(Date.parse(at || "") + 9 * 3600 * 1000);   // 경기 날짜(KST)
+  if (Number.isNaN(d.getTime())) return true;
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  return m[1] === mm && m[2] === dd;
 };
 
 async function getJSON(url, headers) {
@@ -54,7 +73,7 @@ function pickChzzk(rows, a, b, at) {
     }))
     .filter(v => v.no && hasTeam(v.title, a) && hasTeam(v.title, b))
     .filter(v => !NOT_FULL.test(v.title))
-    .filter(v => nearMatch(v.published, at))
+    .filter(v => titleDateOK(v.title, at) && nearMatch(v.published, at))
     // "게임 N VOD" 가 세트별 풀 영상이다. 1세트부터 보게 오름차순.
     .sort((x, y) => {
       const n = t => (String(t).match(/게임\s*(\d+)/) || [])[1] || 99;
@@ -74,7 +93,8 @@ async function fromChzzk(a, b, at) {
 function pickSoop(rows, a, b, at) {
   return (rows || [])
     .map(v => ({
-      title: String(v.title_name || "").replace(/\s+/g, " ").trim(),
+      // ⚠ 제목 칸은 title 이다 (title_name 이 아니다 — 그걸 읽어서 한동안 0건이었다)
+      title: String(v.title || v.b_title || "").replace(/\s+/g, " ").trim(),
       no: v.title_no, user: v.user_id, published: v.reg_date || v.broad_date || "",
     }))
     .filter(v => v.no && v.user === SOOP_USER_ID)          // 공식 계정 것만 (팬 클립 제외)
@@ -121,4 +141,4 @@ async function handler(req, res) {
 }
 
 module.exports = handler;
-module.exports._test = { hasTeam, pickChzzk, pickSoop, nearMatch };
+module.exports._test = { hasTeam, pickChzzk, pickSoop, nearMatch, titleDateOK };

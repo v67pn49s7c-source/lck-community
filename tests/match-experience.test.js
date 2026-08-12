@@ -70,14 +70,28 @@ assert.deepStrictEqual(fullVod.pickChzzk(czRows, "KT", "DK", "2026-08-12T10:00:0
   "치지직은 그 경기 세트 풀 VOD 만 1세트부터 골라야 함");
 // SOOP: 공식 계정(aflol) 것만 — 팬이 올린 클립은 제외
 const spRows = [
-  { title_name: "[KT vs DK] 전체보기 / 2026 LCK 정규 시즌", title_no: "100", user_id: "aflol", reg_date: "2026-08-12 23:00" },
-  { title_name: "[클립][KT vs DK] 전체보기", title_no: "200", user_id: "karin1213", reg_date: "2026-08-12 23:10" },
+  { title: "[KT vs DK] 전체보기 / 2026 LCK 정규 시즌", title_no: "100", user_id: "aflol", reg_date: "2026-08-12 21:45" },
+  { title: "[클립][KT vs DK] 전체보기", title_no: "200", user_id: "karin1213", reg_date: "2026-08-12 21:50" },
 ];
 assert.deepStrictEqual(fullVod.pickSoop(spRows, "KT", "DK", "2026-08-12T10:00:00Z").map(v => v.no), ["100"],
   "SOOP 은 공식 계정 영상만 골라야 함");
 assert.strictEqual(fullVod.hasTeam("DNS vs BRO 전체보기", "NS"), false, "NS 를 DNS 일부로 오인하면 안 됨");
 assert.strictEqual(fullVod.nearMatch("2025-08-12 23:00", "2026-08-12T10:00:00Z"), false,
   "지난 시즌 동명 경기를 연결하면 안 됨");
+// 같은 대진이 시즌에 여러 번 있다 — 8/9 경기 화면에 8/12 영상이 걸렸다
+const sameFixture = [
+  { videoTitle: "DK vs KT 게임 1 VOD | 08.09 | 2026 LCK", videoNo: 1, publishDate: "2026-08-09 20:00" },
+  { videoTitle: "KT vs DK 게임 1 VOD | 08.12 | 2026 LCK", videoNo: 9, publishDate: "2026-08-12 21:14" },
+];
+assert.deepStrictEqual(fullVod.pickChzzk(sameFixture, "DK", "KT", "2026-08-09T08:00:00Z").map(v => v.no), [1],
+  "제목의 날짜로 같은 대진의 다른 날 경기를 걸러야 함");
+assert.deepStrictEqual(fullVod.pickChzzk(sameFixture, "KT", "DK", "2026-08-12T10:00:00Z").map(v => v.no), [9],
+  "그날 경기 영상만 골라야 함");
+// SOOP 제목 칸은 title 이다 — title_name 을 읽어 한동안 0건이었다
+assert.deepStrictEqual(
+  fullVod.pickSoop([{ title: "[KT vs DK] 전체보기 / 2026 LCK 정규 시즌", title_no: "100",
+    user_id: "aflol", reg_date: "2026-08-12 21:45" }], "KT", "DK", "2026-08-12T10:00:00Z").map(v => v.no),
+  ["100"], "SOOP 제목은 title 칸에서 읽어야 함");
 assert(live.includes("매치 다시보기") && !live.includes("한국어 다시보기"),
   "카드 이름은 '매치 다시보기' 여야 함");
 // 원소 드래곤 칸 수 — 장로를 빼야 한다.
