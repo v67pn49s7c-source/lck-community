@@ -37,7 +37,18 @@ assert(/onerror="this\.style\.visibility='hidden'"/.test(app),
 // 목표물은 가운데 이름을 두고 좌우 대칭 한 줄 — 팀별로 쌓으면 같은 항목이 세로로 안 맞는다
 assert(app.includes('class="sb-obj-side') && app.includes(">목표물</div>"),
   "목표물은 가운데 이름을 두고 좌우로 펼쳐야 함");
-assert(/\.sb-obj-side\.r[\s\S]{0,140}row-reverse/.test(css), "오른쪽은 거울상이어야 함");
+// 거울상은 CSS 가 아니라 **순서를 뒤집어서** 만든다 — 같은 목표물이 마주 보게.
+assert(/objChips\("b", true\)/.test(app) && /const list = flip \? \[\.\.\.objList\]\.reverse\(\)/.test(app),
+  "오른쪽은 목표물 순서를 뒤집어 거울상이어야 함");
+// 못 먹은 목표물은 회색, 먹은 것만 제 색
+assert(/\.obj-chip\.zero \.obj-ic \{[^}]*grayscale/.test(css),
+  "아직 못 먹은 목표물은 회색이어야 함");
+// 드래곤은 먹은 마리마다 한 칸, 그 칸에 속성 아이콘
+assert(app.includes("const drakeSlots") && /for \(let i = 0; i < \(\+d\[k\] \|\| 0\); i\+\+\) out\.push\(k\)/.test(app),
+  "드래곤은 먹은 마리마다 한 칸씩 속성 아이콘을 넣어야 함");
+// 장로는 원소 드래곤이 아니라 목표물 칸
+assert(/\{ k: "elders",/.test(app) && app.includes('elders: "dragon_elder.png"'),
+  "장로는 목표물 칸으로 따로 둬야 함");
 // 골드는 늘 큰 두 숫자의 비교라 막대가 맞다 (목표물과 반대)
 assert(app.includes('class="sb-gold-bar l"') && app.includes("gA.toLocaleString()"),
   "골드는 양쪽으로 뻗는 막대 + 전체 숫자여야 함");

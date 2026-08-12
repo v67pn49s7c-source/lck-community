@@ -243,9 +243,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260812k")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260812k")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812k")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260812l")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260812l")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812l")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -295,7 +295,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812k");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812l");
 
   renderTabBar(groupName);
 }
@@ -1647,11 +1647,13 @@ async function initHome() {
 // 양쪽 다 0 이면 아예 그리지 않는다 — 없는 목표물을 "0" 으로 보여 주면
 // 그게 있는 건데 아무도 못 먹은 것처럼 읽힌다.
 // (아타칸은 2026 시즌 맵에 없다. 칸은 계속 받아 두니, 다시 생기면 저절로 나타난다)
+// 바깥쪽부터 안쪽으로. 오른쪽은 이 순서를 뒤집어 **같은 목표물이 서로 마주 보게** 한다.
 const SB_OBJ = [
   { k: "barons",  name: "바론" },
+  { k: "elders",  name: "장로" },
+  { k: "atakhan", name: "아타칸", optional: true },
   { k: "heralds", name: "전령" },
   { k: "grubs",   name: "공허충", optional: true },
-  { k: "atakhan", name: "아타칸", optional: true },
   { k: "towers",  name: "타워" },
   { k: "inhib",   name: "억제기" },
 ];
@@ -1664,8 +1666,8 @@ const SB_OBJ = [
 //   따로 그려 두고, 그림이 실패하면 그림만 감춘다 (개수는 계속 보인다).
 const OBJ_ICON_ROOT = "https://raw.communitydragon.org/latest/game/assets/ux/minimap/icons/";
 const OBJ_ICON_FILE = {
-  barons: "baron.png", heralds: "riftherald.png", grubs: "grub.png",
-  atakhan: "atakhan_r.png", towers: "tower.png", inhib: "inhibitor.png",
+  barons: "baron.png", elders: "dragon_elder.png", heralds: "riftherald.png",
+  grubs: "grub.png", atakhan: "atakhan_r.png", towers: "tower.png", inhib: "inhibitor.png",
 };
 function gameIconHTML(file, cls) {
   // ⚠ loading="lazy" 를 쓰면 안 된다 — 이 카드는 처음에 display:none 으로 시작해서
@@ -1765,55 +1767,67 @@ function setScoreboardHTML(match, set) {
       <span class="sb-gold-bar r"><i style="width:${Math.round(gB / gMax * 100)}%;background:${B.color}"></i></span>
     </div>` : "";
 
-  // 목표물 — 팀별로 한 줄씩, 아이콘 + 개수만. 0 은 흐리게 둬서 대비로 읽히게 한다.
-  const objChips = s => SB_OBJ.map(r => {
+  // ── 목표물 — 좌우 대립 구도 ──────────────────────────────
+  // 같은 목표물이 가운데를 사이에 두고 **서로 마주 본다** (오른쪽은 순서를 뒤집는다).
+  // 못 먹은 것(0)은 회색, 먹은 것만 제 색이 나와서 누가 뭘 가져갔는지 한눈에 보인다.
+  // 장로는 원소 드래곤이 아니라 목표물 칸에 둔다 (아래 드래곤 줄과 구분).
+  const objList = SB_OBJ.filter(r => {
+    if (r.k === "elders") return !!(g.drakes && ((g.drakes.a || {}).elder || (g.drakes.b || {}).elder));
     const v = g[r.k];
-    if (!v || (v.a == null && v.b == null)) return "";
-    if (r.optional && !((+v.a || 0) + (+v.b || 0))) return "";   // 맵에 없는 목표물은 그리지 않는다
-    const n = +v[s] || 0;
-    return `<span class="obj-chip obj-${r.k}${n ? "" : " zero"}" title="${esc(r.name)} ${n}">
-      ${objIconHTML(r.k)}<b>${n}</b><i>${esc(r.name)}</i></span>`;
-  }).join("");
-
-  // 드래곤 — 종류별 아이콘 + 개수. 4마리를 모았으면 '영혼'.
-  // 종류가 기록되지 않은 세트는 마리 수만이라도 보여 준다.
-  const drakeChips = s => {
-    const d = (g.drakes || {})[s];
-    const total = +((g.dragons || {})[s]) || 0;
-    let chips = "";
-    if (d) {
-      chips = Object.keys(DRAKE_KO).filter(k => d[k]).map(k => {
-        const nm = DRAKE_KO[k];
-        const full = k === "elder" ? "장로 드래곤" : `${nm} 드래곤`;
-        return `<span class="obj-chip drake" title="${esc(full)} ${d[k]}마리">
-          ${drakeIconHTML(k)}<b>${d[k]}</b><i>${esc(nm)}</i></span>`;
-      }).join("");
-    }
-    if (!chips) chips = `<span class="obj-chip drake${total ? "" : " zero"}" title="드래곤 ${total}">
-      ${drakeIconHTML("ocean")}<b>${total}</b><i>드래곤</i></span>`;
-
-    // 영혼 — 그 판의 영혼 원소를 **더 크게** 보여 준다 (같은 아이콘의 큰 판).
-    // 원소를 단정할 수 없으면 종류 없이 '영혼'만 적는다.
-    if (total < SOUL_AT) return chips;
-    const sk = soulKind(g);
-    const soulNm = sk ? `${DRAKE_KO[sk]} 영혼` : "드래곤 영혼";
-    return chips + `<span class="obj-chip soul" title="드래곤 ${total}마리 — ${esc(soulNm)} 획득"
-        style="--soul-color:${sk ? DRAKE_COLOR[sk] : "var(--accent-solid)"}">
-      ${sk ? drakeIconHTML(sk, "soul-ic") : `<span class="obj-ic soul-ic" aria-hidden="true">✦</span>`}
-      <b>${esc(soulNm)}</b></span>`;
+    if (!v || (v.a == null && v.b == null)) return false;
+    return !r.optional || ((+v.a || 0) + (+v.b || 0)) > 0;   // 맵에 없는 목표물은 그리지 않는다
+  });
+  const objCount = (r, s) => (r.k === "elders"
+    ? +(((g.drakes || {})[s] || {}).elder) || 0
+    : +((g[r.k] || {})[s]) || 0);
+  const objChips = (s, flip) => {
+    const list = flip ? [...objList].reverse() : objList;
+    return list.map(r => {
+      const n = objCount(r, s);
+      return `<span class="obj-chip${n ? "" : " zero"}" title="${esc(r.name)} ${n}">
+        ${objIconHTML(r.k)}<b>${n}</b><i>${esc(r.name)}</i></span>`;
+    }).join("");
   };
 
-  // 좌우 대칭 한 줄 — 가운데 '목표물' 을 두고 양쪽으로 각 팀 것이 펼쳐진다.
-  // 팀별 두 줄로 쌓으면 같은 항목이 세로로 안 맞아 비교가 안 된다.
-  const objSide = (s, right) => `
-    <div class="sb-obj-side${right ? " r" : ""}">
-      <span class="sb-obj-chips">${objChips(s)}</span>
-      <span class="sb-obj-drakes">${drakeChips(s)}</span>
-    </div>`;
+  // 드래곤 — **먹은 마리마다 한 칸**, 그 칸에 그 용의 속성 아이콘을 넣는다.
+  // 종류가 기록되지 않은 세트는 마리 수만큼 무채색 칸으로 둔다.
+  const drakeSlots = s => {
+    const d = (g.drakes || {})[s] || {};
+    const out = [];
+    Object.keys(DRAKE_KO).forEach(k => {
+      if (k === "elder") return;                          // 장로는 위 목표물 칸으로 뺐다
+      for (let i = 0; i < (+d[k] || 0); i++) out.push(k);
+    });
+    const total = +((g.dragons || {})[s]) || 0;
+    while (out.length < total) out.push(null);
+    return out;
+  };
+  const drakeRow = (s, flip) => {
+    const slots = drakeSlots(s);
+    const cells = (flip ? [...slots].reverse() : slots).map(k => k
+      ? `<span class="obj-chip drake" title="${esc(DRAKE_KO[k])} 드래곤">${drakeIconHTML(k)}<i>${esc(DRAKE_KO[k])}</i></span>`
+      : `<span class="obj-chip drake zero" title="드래곤"><span class="obj-ic" aria-hidden="true"></span></span>`).join("");
+    // 영혼 — 4마리를 모은 팀에만. 그 판의 영혼 원소를 크게 붙인다.
+    const soul = slots.length >= SOUL_AT ? (() => {
+      const sk = soulKind(g);
+      const nm = sk ? `${DRAKE_KO[sk]} 영혼` : "드래곤 영혼";
+      return `<span class="obj-chip soul" title="드래곤 ${slots.length}마리 — ${esc(nm)} 획득"
+          style="--soul-color:${sk ? DRAKE_COLOR[sk] : "var(--accent-solid)"}">
+        ${sk ? drakeIconHTML(sk, "soul-ic") : `<span class="obj-ic soul-ic" aria-hidden="true">✦</span>`}
+        <b>${esc(nm)}</b></span>`;
+    })() : "";
+    if (!cells && !soul) return `<span class="sb-obj-none">드래곤 없음</span>`;
+    return flip ? soul + cells : cells + soul;
+  };
+
   const objBlock = `<div class="sb-obj">
-      ${objSide("a", false)}
       <div class="sb-obj-lb">목표물</div>
-      ${objSide("b", true)}
+      <div class="sb-obj-side" style="--slots:${objList.length}">${objChips("a", false)}</div>
+      <div class="sb-obj-mid" aria-hidden="true"></div>
+      <div class="sb-obj-side r" style="--slots:${objList.length}">${objChips("b", true)}</div>
+      <div class="sb-obj-drakes">${drakeRow("a", false)}</div>
+      <div class="sb-obj-mid" aria-hidden="true"></div>
+      <div class="sb-obj-drakes r">${drakeRow("b", true)}</div>
     </div>`;
 
   const links = [
