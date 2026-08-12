@@ -17,11 +17,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260813j">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260813j">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260813k">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260813k">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260813j">
+  <link rel="stylesheet" href="assets/styles.css?v=20260813k">
 </head>
 <body>
   <main class="page">
@@ -100,13 +100,13 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260813j"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260813j"></script>
-  <script src="assets/invariants.js?v=20260813j"></script>
-  <script src="assets/store.js?v=20260813j"></script>
-  <script src="assets/app.js?v=20260813j"></script>
-  <script src="assets/ddragon.js?v=20260813j"></script>
-  <script src="assets/race.js?v=20260813j"></script>
+  <script src="assets/data.js?v=20260813k"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260813k"></script>
+  <script src="assets/invariants.js?v=20260813k"></script>
+  <script src="assets/store.js?v=20260813k"></script>
+  <script src="assets/app.js?v=20260813k"></script>
+  <script src="assets/ddragon.js?v=20260813k"></script>
+  <script src="assets/race.js?v=20260813k"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -273,6 +273,14 @@
         curSet = Number(b.dataset.set); renderDetails();
       }));
 
+      // 원본(Leaguepedia)에 아직 안 올라온 세트가 있으면 **그렇다고 말한다.**
+      // 안 그러면 2세트만 덩그러니 있는 화면을 보고 "사이트가 고장 났나" 싶다.
+      // (세트 기록은 자원봉사자가 나중에 채워 넣어서 며칠 늦기도 한다)
+      const wantSets = (match.scoreA ?? 0) + (match.scoreB ?? 0);
+      const missing = wantSets > 0
+        ? Array.from({ length: wantSets }, (_, k) => k).filter(k => !d.sets.some(s => (s._idx ?? -1) === k))
+        : [];
+
       // 정합성 검사 (P0-2) — 세트 승수가 최종 스코어와 안 맞으면 승 배지를 감춘다.
       // 실제 사고: m8 = BFX 0:2 BRO 인데 두 세트가 a 승으로 저장돼 "BFX 세트 승"이 떴다.
       const suspect = typeof finishedMatchViolations === "function"
@@ -387,6 +395,10 @@
       // 세트 스코어보드(밴픽·오브젝트·골드)를 표 위에 얹는다.
       // 아직 재수집하지 않은 세트는 재료가 없어 빈 문자열이 돌아온다.
       document.getElementById("details-body").innerHTML =
+        (missing.length
+          ? `<div class="detail-missing">${missing.map(k => k + 1).join("·")}세트 기록이 아직 없습니다
+             <span>경기 기록은 Leaguepedia 에 올라온 뒤 자동으로 채워집니다 — 보통 하루 안에 들어옵니다.</span></div>`
+          : "") +
         setScoreboardHTML(match, set) + `
         <div class="page-title-row detail-stats-title"><h3 class="page-title">선수 스탯</h3></div>
         <div class="table-scroll">

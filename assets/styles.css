@@ -66,7 +66,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260813j") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260813k") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -2309,6 +2309,14 @@ a.bracket-match:hover { border-color: var(--accent); }
 .fav-pick button.active { border-color: var(--pick-color); border-width: 2px; color: var(--text);
   background: color-mix(in srgb, var(--pick-color) 14%, transparent); }
 .fav-pick button[disabled] { opacity: .45; cursor: not-allowed; }
+
+/* 원본에 아직 안 올라온 세트 안내 */
+.detail-missing {
+  padding: 11px 15px; border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  font-size: var(--fs-sm); font-weight: 800; color: var(--text);
+}
+.detail-missing span { display: block; margin-top: 3px; font-size: var(--fs-xs); font-weight: 400; color: var(--text-sub); }
 
 /* ── 모의밴픽 (편집기 · 보기 공용 조각) ── */
 .dch { display: inline-flex; }

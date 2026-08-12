@@ -202,6 +202,13 @@ assert.strictEqual(vodApi.pickKoreanVod([searchRows[0]], "DK", "KT", "2026-08-10
 assert.strictEqual(vodApi.pickKoreanVod([{ videoId: "old2025", title: "DK vs KT | 2025 LCK", published: "" }],
   "DK", "KT", "2026-08-10T00:00:00Z"), null, "검색 결과의 과거 시즌 동명 경기를 연결하면 안 됨");
 
+// 원본에 아직 안 올라온 세트가 있으면 화면이 그렇다고 말해야 한다.
+// (GEN 0:2 DK 처럼 2세트만 있고 1세트가 없으면 "고장 났나" 로 보인다 — 2026-08-13)
+assert(/const missing = wantSets > 0/.test(live) && /세트 기록이 아직 없습니다/.test(live),
+  "빠진 세트를 안내해야 함");
+assert(/\(s\._idx \?\? -1\) === k/.test(live),
+  "빠진 세트는 배열 위치가 아니라 **진짜 세트 번호**로 따져야 함");
+
 console.log("✓ 경기 홈·다중 선택·한국 VOD·오브젝트·팀 게시판 모바일 테스트 통과");
 
 // 상수를 지우면서 쓰는 곳을 안 지워 화면이 통째로 안 그려진 적이 있다(2026-08-12).
