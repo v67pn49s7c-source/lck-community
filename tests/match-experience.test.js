@@ -26,8 +26,24 @@ assert(live.includes("/api/lck-vod?") && live.includes("youtube-nocookie.com/emb
   "종료 경기는 한국 공식 VOD API와 임베드 플레이어를 사용해야 함");
 assert(!app.includes('g.vod ? `<a'), "Leaguepedia/Global VOD를 다시보기로 직접 노출하면 안 됨");
 
-assert(app.includes("DRAKE_ICON_ROOT") && app.includes("dragon_elder.png"),
-  "드래곤과 장로드래곤은 공식 게임 자산 아이콘을 사용해야 함");
+// 아이콘은 직접 그린다 — 외부 CDN 이 죽으면 목표물이 통째로 안 보이던 구조를 없앴다
+assert(!app.includes("communitydragon.org"), "목표물 아이콘을 외부 CDN 에서 받아오면 안 됨");
+["infernal", "ocean", "mountain", "cloud", "hextech", "chemtech", "elder"].forEach(k =>
+  assert(new RegExp(`\\b${k}:`).test(app.slice(app.indexOf("const DRAKE_SVG"))),
+    `드래곤 원소 ${k} 아이콘이 있어야 함`));
+// 영혼 원소 역산 — 3번째 드래곤의 원소가 그 판의 영혼이고, 4마리를 모은 팀이 얻는다.
+// 우리는 순서를 못 받으므로 양 팀 개수를 합쳐 역산한다. 실제로 돌려서 확인한다.
+const soulSrc = app.slice(app.indexOf("function soulKind"), app.indexOf("function setScoreboardHTML"));
+assert(soulSrc.length > 0, "영혼 원소를 역산하는 규칙이 있어야 함");
+const soulKind = new Function(soulSrc + "; return soulKind;")();
+assert.strictEqual(soulKind({ drakes: { a: { cloud: 1 }, b: { ocean: 1, chemtech: 3 } } }), "chemtech",
+  "3번째부터 같은 원소이므로 가장 많은 원소가 영혼이어야 함");
+assert.strictEqual(soulKind({ drakes: { a: { cloud: 1 }, b: { ocean: 1 } } }), null,
+  "합쳐서 3마리 미만이면 영혼 원소를 단정하지 않아야 함");
+assert.strictEqual(soulKind({ drakes: { a: { infernal: 2 }, b: { ocean: 2 } } }), null,
+  "동수라 어느 쪽인지 모르면 단정하지 않아야 함");
+assert.strictEqual(soulKind({ drakes: { a: { elder: 2, ocean: 1 }, b: { ocean: 3 } } }), "ocean",
+  "장로 드래곤은 영혼 계산에서 빼야 함");
 assert(app.includes('class="obj-chip soul"') && app.includes("✦"),
   "드래곤 4마리 획득 팀에는 영혼을 명시해야 함");
 // 목표물은 막대그래프가 아니라 아이콘 + 개수로 — 0 만 늘어선 빈 막대는 읽히지 않았다

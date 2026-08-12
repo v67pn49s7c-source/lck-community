@@ -63,7 +63,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260812h") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260812j") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -1070,13 +1070,13 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
    열 위치가 어긋나 위아래가 안 맞는다(실제로 그랬다). 열 너비를 못 박아 맞춘다.
    (2026-08-07) */
 table.detail-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-table.detail-table col.c-player { width: 28%; }
-table.detail-table col.c-kda    { width: 11%; }
-table.detail-table col.c-dmg    { width: 18%; }
-table.detail-table col.c-vs     { width: 7%; }
-table.detail-table col.c-cs     { width: 9%; }
-table.detail-table col.c-gold   { width: 8%; }
-table.detail-table col.c-items  { width: 19%; }
+table.detail-table col.c-player { width: 25%; }
+table.detail-table col.c-kda    { width: 10%; }
+table.detail-table col.c-dmg    { width: 16%; }
+table.detail-table col.c-vs     { width: 6%; }
+table.detail-table col.c-cs     { width: 8%; }
+table.detail-table col.c-gold   { width: 7%; }
+table.detail-table col.c-items  { width: 28%; }
 table.detail-table th {
   font-size: var(--fs-xs); font-weight: 600; color: var(--text-dim);
   padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--line);
@@ -1132,9 +1132,30 @@ table.detail-table th.ta-r, .dt-num { text-align: right; }
   background: linear-gradient(90deg, color-mix(in srgb, var(--team-color) 70%, #fff), var(--team-color));
   transition: width .35s ease;
 }
-.dt-items { font-size: var(--fs-xs); line-height: 1; display: flex; align-items: center; flex-wrap: wrap; gap: 3px; }
-.dt-items .dd-ic { width: 26px; height: 26px; margin: 0; border-radius: 4px; }
-.dt-trinket { display: inline-flex; margin-left: 3px; padding-left: 6px; border-left: 1px solid var(--line); }
+/* 아이템 — **한 줄**. 인벤토리처럼 칸 수를 고정하고 빈 칸도 자리를 잡아 둔다.
+   예전에는 wrap 이라 6개가 4+2 로 접혀 두 줄이 됐고, 줄마다 장신구 위치가 달랐다.
+   폭이 좁아지면 아이콘이 같이 줄어들 뿐 줄바꿈은 하지 않는다. */
+/* 아이템 — 인벤토리처럼 **한 줄**. 아이템 칸 + 장신구 칸을 같은 격자에 둬야
+   칸 크기가 같고, 줄이 달라도 장신구가 늘 같은 자리에 온다.
+   (예전에는 flex + wrap 이라 6개가 4+2 로 접혔고 장신구만 혼자 컸다)
+   ⚠ --slots 는 **장신구까지 포함한 칸 수**다. repeat() 의 개수 자리에는
+     calc() 를 쓸 수 없어서, 더한 값을 live.html 에서 넘긴다. */
+.dt-items { font-size: var(--fs-xs); line-height: 1; min-width: 0;
+  display: grid; grid-template-columns: repeat(var(--slots, 7), minmax(0, 1fr));
+  gap: 3px; align-items: center; }
+.dt-items .dd-chip { display: block; min-width: 0; }
+.dt-items .dd-ic { width: 100%; height: auto; aspect-ratio: 1; max-width: 30px;
+  margin: 0; border-radius: 4px; display: block; }
+.dt-slot-empty { display: block; width: 100%; aspect-ratio: 1; max-width: 30px; border-radius: 4px;
+  background: var(--bg-soft); border: 1px solid var(--line); opacity: .45; }
+/* 장신구는 아이템이 아니다 — 칸 사이에 선을 하나 둬서 구분한다.
+   ⚠ 선을 border+padding 으로 그리면 그만큼 칸의 안쪽이 좁아져 장신구 아이콘만
+     작아지고 세로로도 어긋난다. 자리를 안 먹는 선을 따로 그린다. */
+.dt-trinket { display: block; min-width: 0; position: relative; }
+.dt-trinket::before {
+  content: ""; position: absolute; left: -3px; top: 8%; bottom: 8%;
+  width: 1px; background: var(--line);
+}
 /* Data Dragon 인게임 아이콘 (챔피언·스펠·아이템·룬) */
 .dd-ic { width: 22px; height: 22px; vertical-align: middle; border: 1px solid var(--line); background: #000; margin: 1px 2px 1px 0; }
 .dd-ic.rune { border-radius: 50%; background: var(--bg-soft); }
@@ -1845,7 +1866,9 @@ a.bracket-match:hover { border-color: var(--accent); }
   .dt-vs     { grid-area: vs; justify-self: end; }
   .dt-cs     { grid-area: cs; }
   .dt-gold   { grid-area: gold; justify-self: end; }
-  .dt-items  { grid-area: items; }
+  /* ⚠ 위의 `table.detail-table td { display: block }` 이 선택자가 더 세서
+     아이템 격자를 무너뜨린다(아이콘이 세로로 한 줄씩 쌓였다). 여기서 되돌린다. */
+  .dt-items  { grid-area: items; display: grid; }
   /* 숫자에는 무엇인지 이름표를 단다 (표 머리를 감췄으므로).
      좁은 화면에서는 두 줄로 쌓지 않고 '이름표 값 (보조값)' 한 줄로 눕힌다. */
   .dt-kda, .dt-num { font-size: var(--fs-md); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -1868,7 +1891,7 @@ a.bracket-match:hover { border-color: var(--accent); }
     left: 0; transform: none; width: 100%; max-width: none; min-width: 0;
   }
   .dt-items .dd-tip::after, .dt-player .dd-tip::after { display: none; }
-  .dt-items .dd-ic { width: 24px; height: 24px; }
+  .dt-items .dd-ic, .dt-slot-empty { max-width: 36px; }
 
   /* 팀 게시판은 표 머리를 접고 분류·제목·추천만 카드 한 줄로 다시 배치한다.
      고정 폭 열이 화면을 밀어 제목과 글쓰기 버튼이 잘리던 문제를 막는다. */
@@ -2147,10 +2170,16 @@ a.bracket-match:hover { border-color: var(--accent); }
 .obj-atakhan .obj-ic { color: #fb923c; }
 .obj-towers  .obj-ic { color: #94a3b8; }
 .obj-inhib   .obj-ic { color: #2dd4bf; }
-.obj-chip .drake-ic { object-fit: contain; }
-.obj-chip.soul { background: var(--accent-solid); border-color: var(--accent-solid); padding-inline: 7px; }
-.obj-chip.soul .soul-ic { width: auto; font-size: 12px; font-weight: 900; color: #fff; }
-.obj-chip.soul::after { content: "영혼"; font-size: 11px; font-weight: 800; color: #fff; }
+/* 영혼 — 그 판의 영혼 원소를 **더 크게**. 4마리를 모아야 얻는 것이라
+   다른 칩과 같은 크기면 무게가 안 산다. */
+.obj-chip.soul {
+  gap: 5px; padding: 3px 10px 3px 6px;
+  border-color: color-mix(in srgb, var(--soul-color) 55%, transparent);
+  background: color-mix(in srgb, var(--soul-color) 16%, transparent);
+}
+.obj-chip.soul .obj-ic { width: 26px; height: 26px; flex-basis: 26px; }
+.obj-chip.soul span.soul-ic { font-size: 17px; font-weight: 900; color: var(--soul-color); text-align: center; }
+.obj-chip.soul b { font-size: var(--fs-sm); color: var(--text); }
 
 /* 밴·픽 — 순서 그대로 */
 .sb-pb {
@@ -2275,8 +2304,6 @@ a.bracket-match:hover { border-color: var(--accent); }
    그래서 .table-scroll 은 아무것도 자르지 않는다. 정보창도 잘리지 않는다. (2026-08-08) */
 .detail-table td { overflow: visible; }
 .table-scroll { overflow: visible; }
-/* 장신구(와드·렌즈)는 아이템 6칸과 구분되게 살짝 띄운다 */
-.dt-trinket { display: inline-block; margin-left: 6px; padding-left: 6px; border-left: 1px solid var(--line); }
 
 /* 라이트 모드용 팀 로고 — BRO·DK·DNS·KRX 는 원래 로고가 흰색이라 밝은 바탕에서 사라진다.
    팀 색이 들어간 파일을 겹쳐 두고 테마에 따라 하나만 보여 준다. */

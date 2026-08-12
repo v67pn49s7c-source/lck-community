@@ -4,6 +4,7 @@ const vm = require("vm");
 
 const source = fs.readFileSync("assets/ddragon.js", "utf8");
 const live = fs.readFileSync("live.html", "utf8");
+const app = fs.readFileSync("assets/app.js", "utf8");
 const css = fs.readFileSync("assets/styles.css", "utf8");
 
 const itemKo = {
@@ -71,7 +72,14 @@ vm.runInContext(source + "\n;globalThis.__ddTest = { DD, ddInit, ddLookup, ddIte
     "선수 이름 아래에 챔피언과 포지션을 함께 보여야 함");
   assert(css.includes(".dt-face .dd-nm { display: none; }"), "상세 표에서는 챔피언 이름을 숨겨야 함");
   assert(css.includes(".dt-dmg > i > b"), "딜량 막대 채움 스타일이 있어야 함");
-  assert(css.includes(".obj-chip .drake-ic"), "드래곤 종류는 이모지 대신 공식 아이콘으로 보여야 함");
+  assert(app.includes("DRAKE_SVG") && app.includes("function drakeIconHTML"),
+    "드래곤 종류는 이모지가 아니라 아이콘으로 보여야 함");
+  // 아이템은 6칸(포지션 임무로 7칸)이 **한 줄**에. 예전에는 wrap 이라 4+2 로 접혔다.
+  assert(live.includes("const slotN = Math.max(6"), "아이템 칸은 최소 6칸이어야 함");
+  assert(live.includes(`class="dt-slot-empty"`) && live.includes("--slots:${slotN + 1}"),
+    "빈 칸도 자리를 잡고, 장신구까지 같은 격자에 들어가야 함");
+  assert(/\.dt-items \{[^}]*repeat\(var\(--slots, 7\)/.test(css) && !/\.dt-items \{[^}]*flex-wrap: wrap/.test(css),
+    "아이템은 칸 수만큼 한 줄로 배치하고 줄바꿈하지 않아야 함");
   // 분당 지표는 경기 시간이 있을 때만 — 없는데 0으로 채우면 거짓말이 된다
   assert(live.includes("DPM ${Math.round(dmg / lenM)}") && live.includes("(cs / lenM).toFixed(1)"),
     "경기 시간이 있으면 DPM 과 분당 CS 를 보여야 함");

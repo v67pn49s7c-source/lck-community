@@ -243,9 +243,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260812h")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260812h")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812h")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260812j")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260812j")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812j")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -295,7 +295,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812h");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812j");
 
   renderTabBar(groupName);
 }
@@ -1656,41 +1656,80 @@ const SB_OBJ = [
   { k: "inhib",   name: "억제기" },
 ];
 
-// 목표물 아이콘 — 외부에서 받아오지 않고 직접 그린다 (요청 0회, 테마 자동 대응).
-// 선(stroke)으로 그려야 18px 에서도 형태가 뭉개지지 않는다.
+// ── 목표물 아이콘 ────────────────────────────────────────
+// 전부 **직접 그린 플랫 아이콘**이다. 외곽선 없이 면으로만 채운다.
+//   · 외부 요청 0회 (예전에는 드래곤 아이콘만 외부 자산 저장소에서 받아 왔다.
+//     그 서버가 죽으면 목표물이 통째로 안 보였다)
+//   · 밝은/어두운 테마 자동 대응, 크기를 키워도 안 깨진다
+// 구멍(눈·안쪽 면)은 fill-rule="evenodd" 로 뚫는다 — 배경색을 몰라도 되기 때문이다.
 const OBJ_SVG = {
-  barons:  `<path d="M4 8.5c0-3 3.6-4.8 8-4.8s8 1.8 8 4.8c0 4.2-3.6 9.3-8 11.3C7.6 17.8 4 12.7 4 8.5z"/>
-            <path d="M9.2 9h.01M14.8 9h.01" stroke-width="2.6" stroke-linecap="round"/>
-            <path d="M10 14.4l.9 2.2M14 14.4l-.9 2.2"/>`,
-  heralds: `<path d="M2.5 12S6.6 6.2 12 6.2 21.5 12 21.5 12 17.4 17.8 12 17.8 2.5 12 2.5 12z"/>
-            <circle cx="12" cy="12" r="2.6"/>`,
-  grubs:   `<circle cx="8.2" cy="10" r="3.1"/><circle cx="15.4" cy="7.9" r="2.5"/><circle cx="13.6" cy="15.4" r="3.1"/>`,
-  atakhan: `<path d="M12 2.8v18.4M4.6 7.1l14.8 9.8M19.4 7.1L4.6 16.9"/><circle cx="12" cy="12" r="3"/>`,
-  towers:  `<path d="M9.2 20.6h5.6M10.3 20.6V10.2M13.7 20.6V10.2M7.4 10.2h9.2l-1.6-3.1H9z"/>
-            <path d="M9.6 7.1V4.3L12 2.6l2.4 1.7v2.8"/>`,
-  inhib:   `<path d="M12 2.9l7.4 4.3v9.6L12 21.1l-7.4-4.3V7.2z"/><path d="M12 8.1l3.2 1.9v4l-3.2 1.9-3.2-1.9v-4z"/>`,
+  // 바론: 뿔 달린 머리 + 점 네 개(구멍). 점을 마름모로 놓아야 고양이 눈처럼 안 읽힌다.
+  barons: `<path fill-rule="evenodd" d="M4.2 1.9 8.6 6.5a10.4 10.4 0 0 1 6.8 0l4.4-4.6-1.3 6.4A8.3 8.3 0 0 1 21 13.5c0 4.4-3.9 7.5-9 8.8-5.1-1.3-9-4.4-9-8.8 0-1.9.7-3.7 2.5-5.2zM12 7.9a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 0 0 0-3.4zm-3.6 3.6a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 0 0 0-3.4zm7.2 0a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 0 0 0-3.4zM12 15.1a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 0 0 0-3.4z"/>`,
+  // 전령: 큰 눈 하나. 곁가지를 붙이면 작게 줄었을 때 티끌처럼 보인다.
+  heralds: `<path fill-rule="evenodd" d="M12 3.9C5.9 3.9 1.4 9.3.6 10.9a2.1 2.1 0 0 0 0 2.2C1.4 14.7 5.9 20.1 12 20.1s10.6-5.4 11.4-7a2.1 2.1 0 0 0 0-2.2C22.6 9.3 18.1 3.9 12 3.9zm0 4.1a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"/>`,
+  // 공허유충: 알 세 개 (작으면 점처럼 보여서 크게 겹쳐 놓는다)
+  grubs: `<path d="M7 3.4c2.3 0 4.1 2.3 4.1 5.1S9.3 13.6 7 13.6 2.9 11.3 2.9 8.5 4.7 3.4 7 3.4z"/><path d="M18 8.2c1.9 0 3.4 1.9 3.4 4.2s-1.5 4.2-3.4 4.2-3.4-1.9-3.4-4.2 1.5-4.2 3.4-4.2z"/><path d="M10.6 13.2c2.3 0 4.1 2.3 4.1 5.1s-1.8 5.1-4.1 5.1-4.1-2.3-4.1-5.1 1.8-5.1 4.1-5.1z"/>`,
+  // 아타칸: 뾰족한 꽃 모양
+  atakhan: `<path fill-rule="evenodd" d="M12 1.4 14.4 8l6.6-2.4L18.6 12l2.4 6.4L14.4 16 12 22.6 9.6 16 3 18.4 5.4 12 3 5.6 9.6 8zm0 7.4a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 0 0 0-6.4z"/>`,
+  // 포탑 — 가늘면 그냥 막대처럼 보인다. 받침·몸통·성가퀴를 뚜렷하게.
+  towers: `<path d="M5.4 20.2h13.2v2.6H5.4zM8.4 9.8h7.2l1.1 10.4H7.3zM6.1 6.6h11.8v3.2H6.1zM7.4 2.2h2.8v4.4H7.4zM10.6 2.2h2.8v4.4h-2.8zM13.8 2.2h2.8v4.4h-2.8z"/>`,
+  // 억제기: 결정
+  inhib: `<path fill-rule="evenodd" d="M12 1.5 20.5 7v10L12 22.5 3.5 17V7zm0 5.2L8 9.3v5.4l4 2.6 4-2.6V9.3z"/>`,
 };
+
+// 드래곤 원소 — 같은 규칙(플랫·면으로만)으로 직접 그린다.
+const DRAKE_SVG = {
+  infernal: `<path d="M13.4 1.2c.6 3.3-.7 5.4-2.4 7.2-1.9 2-4.2 3.9-4.2 7.2A7.2 7.2 0 0 0 18 16c0-3.6-2.1-5.5-2.1-8.3 0 0-1.6 1.5-1.9 3.1-.6-2.9.6-6.6-.6-9.6z"/>`,
+  ocean:    `<path d="M12 1.8c4.3 5.4 7 8.6 7 11.9A7 7 0 1 1 5 13.7c0-3.3 2.7-6.5 7-11.9z"/>`,
+  mountain: `<path d="M12 3.4 20.8 19H3.2zM6.6 12.4l2.6-4.6 2.6 4.6-2.6 2z"/>`,
+  cloud:    `<path d="M2.4 8.4h12.2a2.6 2.6 0 1 0-2.6-2.6H9.6a5 5 0 1 1 5 5H2.4zM2.4 15.6h9.4a2.6 2.6 0 1 1-2.6 2.6H6.8a5 5 0 1 0 5-5H2.4z"/>`,
+  hextech:  `<path fill-rule="evenodd" d="M12 1.5 20.5 7v10L12 22.5 3.5 17V7zm1 4.6-4.6 6.6h2.9l-.7 5.2 4.6-6.6h-2.9z"/>`,
+  chemtech: `<path fill-rule="evenodd" d="M9.5 2h5v1.9h-1v4.4l4.7 8.8A3 3 0 0 1 15.6 22H8.4a3 3 0 0 1-2.6-4.9l4.7-8.8V3.9h-1zm2.5 9.6-3.4 6.3h6.8z"/>`,
+  elder:    `<path fill-rule="evenodd" d="M12 1 15 7.4 21.6 9l-4.3 5.2 1 6.8L12 18l-6.3 3 1-6.8L2.4 9 9 7.4zm0 5.6-1.6 3.5-3.6.9 2.4 2.8-.5 3.7L12 15.9l3.3 1.6-.5-3.7 2.4-2.8-3.6-.9z"/>`,
+};
+const DRAKE_COLOR = {
+  infernal: "#ff7043", ocean: "#29b6d8", mountain: "#c9962e", cloud: "#4fc3ad",
+  hextech: "#5c86ff", chemtech: "#5cb85c", elder: "#b39ddb",
+};
+
 function objIconHTML(kind) {
   const d = OBJ_SVG[kind];
   if (!d) return "";
-  return `<svg class="obj-ic" viewBox="0 0 24 24" aria-hidden="true" fill="none"
-    stroke="currentColor" stroke-width="1.7" stroke-linejoin="round">${d}</svg>`;
+  return `<svg class="obj-ic" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">${d}</svg>`;
+}
+function drakeIconHTML(kind, cls) {
+  const d = DRAKE_SVG[kind];
+  if (!d) return "";
+  return `<svg class="obj-ic ${cls || ""}" viewBox="0 0 24 24" aria-hidden="true"
+    fill="currentColor" style="color:${DRAKE_COLOR[kind] || "currentColor"}">${d}</svg>`;
 }
 
 // 드래곤 종류 — 리그피디아가 종류별로 세어 준다.
-// ⚠ '영혼'은 드래곤 4마리를 먼저 모은 팀이 얻는다. 종류는 몇 번째 용이었는지에 달렸는데
-//   우리는 **개수만** 받으므로 어떤 영혼인지는 알 수 없다. 그래서 종류를 단정하지 않고
-//   "영혼"이라고만 적는다. (아는 것보다 더 말하지 않는다)
 const DRAKE_KO = {
   infernal: "화염", mountain: "대지", ocean: "바다", cloud: "바람",
-  hextech: "마공학", chemtech: "화학공학", elder: "장로드래곤",
+  hextech: "마공학", chemtech: "화학공학", elder: "장로",
 };
 const SOUL_AT = 4;
-const DRAKE_ICON_ROOT = "https://raw.communitydragon.org/latest/game/assets/ux/minimap/icons/";
 
-function drakeIconHTML(kind, label) {
-  const file = kind === "elder" ? "dragon_elder.png" : `dragon_${kind}.png`;
-  return `<img class="sb-drake-icon" src="${DRAKE_ICON_ROOT}${file}" alt="" loading="lazy" decoding="async"><span>${esc(label)}</span>`;
+// 어떤 영혼인가 — **3번째 드래곤의 원소**가 그 판의 영혼이 되고,
+// 4마리를 먼저 모은 팀이 그 영혼을 얻는다. 1·2번째는 무작위, 3번째부터는 전부 같은 원소다.
+// 우리는 순서를 못 받지만 **양 팀 개수를 합치면** 역산할 수 있다:
+//   전체가 n마리면 영혼 원소는 최소 (n-2)마리 — 즉 가장 많은 원소가 영혼이다.
+// 단정할 수 없으면(동수라 어느 쪽인지 모를 때) null 을 돌려주고 종류를 말하지 않는다.
+// (아는 것보다 더 말하지 않는다)
+function soulKind(g) {
+  const tot = {};
+  ["a", "b"].forEach(s => {
+    const d = (g.drakes || {})[s] || {};
+    Object.keys(d).forEach(k => { if (k !== "elder") tot[k] = (tot[k] || 0) + (+d[k] || 0); });
+  });
+  const all = Object.keys(tot).reduce((n, k) => n + tot[k], 0);
+  if (all < 3) return null;                                  // 3번째가 아직 안 나왔다
+  const sorted = Object.keys(tot).sort((x, y) => tot[y] - tot[x]);
+  const top = sorted[0];
+  if (tot[top] < all - 2) return null;                       // 규칙에 안 맞는 기록 — 단정하지 않는다
+  if (sorted[1] && tot[sorted[1]] === tot[top]) return null; // 동수 — 어느 쪽인지 모른다
+  return top;
 }
 
 function setScoreboardHTML(match, set) {
@@ -1760,16 +1799,23 @@ function setScoreboardHTML(match, set) {
     if (d) {
       chips = Object.keys(DRAKE_KO).filter(k => d[k]).map(k => {
         const nm = DRAKE_KO[k];
-        const full = k === "elder" ? nm : `${nm} 드래곤`;
+        const full = k === "elder" ? "장로 드래곤" : `${nm} 드래곤`;
         return `<span class="obj-chip drake" title="${esc(full)} ${d[k]}마리">
-          <img class="obj-ic drake-ic" src="${DRAKE_ICON_ROOT}${k === "elder" ? "dragon_elder.png" : `dragon_${k}.png`}"
-               alt="" loading="lazy" decoding="async"><b>${d[k]}</b><i>${esc(nm)}</i></span>`;
+          ${drakeIconHTML(k)}<b>${d[k]}</b><i>${esc(nm)}</i></span>`;
       }).join("");
     }
     if (!chips) chips = `<span class="obj-chip drake${total ? "" : " zero"}" title="드래곤 ${total}">
-      <img class="obj-ic drake-ic" src="${DRAKE_ICON_ROOT}dragon_elder.png" alt="" loading="lazy" decoding="async"><b>${total}</b><i>드래곤</i></span>`;
-    return chips + (total >= SOUL_AT
-      ? `<span class="obj-chip soul" title="드래곤 4마리 — 드래곤 영혼 획득"><span class="obj-ic soul-ic" aria-hidden="true">✦</span><b></b><i>영혼</i></span>` : "");
+      ${drakeIconHTML("ocean")}<b>${total}</b><i>드래곤</i></span>`;
+
+    // 영혼 — 그 판의 영혼 원소를 **더 크게** 보여 준다 (같은 아이콘의 큰 판).
+    // 원소를 단정할 수 없으면 종류 없이 '영혼'만 적는다.
+    if (total < SOUL_AT) return chips;
+    const sk = soulKind(g);
+    const soulNm = sk ? `${DRAKE_KO[sk]} 영혼` : "드래곤 영혼";
+    return chips + `<span class="obj-chip soul" title="드래곤 ${total}마리 — ${esc(soulNm)} 획득"
+        style="--soul-color:${sk ? DRAKE_COLOR[sk] : "var(--accent-solid)"}">
+      ${sk ? drakeIconHTML(sk, "soul-ic") : `<span class="obj-ic soul-ic" aria-hidden="true">✦</span>`}
+      <b>${esc(soulNm)}</b></span>`;
   };
 
   const objRow = (t, s) => `
