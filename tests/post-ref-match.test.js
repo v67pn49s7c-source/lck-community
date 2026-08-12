@@ -43,8 +43,8 @@ ok(!/drop column/.test(rollback.split("-- 칸까지")[0]),
 // ── 코드 ─────────────────────────────────────────────────
 ok(/\.select\("id,team,cat,title,nick,author_team,author_id,match_id,ref_match_id,/.test(store),
   "글 목록에서 참조 경기 칸도 받아야 함");
-ok(/ref_match_id 칸 없음/.test(store) && /retry/.test(store),
-  "SQL 을 아직 안 돌린 DB 에서도 글 목록이 죽지 않아야 함 (그 칸만 빼고 재요청)");
+ok(/첨부 칸 없음/.test(store) && /\(ref_match_id\|draft\)/.test(store) && /retry/.test(store),
+  "SQL 을 아직 안 돌린 DB 에서도 글 목록이 죽지 않아야 함 (새 칸만 빼고 재요청)");
 ok(/function setPostRefMatch/.test(store) && /rpc\("set_post_ref_match"/.test(store),
   "첨부는 전용 RPC 로 걸어야 함");
 ok(/isMissingFunction\(r\.error\)/.test(store.slice(store.indexOf("function setPostRefMatch"))),

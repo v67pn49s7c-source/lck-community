@@ -210,9 +210,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260813h"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260813h"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260813h"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260813i"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260813i"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260813i"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -260,7 +260,7 @@ async function fetchAll() {
     // select("*") 를 쓰면 이 요청 전체가 권한 오류로 실패한다. 목록에 필요한 칸만 적는다.
     // 본문은 글을 열 때 loadPostBody() 가 서버 창구(get_post_body)로 따로 받는다.
     sb.from("posts")
-      .select("id,team,cat,title,nick,author_team,author_id,match_id,ref_match_id,is_official,up,views,created_at")
+      .select("id,team,cat,title,nick,author_team,author_id,match_id,ref_match_id,draft,is_official,up,views,created_at")
       .order("created_at", { ascending: false }),
     sb.from("comments").select("*").order("created_at"),
     // 예측·평점·투표·반응·댓글추천은 원본 대신 **집계 + 내 표**만 받는다 (왕복 1회)
@@ -321,8 +321,8 @@ async function fetchAll() {
 
   // schema27(ref_match_id)을 아직 안 돌린 DB 에서도 글 목록이 죽지 않게 —
   // 그 칸만 빼고 한 번 더 받는다. (SQL 이 먼저, 코드가 나중이지만 순서가 어긋나도 살아남는다)
-  if (po.error && /ref_match_id/.test(po.error.message || "")) {
-    console.warn("[store] ref_match_id 칸 없음 — 경기 첨부 없이 불러옵니다 (schema27 실행 필요)");
+  if (po.error && /(ref_match_id|draft)/.test(po.error.message || "")) {
+    console.warn("[store] 첨부 칸 없음 — 첨부 없이 불러옵니다 (schema27/28 실행 필요)");
     const retry = await sb.from("posts")
       .select("id,team,cat,title,nick,author_team,author_id,match_id,is_official,up,views,created_at")
       .order("created_at", { ascending: false });
@@ -349,6 +349,7 @@ async function fetchAll() {
     author_team: x.author_team || null, match_id: x.match_id || null,
     // 글이 인용한 경기 (공식 경기방을 가리키는 match_id 와 다른 칸 — schema27)
     refMatch: x.ref_match_id || null,
+    draft: x.draft || null,               // 글쓴이가 짠 모의밴픽 (schema28)
     author_id: x.author_id || null,   // 마이페이지 '내가 쓴 글'. 비회원 글은 null.
     official: !!x.is_official,        // 공식 경기 토론방 (schema22 — 관리자만 켤 수 있다)
     up: x.up, views: x.views, ts: Date.parse(x.created_at), comments: commentsByPost[x.id] || [],
@@ -808,6 +809,16 @@ async function setPostRefMatch(postId, matchId) {
   if (r.error) { sbErr(r.error, "setPostRefMatch"); return { error: r.error }; }
   const p = Cache.posts.find(x => x.id === postId);
   if (p) p.refMatch = matchId || null;
+  return {};
+}
+
+// 글에 모의밴픽 붙이기/떼기 (회원 본인 글만 — 서버가 다시 확인한다)
+async function setPostDraft(postId, draft) {
+  const r = await sb.rpc("set_post_draft", { p_post_id: postId, p_draft: draft || null });
+  if (isMissingFunction(r.error)) return { skipped: true };      // schema28 미적용 — 조용히 건너뛴다
+  if (r.error) { sbErr(r.error, "setPostDraft"); return { error: r.error }; }
+  const p = Cache.posts.find(x => x.id === postId);
+  if (p) p.draft = draft || null;
   return {};
 }
 

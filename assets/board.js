@@ -151,6 +151,175 @@ function postBodyHTML(text) {
   return html;
 }
 
+// ── 모의밴픽 편집기 (글쓰기 화면) ─────────────────────────
+// 규칙은 draft.js 가 다 갖고 있다. 여기는 **보여 주고 집어넣는 일**만 한다.
+//
+// 넣는 방법 두 가지 — 둘 다 같은 draftPlace() 를 부른다.
+//   · 끌어다 놓기 (데스크톱)
+//   · 눌러서 넣기 (모바일·터치. 끌기가 안 되는 기기가 많아 반드시 있어야 한다)
+let DRAFT = null;
+let draftSet = 0;
+let draftLane = "탑";          // 픽 차례일 때 어느 라인에 넣을지
+
+function draftChampList() {
+  const names = Object.keys((typeof DD !== "undefined" && DD.champs) || {});
+  return names.sort((a, b) => a.localeCompare(b, "ko"));
+}
+
+function renderDraftEditor() {
+  const box = document.getElementById("draft-editor");
+  if (!box || !DRAFT) return;
+  const set = DRAFT.sets[draftSet];
+  const step = draftNextStep(set);
+  const blocked = draftBlocked(DRAFT, draftSet);
+  const fearless = draftFearlessBans(DRAFT, draftSet);
+
+  const sideKo = s => (s === "blue" ? "블루" : "레드");
+  const champCell = (c, cls) => c
+    ? `<span class="dch ${cls || ""}" title="${esc(c)}">${ddChampHTML(c, 30) || esc(c)}</span>`
+    : `<span class="dch empty ${cls || ""}"></span>`;
+
+  const banRow = side => `<div class="d-bans ${side}">
+      ${(set.bans[side] || []).map((c, i) =>
+        `<span class="d-slot ban${step && step.kind === "ban" && step.side === side && step.no === i ? " now" : ""}"
+          >${champCell(c, "ban")}</span>`).join("")}
+    </div>`;
+
+  const pickRow = side => {
+    const lanes = draftPicksByLane(set, side);
+    return `<div class="d-picks ${side}">
+      ${lanes.map(l => `<div class="d-lane${draftLane === l.lane && step && step.kind === "pick" ? " target" : ""}"
+          data-lane="${esc(l.lane)}" data-side="${side}">
+        <b>${esc(l.lane)}</b>${champCell(l.champ)}
+        ${l.order != null ? `<em>${l.order + 1}픽</em>` : ""}
+      </div>`).join("")}
+    </div>`;
+  };
+
+  box.innerHTML = `
+    <div class="d-sets">
+      ${DRAFT.sets.map((_, i) => `<button type="button" data-dset="${i}" class="${i === draftSet ? "active" : ""}">${i + 1}세트</button>`).join("")}
+      ${DRAFT.sets.length < 5 ? `<button type="button" id="d-add">＋ 세트</button>` : ""}
+      ${DRAFT.sets.length > 1 ? `<button type="button" id="d-del">－ 세트</button>` : ""}
+    </div>
+
+    <div class="d-turn">
+      ${step
+        ? `<b class="${step.side}">${sideKo(step.side)}</b> ${step.kind === "ban" ? "밴" : "픽"}
+           ${step.no + 1}번째 차례${step.kind === "pick" ? ` · 라인 <select id="d-lane-sel">${DRAFT_LANES.map(l =>
+             `<option ${l === draftLane ? "selected" : ""}>${l}</option>`).join("")}</select>` : ""}`
+        : `<b>이 세트는 다 찼습니다</b>`}
+      <button type="button" id="d-undo">되돌리기</button>
+    </div>
+
+    <div class="d-board">
+      <div class="d-side blue"><span class="d-side-lb">블루</span>${banRow("blue")}${pickRow("blue")}</div>
+      <div class="d-side red"><span class="d-side-lb">레드</span>${banRow("red")}${pickRow("red")}</div>
+    </div>
+
+    ${fearless.length ? `<div class="d-fearless"><b>피어리스 잠김 ${fearless.length}</b>
+      ${fearless.map(c => champCell(c, "ban")).join("")}</div>` : ""}
+
+    <div class="d-pool-head">
+      <input id="d-search" type="search" placeholder="챔피언 검색" autocomplete="off">
+      <span class="form-hint">끌어다 놓거나, 눌러서 넣습니다</span>
+    </div>
+    <div class="d-pool" id="d-pool"></div>`;
+
+  const pool = box.querySelector("#d-pool");
+  const drawPool = term => {
+    const q = (term || "").trim().toLowerCase();
+    pool.innerHTML = draftChampList()
+      .filter(c => !q || c.toLowerCase().includes(q))
+      .map(c => {
+        const why = blocked[c];
+        return `<button type="button" class="d-champ${why ? " off" : ""}" data-champ="${esc(c)}"
+          ${why ? `disabled title="${why === "fearless" ? "피어리스 — 앞 세트에서 쓴 챔피언" : "이 세트에서 이미 밴/픽됨"}"` : `draggable="true" title="${esc(c)}"`}
+          >${ddChampHTML(c, 34) || esc(c)}</button>`;
+      }).join("");
+  };
+  drawPool("");
+
+  // ── 넣기 (두 방법이 같은 곳으로 모인다) ──
+  const put = champ => {
+    const r = draftPlace(DRAFT, draftSet, champ, draftLane);
+    if (r.error) { alert(r.error); return; }
+    renderDraftEditor();
+  };
+  pool.addEventListener("click", e => {
+    const b = e.target.closest(".d-champ"); if (!b || b.disabled) return;
+    put(b.dataset.champ);
+  });
+  pool.addEventListener("dragstart", e => {
+    const b = e.target.closest(".d-champ");
+    if (b && !b.disabled) e.dataTransfer.setData("text/plain", b.dataset.champ);
+  });
+  box.querySelectorAll(".d-slot, .d-lane").forEach(slot => {
+    slot.addEventListener("dragover", e => { e.preventDefault(); slot.classList.add("over"); });
+    slot.addEventListener("dragleave", () => slot.classList.remove("over"));
+    slot.addEventListener("drop", e => {
+      e.preventDefault(); slot.classList.remove("over");
+      const c = e.dataTransfer.getData("text/plain");
+      if (!c) return;
+      if (slot.dataset.lane) draftLane = slot.dataset.lane;   // 떨어뜨린 라인으로
+      put(c);
+    });
+  });
+  box.querySelectorAll(".d-lane").forEach(el => el.addEventListener("click", () => {
+    draftLane = el.dataset.lane; renderDraftEditor();
+  }));
+
+  box.querySelector("#d-search")?.addEventListener("input", e => drawPool(e.target.value));
+  box.querySelector("#d-lane-sel")?.addEventListener("change", e => { draftLane = e.target.value; renderDraftEditor(); });
+  box.querySelector("#d-undo")?.addEventListener("click", () => { draftUndo(DRAFT, draftSet); renderDraftEditor(); });
+  box.querySelectorAll("[data-dset]").forEach(b => b.addEventListener("click", () => {
+    draftSet = Number(b.dataset.dset); renderDraftEditor();
+  }));
+  box.querySelector("#d-add")?.addEventListener("click", () => {
+    DRAFT.sets.push(draftEmptySet()); draftSet = DRAFT.sets.length - 1; renderDraftEditor();
+  });
+  box.querySelector("#d-del")?.addEventListener("click", () => {
+    if (!confirm(`${draftSet + 1}세트를 지울까요?`)) return;
+    DRAFT.sets.splice(draftSet, 1);
+    draftSet = Math.min(draftSet, DRAFT.sets.length - 1);
+    renderDraftEditor();
+  });
+}
+
+// ── 글에 붙은 모의밴픽 (읽기 전용) ────────────────────────
+// 편집기와 같은 규칙(draft.js)으로 그린다. 피어리스 잠김은 저장돼 있지 않고
+// 앞 세트 픽에서 **계산해서** 보여 준다 — 앞 세트를 고쳐도 어긋나지 않는다.
+function draftViewHTML(draft) {
+  if (!draft || !Array.isArray(draft.sets) || !draft.sets.length) return "";
+  const teamName = id => (TEAM_MAP[id] || {}).abbr || "";
+  const ch = (c, cls) => c
+    ? `<span class="dch ${cls || ""}" title="${esc(c)}">${ddChampHTML(c, 28) || esc(c)}</span>`
+    : `<span class="dch empty ${cls || ""}"></span>`;
+
+  const setHTML = (set, i) => {
+    const fear = draftFearlessBans(draft, i);
+    const side = s => `
+      <div class="dv-side ${s}">
+        <span class="dv-lb">${s === "blue" ? "블루" : "레드"}${
+          (s === "blue" ? draft.blueTeam : draft.redTeam) ? ` · ${esc(teamName(s === "blue" ? draft.blueTeam : draft.redTeam))}` : ""}</span>
+        <div class="dv-bans">${(set.bans[s] || []).map(c => ch(c, "ban")).join("")}</div>
+        <div class="dv-picks">${draftPicksByLane(set, s).map(l =>
+          `<div class="dv-lane"><b>${esc(l.lane)}</b>${ch(l.champ)}${l.order != null ? `<em>${l.order + 1}픽</em>` : ""}</div>`).join("")}</div>
+      </div>`;
+    return `<div class="dv-set" data-set="${i}">
+      <div class="dv-set-head"><b>${i + 1}세트</b>${
+        fear.length ? `<span class="dv-fear">피어리스 잠김 ${fear.length}</span>` : ""}</div>
+      <div class="dv-board">${side("blue")}${side("red")}</div>
+      ${fear.length ? `<div class="dv-fear-list">${fear.map(c => ch(c, "ban")).join("")}</div>` : ""}
+    </div>`;
+  };
+
+  return `<div class="draft-view">
+    <div class="dv-title">모의밴픽 <span>글쓴이가 직접 짠 밴픽입니다 · 실제 경기 기록이 아닙니다</span></div>
+    ${draft.sets.map(setHTML).join("")}
+  </div>`;
+}
+
 // ── 글에 붙은 '참조 경기' 카드 ────────────────────────────
 // 접힌 상태는 스코어·날짜만. 펼치면 세트별 밴픽까지 보인다.
 // 경기 ID 만 저장하고 카드는 볼 때 그린다 — 원본 결과가 고쳐지면 카드도 저절로 따라간다.
@@ -364,6 +533,7 @@ async function initPostPage() {
       </div>
       <div class="post-content">${postBodyHTML(cur.body)}</div>
       ${cur.refMatch ? refMatchCardHTML(cur.refMatch) : ""}
+      ${cur.draft ? draftViewHTML(cur.draft) : ""}
       ${poll ? `<div class="poll-box" id="post-poll" style="border-top:1px solid var(--line)"></div>` : ""}
       <div class="post-actions" style="flex-wrap:wrap">
         ${REACTION_KINDS.map(k => `
@@ -511,13 +681,16 @@ async function initPostPage() {
   //   · 세트 상세(match_details)는 글 화면에서 첫 그림을 막지 않으려고 뒤늦게 받는다
   //   · 챔피언 아이콘 주소도 ddInit 이 끝나야 정해진다
   // 둘 다 준비되면 카드만 다시 그린다. 사용자가 이미 펼쳐 놨으면 건드리지 않는다.
-  if (post.refMatch) {
+  if (post.refMatch || post.draft) {
     Promise.all([
       typeof loadDetailsLater === "function" ? loadDetailsLater() : Promise.resolve(),
       typeof ddInit === "function" ? ddInit() : Promise.resolve(),
     ]).then(() => {
       const card = document.querySelector("#post-view .ref-match");
       if (card && !card.open) card.outerHTML = refMatchCardHTML(post.refMatch);
+      // 모의밴픽도 챔피언 아이콘이 준비된 뒤에 다시 그린다
+      const dv = document.querySelector("#post-view .draft-view");
+      if (dv && post.draft) dv.outerHTML = draftViewHTML(post.draft);
     }).catch(() => {});
   }
 }
@@ -533,6 +706,22 @@ async function initWritePage() {
 
   // 회원만 투표·경기 첨부 가능 (서버 규칙과 동일)
   if (Auth.session) document.getElementById("poll-attach-wrap").style.display = "";
+  // 모의밴픽 첨부 (회원) — 체크하면 편집기가 열린다.
+  // 챔피언 목록은 ddInit 이 끝나야 나오므로, 열 때 한 번 불러 두고 다시 그린다.
+  if (Auth.session) {
+    const dw = document.getElementById("draft-attach-wrap");
+    if (dw) dw.style.display = "";
+    document.getElementById("draft-attach")?.addEventListener("change", async e => {
+      const ed = document.getElementById("draft-editor");
+      if (!e.target.checked) { ed.style.display = "none"; return; }
+      ed.style.display = "";
+      if (!DRAFT) DRAFT = draftEmpty();
+      ed.innerHTML = `<div class="empty-note">챔피언 목록을 불러오는 중…</div>`;
+      if (typeof ddInit === "function") await ddInit();
+      renderDraftEditor();
+    });
+  }
+
   // 경기 첨부 — 끝난 경기만, 최근 순으로. 글 하나에 경기 하나.
   if (Auth.session) {
     const wrap = document.getElementById("match-attach-wrap");
@@ -636,6 +825,13 @@ async function initWritePage() {
     // create_post 의 인자 목록을 늘리지 않는 이유는 위 store.js 주석과 같다.
     const refPick = Auth.session ? (document.getElementById("match-attach")?.value || "") : "";
     if (refPick) await setPostRefMatch(pid, refPick);
+
+    // 모의밴픽 첨부 (회원) — 저장 전에 규칙을 한 번 더 훑는다.
+    if (Auth.session && document.getElementById("draft-attach")?.checked && DRAFT) {
+      const bad = draftValidate(DRAFT);
+      if (bad) alert("모의밴픽은 붙이지 못했습니다: " + bad + "\n(글은 정상 등록됩니다)");
+      else await setPostDraft(pid, DRAFT);
+    }
 
     // 투표 첨부 (회원) — RPC 로만 만든다. match_id 는 넘기지 않는다:
     // 회원 투표가 경기(match_id)에 걸리면 공식 팬심지수 화면에 끼어들 수 있어
