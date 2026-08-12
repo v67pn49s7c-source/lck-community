@@ -120,6 +120,26 @@ function canCommentHere(post) {
   if (Auth.profile && Auth.profile.is_admin) return true;
   return !!(Auth.profile && Auth.profile.fav_team === team);
 }
+// 이 글을 **읽을** 수 있나 — 팀 게시판 글은 그 팀 팬만 열어 볼 수 있다.
+//   · 목록(제목)까지는 누구나 볼 수 있지만, 글을 열면 여기서 막힌다
+//   · 응원팀은 30일에 한 번만 바꿀 수 있어(schema19) 팀을 옮겨 다니며 훔쳐볼 수 없다
+//   · 공지는 팀 게시판에도 걸리므로 예외로 둔다 (운영 안내는 누구나 읽어야 한다)
+function canReadPost(post) {
+  const team = post && post.team;
+  if (!team) return true;
+  if (post.cat === "공지") return true;
+  if (Auth.profile && Auth.profile.is_admin) return true;
+  return getFavTeam() === team;
+}
+function whyNoRead(post) {
+  const t = TEAM_MAP[post.team];
+  const name = t ? t.name : "이 팀";
+  const my = getFavTeam();
+  if (!my) return `${name} 팬들끼리 이야기하는 게시판입니다. 응원팀을 ${t ? t.abbr : ""} 로 고르면 읽을 수 있습니다.`;
+  const myName = (TEAM_MAP[my] || {}).name || "중립";
+  return `${name} 팬 전용 게시판입니다. 내 응원팀은 ${myName} 이라 이 글은 볼 수 없습니다.`;
+}
+
 function whyNoComment(post) {
   const t = TEAM_MAP[post.team];
   const name = t ? t.name : "이 팀";
@@ -128,6 +148,20 @@ function whyNoComment(post) {
   return my
     ? `${name} 팬 게시판입니다. 내 응원팀은 ${(TEAM_MAP[my] || {}).name || "미설정"} 이라 댓글을 쓸 수 없습니다.`
     : `${name} 팬 게시판입니다. 응원팀을 ${t ? t.abbr : ""} 로 설정하면 댓글을 쓸 수 있습니다.`;
+}
+
+// 글 보기 페이지의 사이드바 — **그 글이 속한 게시판과 똑같이** 맞춘다.
+//   · 팀 글  → 최신 콘텐츠 · 창립 팬 100인 · 다음 경기 예측 · LCK 순위 (team.html 과 동일)
+//   · 전체 글 → 다음 경기 예측 · LCK 순위 (community.html 과 동일)
+function initPostSidebar(teamId) {
+  const t = teamId ? TEAM_MAP[teamId] : null;
+  if (t) {
+    renderTeamContent(t.id);                 // 카드는 받아온 콘텐츠가 있을 때만 스스로 나타난다
+    const card = document.getElementById("founding-card");
+    if (card) card.style.display = "";
+    renderFoundingPanel(t);
+  }
+  initSidebar();
 }
 
 // ── 글 보기 페이지 ──
@@ -143,6 +177,32 @@ async function initPostPage() {
       <a class="btn-secondary" href="community.html" style="display:inline-block;margin-top:10px;text-decoration:none">커뮤니티로</a></div>`;
     noIndex();   // 없는 주소가 검색에 잡히지 않게
     initSidebar(); renderFooter();
+    return;
+  }
+
+  // ── 팀 게시판 잠금 ──
+  // 다른 팀 팬은 **글을 열 수 없다.** 목록에서 제목까지는 보이지만 여기서 막힌다.
+  // 조회수·본문·댓글 어느 것도 그리기 전에 끝내야 한다 (본문이 meta 설명으로도 새면 안 된다).
+  if (!canReadPost(post)) {
+    const lt = TEAM_MAP[post.team];
+    setPageIdentity(["id"], {
+      title: `${lt ? lt.name : "팀"} 팬 게시판 — The Nexus`,
+      desc: `${lt ? lt.name : "이 팀"} 팬들만 볼 수 있는 게시판입니다.`,
+    });
+    noIndex();   // 팀 팬 전용 글이 검색에 잡히면 안 된다
+    el.innerHTML = `
+      <div class="post-locked">
+        <div class="post-locked-mark">${lt ? teamLogoHTML(lt, 44) : "🔒"}</div>
+        <h2>${esc(lt ? lt.name : "팀")} 팬 게시판입니다</h2>
+        <p>${esc(whyNoRead(post))}</p>
+        <div class="post-locked-acts">
+          <a class="btn-secondary" href="team.html?team=${q(post.team)}">게시판 목록으로</a>
+          ${getFavTeam() === null
+            ? `<a class="btn-primary" href="index.html">응원팀 고르기</a>`
+            : `<a class="btn-secondary" href="my.html">내 응원팀 보기</a>`}
+        </div>
+      </div>`;
+    initPostSidebar(post.team); renderFooter();
     return;
   }
 
@@ -335,7 +395,7 @@ async function initPostPage() {
       .some(el => el === document.activeElement || (el.value || "").trim());
     if (!busy) render();
   }).catch(() => {});
-  initSidebar();
+  initPostSidebar(post.team);
   renderFooter();
 }
 

@@ -243,9 +243,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260812b")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260812b")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812b")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260812c")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260812c")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812c")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -295,7 +295,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812b");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812c");
 
   renderTabBar(groupName);
 }
@@ -1441,22 +1441,20 @@ let homeBoardCat = "전체";
 function renderHotPosts() {
   const el = document.getElementById("hot-posts");
   if (!el) return;
-  // 자동 생성된 공식 토론글은 반응이 전혀 없으면 첫 화면에서 제외한다.
-  // 회원 글은 추천 수와 관계없이 최신 글로 보여 줘 새 커뮤니티가 더 비어 보이지 않게 한다.
+  // 홈의 "전체 게시판"은 **커뮤니티 게시판(전체) 글만** 보여 준다.
+  //   · 팀 글 제외 — 팀 게시판은 그 팀 팬 전용이라 홈에 새어 나오면 안 된다
+  //   · 자동 [경기 토론] 방 제외 — 사람이 쓴 글이 아니고, 경기 페이지에 이미 있다
   const meaningful = p => {
     const title = String(p.title || "").trim();
     return p.cat === "공지" || title.length >= 5;
   };
-  const candidates = getPosts().filter(meaningful)
+  const isAutoRoom = p => !!p.match_id || /^\[경기 토론\]/.test(String(p.title || "").trim());
+  const posts = getPosts()
+    .filter(p => !p.team && !isAutoRoom(p))
+    .filter(meaningful)
     .filter(p => homeBoardCat === "전체" || p.cat === homeBoardCat)
-    .sort((a, b) => (b.cat === "공지") - (a.cat === "공지") || b.ts - a.ts);
-  const preferred = candidates.filter(p => {
-    const autoRoom = !!p.match_id || /^\[경기 토론\]/.test(String(p.title || "").trim());
-    return !autoRoom || p.up >= 2 || p.comments.length >= 1;
-  });
-  // 반응 없는 자동 경기방으로 다섯 칸을 억지로 채우면 새 서비스가 더 비어 보인다.
-  // 운영진·회원 콘텐츠가 쌓일 때까지는 실제 의미 있는 글만 최대 5개 보여 준다.
-  const posts = preferred.slice(0, 5);
+    .sort((a, b) => (b.cat === "공지") - (a.cat === "공지") || b.ts - a.ts)
+    .slice(0, 5);
   if (!posts.length) {
     el.innerHTML = `<div class="empty-note">이 분류의 최신 글이 없습니다 —
       <a href="write.html" style="text-decoration:underline">첫 글을 남겨 보세요</a></div>`;

@@ -63,7 +63,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260812b") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260812c") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -1003,6 +1003,14 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
 .admin-note { padding: 10px 14px; font-size: var(--fs-sm); color: var(--text-dim); line-height: 1.7; background: var(--bg-soft); border-top: 1px solid var(--line); }
 
 .empty-note { padding: 28px; text-align: center; color: var(--text-dim); font-size: var(--fs-sm); }
+
+/* ── 팀 게시판 잠금 (다른 팀 팬이 글을 열었을 때) ── */
+.post-locked { padding: 44px 24px; text-align: center; }
+.post-locked-mark { display: flex; justify-content: center; margin-bottom: 14px; opacity: .85; font-size: 34px; line-height: 1; }
+.post-locked h2 { margin: 0 0 8px; font-size: var(--fs-lg); }
+.post-locked p { margin: 0 auto; max-width: 34em; color: var(--text-sub); font-size: var(--fs-sm); line-height: 1.7; }
+.post-locked-acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 18px; }
+.post-locked-acts a { text-decoration: none; }
 
 /* ── 경기 상세 (KDA·아이템·룬) ── */
 .detail-team-head {
