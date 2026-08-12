@@ -35,8 +35,16 @@ assert(app.includes("OBJ_ICON_ROOT") && app.includes("communitydragon.org"),
 assert(/onerror="this\.style\.visibility='hidden'"/.test(app),
   "아이콘을 못 받아도 개수는 남아야 함 (그림만 감춘다)");
 // 목표물은 가운데 이름을 두고 좌우 대칭 한 줄 — 팀별로 쌓으면 같은 항목이 세로로 안 맞는다
-assert(app.includes('class="sb-obj-side') && app.includes(">목표물</div>"),
-  "목표물은 가운데 이름을 두고 좌우로 펼쳐야 함");
+assert(app.includes("const objLine") && app.includes('class="sb-obj-line"') && app.includes(">목표물</div>"),
+  "목표물은 가운데 선을 두고 좌우로 펼쳐야 함");
+// 3열 격자에 자식을 늘어놓으면 라벨 뒤부터 자리가 밀려 좌우가 어긋난다 — 줄 단위로 감싼다
+assert(/objLine\(objChips\("a", false\), objChips\("b", true\)/.test(app),
+  "목표물 줄은 좌·가운데·우 세 칸을 한 덩어리로 감싸야 함");
+// 드래곤도 같은 대립 구도 + 영혼은 얻은 팀 쪽에만
+assert(/objLine\(soulBadge\("a"\)[\s\S]{0,220}soulBadge\("b"\)/.test(app),
+  "드래곤도 좌우 대립이고 영혼 배지는 얻은 팀 쪽에 붙어야 함");
+assert(app.includes("const drakeSlotN = Math.max(SOUL_AT"),
+  "드래곤은 영혼까지 남은 칸이 보이게 최소 4칸을 깔아야 함");
 // 거울상은 CSS 가 아니라 **순서를 뒤집어서** 만든다 — 같은 목표물이 마주 보게.
 assert(/objChips\("b", true\)/.test(app) && /const list = flip \? \[\.\.\.objList\]\.reverse\(\)/.test(app),
   "오른쪽은 목표물 순서를 뒤집어 거울상이어야 함");

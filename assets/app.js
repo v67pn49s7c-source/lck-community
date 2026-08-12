@@ -243,9 +243,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260812l")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260812l")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812l")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260812m")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260812m")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812m")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -295,7 +295,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812l");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812m");
 
   renderTabBar(groupName);
 }
@@ -1802,32 +1802,43 @@ function setScoreboardHTML(match, set) {
     while (out.length < total) out.push(null);
     return out;
   };
+  // 드래곤 칸 — 영혼이 4마리째에 나오므로 **한 팀당 최소 4칸**을 깔아 두고,
+  // 먹은 자리에만 그 용의 속성 아이콘을 채운다. 빈 칸은 점선 — 영혼까지 얼마나
+  // 남았는지가 칸만 봐도 읽힌다.
+  const drakeSlotN = Math.max(SOUL_AT, drakeSlots("a").length, drakeSlots("b").length);
   const drakeRow = (s, flip) => {
-    const slots = drakeSlots(s);
-    const cells = (flip ? [...slots].reverse() : slots).map(k => k
-      ? `<span class="obj-chip drake" title="${esc(DRAKE_KO[k])} 드래곤">${drakeIconHTML(k)}<i>${esc(DRAKE_KO[k])}</i></span>`
-      : `<span class="obj-chip drake zero" title="드래곤"><span class="obj-ic" aria-hidden="true"></span></span>`).join("");
-    // 영혼 — 4마리를 모은 팀에만. 그 판의 영혼 원소를 크게 붙인다.
-    const soul = slots.length >= SOUL_AT ? (() => {
-      const sk = soulKind(g);
-      const nm = sk ? `${DRAKE_KO[sk]} 영혼` : "드래곤 영혼";
-      return `<span class="obj-chip soul" title="드래곤 ${slots.length}마리 — ${esc(nm)} 획득"
-          style="--soul-color:${sk ? DRAKE_COLOR[sk] : "var(--accent-solid)"}">
-        ${sk ? drakeIconHTML(sk, "soul-ic") : `<span class="obj-ic soul-ic" aria-hidden="true">✦</span>`}
-        <b>${esc(nm)}</b></span>`;
-    })() : "";
-    if (!cells && !soul) return `<span class="sb-obj-none">드래곤 없음</span>`;
-    return flip ? soul + cells : cells + soul;
+    const taken = drakeSlots(s);
+    const slots = taken.concat(Array(Math.max(0, drakeSlotN - taken.length)).fill(undefined));
+    return (flip ? [...slots].reverse() : slots).map(k => {
+      if (k === undefined) return `<span class="obj-chip drake empty" title="아직 안 먹은 드래곤"><span class="obj-ic" aria-hidden="true"></span></span>`;
+      if (k === null) return `<span class="obj-chip drake unknown" title="드래곤 (종류 미기록)"><span class="obj-ic" aria-hidden="true"></span></span>`;
+      return `<span class="obj-chip drake" title="${esc(DRAKE_KO[k])} 드래곤">${drakeIconHTML(k)}<i>${esc(DRAKE_KO[k])}</i></span>`;
+    }).join("");
+  };
+  // 영혼 — 4마리를 모은 팀 **그쪽에만** 붙인다
+  const soulBadge = s => {
+    if (drakeSlots(s).length < SOUL_AT) return "";
+    const sk = soulKind(g);
+    const nm = sk ? `${DRAKE_KO[sk]} 영혼` : "드래곤 영혼";
+    return `<span class="obj-chip soul" title="드래곤 ${SOUL_AT}마리 — ${esc(nm)} 획득"
+        style="--soul-color:${sk ? DRAKE_COLOR[sk] : "var(--accent-solid)"}">
+      ${sk ? drakeIconHTML(sk, "soul-ic") : `<span class="obj-ic soul-ic" aria-hidden="true">✦</span>`}
+      <b>${esc(nm)}</b></span>`;
   };
 
+  // ⚠ 한 줄(3칸)씩 따로 감싼다. 3열 격자에 자식을 죽 늘어놓으면 라벨이 한 칸을
+  //   차지한 뒤부터 자리가 통째로 밀려 좌우가 어긋난다 (실제로 그랬다).
+  const objLine = (left, right, cls) => `
+    <div class="sb-obj-line">
+      <div class="${cls}">${left}</div>
+      <span class="sb-obj-mid" aria-hidden="true"></span>
+      <div class="${cls} r">${right}</div>
+    </div>`;
   const objBlock = `<div class="sb-obj">
       <div class="sb-obj-lb">목표물</div>
-      <div class="sb-obj-side" style="--slots:${objList.length}">${objChips("a", false)}</div>
-      <div class="sb-obj-mid" aria-hidden="true"></div>
-      <div class="sb-obj-side r" style="--slots:${objList.length}">${objChips("b", true)}</div>
-      <div class="sb-obj-drakes">${drakeRow("a", false)}</div>
-      <div class="sb-obj-mid" aria-hidden="true"></div>
-      <div class="sb-obj-drakes r">${drakeRow("b", true)}</div>
+      ${objLine(objChips("a", false), objChips("b", true), "sb-obj-side")}
+      ${/* 먹은 용은 가운데 선 쪽에, 빈 칸은 바깥쪽으로 — 양쪽 다 안쪽부터 채워진 것처럼 보인다 */
+        objLine(soulBadge("a") + drakeRow("a", true), drakeRow("b", false) + soulBadge("b"), "sb-obj-drakes")}
     </div>`;
 
   const links = [

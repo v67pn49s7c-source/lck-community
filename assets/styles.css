@@ -63,7 +63,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260812l") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260812m") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -2164,25 +2164,25 @@ a.bracket-match:hover { border-color: var(--accent); }
 .sb-gold-bar i { display: block; height: 100%; border-radius: 4px; }
 
 /* ── 목표물 — 좌우 대립 구도 ──
-   같은 목표물이 가운데를 사이에 두고 서로 마주 본다. 양쪽 칸 수가 같아서
-   줄이 접혀도 대칭이 유지된다. 못 먹은 것은 회색이라 대비로 바로 읽힌다. */
-.sb-obj {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center; justify-items: center; gap: 6px 10px;
-  padding: 10px 14px 12px; border-top: 1px solid var(--line);
-}
+   같은 목표물이 가운데 선을 사이에 두고 서로 마주 본다.
+   ⚠ 한 줄씩 .sb-obj-line 으로 감싼다. 3열 격자에 자식을 죽 늘어놓으면
+     라벨이 한 칸을 먹은 뒤부터 자리가 밀려 좌우가 통째로 어긋난다. */
+.sb-obj { padding: 10px 14px 12px; border-top: 1px solid var(--line); display: grid; gap: 6px; justify-items: center; }
 .sb-obj-lb {
-  grid-column: 2; font-size: 11px; font-weight: 800; color: var(--text-dim); white-space: nowrap;
-  padding: 5px 12px; border-radius: 999px; background: var(--bg-soft); margin-bottom: 2px;
+  font-size: 11px; font-weight: 800; color: var(--text-dim); white-space: nowrap;
+  padding: 5px 12px; border-radius: 999px; background: var(--bg-soft);
 }
-.sb-obj-mid { width: 1px; height: 100%; background: var(--line); }
-.sb-obj-side {
-  display: grid; grid-template-columns: repeat(var(--slots, 6), minmax(0, 1fr));
-  gap: 2px; width: 100%; justify-items: center;
+.sb-obj-line {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center; gap: 8px; width: 100%;
 }
-.sb-obj-drakes { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; width: 100%; justify-content: flex-end; }
-.sb-obj-drakes.r { justify-content: flex-start; }
-.sb-obj-none { font-size: var(--fs-xs); color: var(--text-dim); font-weight: 700; }
+.sb-obj-mid { width: 1px; align-self: stretch; min-height: 22px; background: var(--line); }
+/* 양쪽 칸 수가 같아야 마주 본다 — 오른쪽은 순서를 뒤집어 채운다 */
+.sb-obj-side, .sb-obj-drakes {
+  display: flex; align-items: center; gap: 3px; min-width: 0;
+  justify-content: flex-end;                 /* 왼쪽 팀: 가운데 선 쪽으로 붙인다 */
+}
+.sb-obj-side.r, .sb-obj-drakes.r { justify-content: flex-start; }
 .obj-chip {
   display: inline-flex; align-items: center; gap: 2px;
   padding: 2px 3px; line-height: 1; white-space: nowrap;
@@ -2194,8 +2194,12 @@ a.bracket-match:hover { border-color: var(--accent); }
 /* 아직 못 먹은 것 — 색을 빼서 회색으로 */
 .obj-chip.zero .obj-ic { filter: grayscale(1); opacity: .5; }
 .obj-chip.zero b { color: var(--text-dim); font-weight: 700; }
+/* 드래곤 칸 — 먹은 자리는 속성 아이콘, 빈 자리는 점선 (영혼까지 남은 칸이 보인다) */
 .obj-chip.drake .obj-ic { width: 26px; height: 26px; flex-basis: 26px; }
-.obj-chip.drake.zero .obj-ic { border-radius: 50%; background: var(--bg-soft); border: 1px dashed var(--line); }
+.obj-chip.drake.empty .obj-ic, .obj-chip.drake.unknown .obj-ic {
+  border-radius: 50%; border: 1px dashed var(--line); background: var(--bg-soft);
+}
+.obj-chip.drake.unknown .obj-ic { border-style: solid; opacity: .6; }
 
 /* 좁은 칸에서는 아이콘만 줄이고 **대립 구도는 유지한다** —
    위아래로 나누면 같은 목표물이 서로 마주 보지 않아 비교가 안 된다. */
