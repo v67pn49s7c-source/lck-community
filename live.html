@@ -17,11 +17,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260812m">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260812m">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260812n">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260812n">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260812m">
+  <link rel="stylesheet" href="assets/styles.css?v=20260812n">
 </head>
 <body>
   <main class="page">
@@ -46,7 +46,7 @@
 
         <section class="card" id="replay-card" style="display:none">
           <div class="card-head">
-            <h2 class="card-title">한국어 다시보기 <span class="sub">LCK 공식 YouTube</span></h2>
+            <h2 class="card-title">매치 다시보기 <span class="sub">LCK 공식 채널</span></h2>
             <a class="card-more" id="replay-channel" target="_blank" rel="noopener noreferrer">공식 채널 ›</a>
           </div>
           <div id="replay-body"></div>
@@ -100,13 +100,13 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260812m"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260812m"></script>
-  <script src="assets/invariants.js?v=20260812m"></script>
-  <script src="assets/store.js?v=20260812m"></script>
-  <script src="assets/app.js?v=20260812m"></script>
-  <script src="assets/ddragon.js?v=20260812m"></script>
-  <script src="assets/race.js?v=20260812m"></script>
+  <script src="assets/data.js?v=20260812n"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260812n"></script>
+  <script src="assets/invariants.js?v=20260812n"></script>
+  <script src="assets/store.js?v=20260812n"></script>
+  <script src="assets/app.js?v=20260812n"></script>
+  <script src="assets/ddragon.js?v=20260812n"></script>
+  <script src="assets/race.js?v=20260812n"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -171,27 +171,38 @@
       if (!match || match.status !== "done" || !knownTeams(match)) { card.style.display = "none"; return; }
       card.style.display = "";
       const body = document.getElementById("replay-body");
-      body.innerHTML = `<div class="replay-pending"><b>한국어 다시보기를 확인하고 있습니다</b><span>LCK 공식 채널 업로드를 기다려 주세요.</span></div>`;
+      const a = TEAM_MAP[match.a]?.abbr || match.a;
+      const b = TEAM_MAP[match.b]?.abbr || match.b;
+      // 유튜브에는 매치 하이라이트가 올라오고, **풀 영상(전체보기)** 은 치지직·SOOP 에 올라온다.
+      // 두 곳은 공개 API 로 특정 경기의 영상 주소를 집어낼 방법이 없어서, 그 경기 제목으로
+      // 검색된 화면을 열어 준다 (LCK 공식 제목이 "[KT vs DK] 전체보기" 라 바로 걸린다).
+      const fullVodBtns = `
+        <div class="replay-full">
+          <span class="replay-full-lb">풀 영상 다시보기</span>
+          <a class="replay-full-btn chzzk" target="_blank" rel="noopener noreferrer"
+             href="https://chzzk.naver.com/search?query=${encodeURIComponent(`${a} vs ${b} 전체보기`)}">치지직</a>
+          <a class="replay-full-btn soop" target="_blank" rel="noopener noreferrer"
+             href="https://www.sooplive.co.kr/search?szLocation=total_search&szSearchType=total&szKeyword=${encodeURIComponent(`${a} vs ${b} LCK`)}">SOOP</a>
+        </div>`;
+      body.innerHTML = `<div class="replay-pending"><b>매치 다시보기를 확인하고 있습니다</b><span>LCK 공식 채널 업로드를 기다려 주세요.</span></div>` + fullVodBtns;
       try {
-        const a = TEAM_MAP[match.a]?.abbr || match.a;
-        const b = TEAM_MAP[match.b]?.abbr || match.b;
         const response = await fetch(`/api/lck-vod?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}&at=${encodeURIComponent(match.at)}`);
         const data = response.ok ? await response.json() : null;
         const channel = document.getElementById("replay-channel");
         if (data?.channelUrl) channel.href = data.channelUrl;
         if (data?.status === "ready" && /^[A-Za-z0-9_-]{6,20}$/.test(data.videoId || "")) {
           body.innerHTML = `<div class="replay-frame"><iframe
-            src="https://www.youtube-nocookie.com/embed/${esc(data.videoId)}" title="${esc(data.title || "LCK 한국어 다시보기")}"
+            src="https://www.youtube-nocookie.com/embed/${esc(data.videoId)}" title="${esc(data.title || "LCK 매치 다시보기")}"
             loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
             <a class="replay-meta" href="${esc(data.url)}" target="_blank" rel="noopener noreferrer">
-              <b>${esc(data.title || "LCK 한국어 다시보기")}</b><span>YouTube에서 보기 ›</span></a>`;
+              <b>${esc(data.title || "LCK 매치 다시보기")}</b><span>YouTube에서 보기 ›</span></a>` + fullVodBtns;
         } else {
-          body.innerHTML = `<div class="replay-pending"><b>한국어 다시보기 준비 중</b>
-            <span>경기 종료 후 보통 24시간 안에 LCK 한국 공식 채널에 올라옵니다. Global 영상은 대신 연결하지 않습니다.</span></div>`;
+          body.innerHTML = `<div class="replay-pending"><b>매치 하이라이트 준비 중</b>
+            <span>경기 종료 후 보통 24시간 안에 LCK 한국 공식 채널에 올라옵니다. Global 영상은 대신 연결하지 않습니다.</span></div>` + fullVodBtns;
         }
       } catch {
-        body.innerHTML = `<div class="replay-pending"><b>한국어 다시보기 준비 중</b><span>잠시 후 다시 확인해 주세요.</span></div>`;
+        body.innerHTML = `<div class="replay-pending"><b>매치 다시보기 준비 중</b><span>잠시 후 다시 확인해 주세요.</span></div>` + fullVodBtns;
       }
     }
 

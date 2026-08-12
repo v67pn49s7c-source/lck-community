@@ -75,25 +75,36 @@ const hasTeam = (title, team) => {
   return new RegExp(`(^|[^A-Z0-9])${escapeRegExp(token)}(?=$|[^A-Z0-9])`, "i").test(String(title || ""));
 };
 
+// 공식 채널이 경기 뒤에 올리는 영상은 요즘 **"A vs B | 매치 N 하이라이트 | 2026 LCK"** 다.
+// 예전에는 풀 VOD 를 찾으면서 하이라이트를 **일부러 걸러 냈는데**, 그 결과 아무것도
+// 못 찾고 마지막 그물("A vs B |" 로 시작하면 통과)에 **티저**가 걸렸다.
+// 티저는 경기 **전**에 올라오지만, 채널 검색 결과에는 날짜가 없어서 시간 필터도 못 걸렀다.
+// (2026-08-12 실제로 'GEN vs KT | 매치 5 티저' 가 다시보기 자리에 떴다)
+const VOD_HIGHLIGHT = /하이라이트/;   // 한국 공식 채널 표기. 영어 HIGHLIGHT 는 글로벌 채널이라 뺀다
+const VOD_FULL = /(FULL\s*(VOD|MATCH)|VOD|다시보기|풀\s*영상|전체\s*경기)/i;
+// 경기 기록이 아닌 것 — 제목으로 확실히 뺀다 (날짜가 없어도 걸러지도록)
+const VOD_NOT_MATCH = /(티저|TEASER|예고|프리뷰|PREVIEW|인터뷰|INTERVIEW|비하인드|BEHIND|메이킹|SHORTS?|쇼츠|기자회견|미디어\s*데이|오프닝|OPENING|플레이\s*오브\s*더)/i;
+
 function pickKoreanVod(items, a, b, matchAt) {
   const at = Date.parse(matchAt || "");
-  const replay = /(FULL\s*(VOD|MATCH)|VOD|다시보기|풀\s*영상|전체\s*경기)/i;
-  const notReplay = /(하이라이트|HIGHLIGHT|인터뷰|비하인드|SHORTS?|쇼츠)/i;
+  // 0 = 매치 하이라이트(우선), 1 = 풀 VOD, 2 = 옛 "A vs B | 라운드" 형식
+  const rankOf = t => VOD_HIGHLIGHT.test(t) ? 0 : VOD_FULL.test(t) ? 1 : 2;
   return (items || [])
     .filter(item => hasTeam(item.title, a) && hasTeam(item.title, b))
+    .filter(item => !VOD_NOT_MATCH.test(item.title))
     .filter(item => {
       if (!Number.isFinite(at)) return true;
       const years = String(item.title || "").match(/20\d{2}/g) || [];
       return !years.length || years.includes(String(new Date(at).getUTCFullYear()));
     })
-    // 공식 채널의 옛 풀영상은 제목에 VOD를 쓰지 않고 "A vs B | 라운드"로만 올리기도 한다.
-    .filter(item => (replay.test(item.title) || /^\s*[A-Z0-9]+\s+vs\s+[A-Z0-9]+\s*\|/i.test(item.title))
-      && !notReplay.test(item.title))
+    .filter(item => rankOf(item.title) < 2
+      || /^\s*[A-Z0-9]+\s+vs\s+[A-Z0-9]+\s*\|/i.test(item.title))
     .filter(item => {
       const published = Date.parse(item.published || "");
       return !Number.isFinite(at) || !Number.isFinite(published) || published >= at - 3 * 60 * 60 * 1000;
     })
-    .sort((x, y) => Date.parse(y.published || "") - Date.parse(x.published || ""))[0] || null;
+    .sort((x, y) => rankOf(x.title) - rankOf(y.title)
+      || Date.parse(y.published || "") - Date.parse(x.published || ""))[0] || null;
 }
 
 async function handler(req, res) {
@@ -111,7 +122,7 @@ async function handler(req, res) {
     if (!vod) {
       // RSS는 최신 15개뿐이라 클립이 많은 날 풀 VOD가 하루 만에 밀린다.
       // 같은 공식 채널의 내부 검색 결과를 읽어 양 팀의 비하이라이트 영상만 다시 찾는다.
-      const term = `${a} vs ${b} 2026 LCK`;
+      const term = `${a} vs ${b} 하이라이트 2026 LCK`;
       const search = await fetch(`https://www.youtube.com/@LCK/search?query=${encodeURIComponent(term)}`, {
         headers: { "user-agent": "Mozilla/5.0 (compatible; TheNexus-LCK-FanSite/2.0)", "accept-language": "ko-KR,ko;q=0.9" },
       });

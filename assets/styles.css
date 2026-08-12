@@ -63,7 +63,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260812m") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260812n") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -2200,6 +2200,19 @@ a.bracket-match:hover { border-color: var(--accent); }
   border-radius: 50%; border: 1px dashed var(--line); background: var(--bg-soft);
 }
 .obj-chip.drake.unknown .obj-ic { border-style: solid; opacity: .6; }
+/* 영혼을 완성시킨 칸 — 옆에 글자로 또 적지 않고 **그 칸 자체**를 강조한다 */
+.obj-chip.drake.got-soul {
+  position: relative; padding: 3px; border-radius: 50%;
+  background: color-mix(in srgb, var(--soul-color) 22%, transparent);
+  box-shadow: 0 0 0 2px var(--soul-color), 0 0 10px color-mix(in srgb, var(--soul-color) 55%, transparent);
+}
+.obj-chip.drake.got-soul::after {
+  content: "✦"; position: absolute; right: -3px; bottom: -3px;
+  width: 13px; height: 13px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 900; line-height: 1;
+  color: #fff; background: var(--soul-color);
+}
 
 /* 좁은 칸에서는 아이콘만 줄이고 **대립 구도는 유지한다** —
    위아래로 나누면 같은 목표물이 서로 마주 보지 않아 비교가 안 된다. */
@@ -2207,23 +2220,13 @@ a.bracket-match:hover { border-color: var(--accent); }
   .obj-chip { gap: 1px; padding: 2px 1px; }
   .obj-chip .obj-ic { width: 20px; height: 20px; flex-basis: 20px; }
   .obj-chip.drake .obj-ic { width: 22px; height: 22px; flex-basis: 22px; }
+  .obj-chip.drake.got-soul::after { width: 11px; height: 11px; font-size: 8px; }
   .obj-chip b { font-size: var(--fs-xs); }
-  .obj-chip.soul b { font-size: var(--fs-xs); }
-  .obj-chip.soul .obj-ic { width: 22px; height: 22px; flex-basis: 22px; }
 }
 @container (max-width: 520px) {
   .sb-gold { grid-template-columns: auto auto auto; justify-content: center; }
   .sb-gold-bar { display: none; }
 }
-
-.obj-chip.soul {
-  gap: 5px; padding: 3px 10px 3px 6px;
-  border-color: color-mix(in srgb, var(--soul-color) 55%, transparent);
-  background: color-mix(in srgb, var(--soul-color) 16%, transparent);
-}
-.obj-chip.soul .obj-ic { width: 26px; height: 26px; flex-basis: 26px; }
-.obj-chip.soul span.soul-ic { font-size: 17px; font-weight: 900; color: var(--soul-color); text-align: center; }
-.obj-chip.soul b { font-size: var(--fs-sm); color: var(--text); }
 
 /* 밴·픽 — 순서 그대로 */
 .sb-pb {
@@ -2303,6 +2306,18 @@ a.bracket-match:hover { border-color: var(--accent); }
 .fav-pick button.active { border-color: var(--pick-color); border-width: 2px; color: var(--text);
   background: color-mix(in srgb, var(--pick-color) 14%, transparent); }
 .fav-pick button[disabled] { opacity: .45; cursor: not-allowed; }
+
+/* 풀 영상 다시보기 — 유튜브에는 하이라이트만 올라오고 전체 경기는 치지직·SOOP 에 있다 */
+.replay-full { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 14px 12px; }
+.replay-full-lb { font-size: var(--fs-xs); font-weight: 800; color: var(--text-dim); }
+.replay-full-btn {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 0 13px;
+  border-radius: 8px; font-size: var(--fs-sm); font-weight: 800; text-decoration: none;
+  color: #fff; border: 1px solid transparent;
+}
+.replay-full-btn.chzzk { background: #00ffa3; color: #101010; }
+.replay-full-btn.soop { background: #1f47ff; }
+.replay-full-btn:hover { filter: brightness(1.08); }
 
 /* 다시보기·공식 전적·패치 */
 .sb-links {

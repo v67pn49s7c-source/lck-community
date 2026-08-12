@@ -41,8 +41,19 @@ assert(app.includes("const objLine") && app.includes('class="sb-obj-line"') && a
 assert(/objLine\(objChips\("a", false\), objChips\("b", true\)/.test(app),
   "목표물 줄은 좌·가운데·우 세 칸을 한 덩어리로 감싸야 함");
 // 드래곤도 같은 대립 구도 + 영혼은 얻은 팀 쪽에만
-assert(/objLine\(soulBadge\("a"\)[\s\S]{0,220}soulBadge\("b"\)/.test(app),
-  "드래곤도 좌우 대립이고 영혼 배지는 얻은 팀 쪽에 붙어야 함");
+assert(/objLine\(drakeRow\("a", true\), drakeRow\("b", false\)/.test(app),
+  "드래곤도 좌우 대립이어야 함");
+// 영혼은 옆에 글자로 또 적지 않고 **4마리째 칸 자체**를 강조한다
+assert(app.includes("const isSoul = gotSoul && i === SOUL_AT - 1") && app.includes("got-soul"),
+  "영혼은 4마리째 칸을 강조해서 표시해야 함");
+assert(/\.obj-chip\.drake\.got-soul \{[^}]*box-shadow/.test(css),
+  "영혼 칸에 강조 테두리가 있어야 함");
+assert(!app.includes("soulBadge"), "영혼을 별도 글자 배지로 또 적으면 안 됨");
+// 유튜브는 하이라이트, 풀 영상은 치지직·SOOP
+assert(live.includes('class="replay-full-btn chzzk"') && live.includes('class="replay-full-btn soop"'),
+  "풀 영상 다시보기 버튼(치지직·SOOP)이 있어야 함");
+assert(live.includes("매치 다시보기") && !live.includes("한국어 다시보기"),
+  "카드 이름은 '매치 다시보기' 여야 함");
 assert(app.includes("const drakeSlotN = Math.max(SOUL_AT"),
   "드래곤은 영혼까지 남은 칸이 보이게 최소 4칸을 깔아야 함");
 // 거울상은 CSS 가 아니라 **순서를 뒤집어서** 만든다 — 같은 목표물이 마주 보게.
@@ -73,7 +84,7 @@ assert.strictEqual(soulKind({ drakes: { a: { infernal: 2 }, b: { ocean: 2 } } })
   "동수라 어느 쪽인지 모르면 단정하지 않아야 함");
 assert.strictEqual(soulKind({ drakes: { a: { elder: 2, ocean: 1 }, b: { ocean: 3 } } }), "ocean",
   "장로 드래곤은 영혼 계산에서 빼야 함");
-assert(app.includes('class="obj-chip soul"'), "드래곤 4마리 획득 팀에는 영혼을 명시해야 함");
+assert(app.includes("got-soul") && app.includes("const soulNm"), "드래곤 4마리 획득 팀에는 영혼을 명시해야 함");
 // 목표물은 막대그래프가 아니라 아이콘 + 개수로 — 0 만 늘어선 빈 막대는 읽히지 않았다
 assert(!app.includes("SB_ROWS") && app.includes("SB_OBJ") && app.includes("function objIconHTML"),
   "목표물은 비교 막대가 아니라 아이콘으로 보여야 함");
@@ -107,8 +118,18 @@ const initialData = { contents: [{ childVideoRenderer: {
 } }] };
 const searchRows = vodApi.parseSearchPage(`<script>var ytInitialData = ${JSON.stringify(initialData)};</script>`);
 assert.strictEqual(searchRows.length, 2, "공식 채널 내부 검색 결과의 일반·재생목록 영상을 읽어야 함");
-assert.strictEqual(vodApi.pickKoreanVod(searchRows, "DK", "KT", "2026-08-10T00:00:00Z").videoId, "official9",
-  "VOD 글자가 없어도 정확한 A vs B 공식 풀영상 제목은 허용해야 함");
+// 공식 채널은 경기 뒤에 '매치 N 하이라이트' 를 올린다 — 그걸 가장 먼저 고른다
+assert.strictEqual(vodApi.pickKoreanVod(searchRows, "DK", "KT", "2026-08-10T00:00:00Z").videoId, "clip0001",
+  "매치 하이라이트가 있으면 그것을 우선 골라야 함");
+assert.strictEqual(vodApi.pickKoreanVod([searchRows[0]], "DK", "KT", "2026-08-10T00:00:00Z").videoId, "official9",
+  "하이라이트가 없으면 VOD 글자가 없는 공식 풀영상 제목도 허용해야 함");
+// 티저는 경기 **전**에 올라오는데 검색 결과에는 날짜가 없어 시간으로 못 거른다.
+// 제목으로 확실히 빼지 않으면 다시보기 자리에 티저가 뜬다 (2026-08-12 실제 사고).
+[["GEN vs KT | 매치 5 티저 | 2026 LCK", "티저"],
+ ["GEN vs KT | 매치 5 프리뷰 | 2026 LCK", "프리뷰"],
+ ["GEN vs KT | 인터뷰 | 2026 LCK", "인터뷰"]].forEach(([title, kind]) =>
+  assert.strictEqual(vodApi.pickKoreanVod([{ videoId: "teaser01", title, published: "" }],
+    "GEN", "KT", "2026-08-10T00:00:00Z"), null, `${kind} 영상을 다시보기로 연결하면 안 됨`));
 assert.strictEqual(vodApi.pickKoreanVod([{ videoId: "old2025", title: "DK vs KT | 2025 LCK", published: "" }],
   "DK", "KT", "2026-08-10T00:00:00Z"), null, "검색 결과의 과거 시즌 동명 경기를 연결하면 안 됨");
 
