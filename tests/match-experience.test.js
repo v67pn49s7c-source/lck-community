@@ -66,8 +66,21 @@ const czRows = [
   { videoTitle: "DK Siwoo 인터뷰 | KT vs DK | 2026 LCK", videoNo: 4, publishDate: "2026-08-12 23:37" },
   { videoTitle: "DNS vs NS 게임 3 VOD | 08.12 | 2026 LCK", videoNo: 5, publishDate: "2026-08-12 20:29" },
 ];
-assert.deepStrictEqual(fullVod.pickChzzk(czRows, "KT", "DK", "2026-08-12T10:00:00Z").map(v => v.no), [1, 2],
-  "치지직은 그 경기 세트 풀 VOD 만 1세트부터 골라야 함");
+{
+  const r = fullVod.pickChzzk(czRows, "KT", "DK", "2026-08-12T10:00:00Z");
+  assert.deepStrictEqual(r.sets.map(v => v.no), [1, 2], "세트별 VOD 는 1세트부터 정렬돼야 함");
+  assert.strictEqual(r.full, null, "하루 전체 방송이 없으면 full 은 비어야 함");
+}
+// 치지직에는 하루 전체 방송(5~7시간)이 따로 있다 — 그게 진짜 풀영상이다
+{
+  const withFull = czRows.concat([
+    { videoTitle: "DNS vs NS - KT vs DK | 2026 LCK", videoNo: 100, publishDate: "2026-08-12 21:51", duration: 326 * 60 },
+    { videoTitle: "KT vs DK 짧은 잡영상", videoNo: 101, publishDate: "2026-08-12 21:55", duration: 8 * 60 },
+  ]);
+  const r = fullVod.pickChzzk(withFull, "KT", "DK", "2026-08-12T10:00:00Z");
+  assert.strictEqual(r.full.no, 100, "하루 전체 방송을 풀영상으로 골라야 함");
+  assert.deepStrictEqual(r.sets.map(v => v.no), [1, 2], "세트별은 그대로 따로 있어야 함");
+}
 // SOOP: 공식 계정(aflol) 것만 — 팬이 올린 클립은 제외
 const spRows = [
   { title: "[KT vs DK] 전체보기 / 2026 LCK 정규 시즌", title_no: "100", user_id: "aflol", reg_date: "2026-08-12 21:45" },
@@ -83,9 +96,9 @@ const sameFixture = [
   { videoTitle: "DK vs KT 게임 1 VOD | 08.09 | 2026 LCK", videoNo: 1, publishDate: "2026-08-09 20:00" },
   { videoTitle: "KT vs DK 게임 1 VOD | 08.12 | 2026 LCK", videoNo: 9, publishDate: "2026-08-12 21:14" },
 ];
-assert.deepStrictEqual(fullVod.pickChzzk(sameFixture, "DK", "KT", "2026-08-09T08:00:00Z").map(v => v.no), [1],
+assert.deepStrictEqual(fullVod.pickChzzk(sameFixture, "DK", "KT", "2026-08-09T08:00:00Z").sets.map(v => v.no), [1],
   "제목의 날짜로 같은 대진의 다른 날 경기를 걸러야 함");
-assert.deepStrictEqual(fullVod.pickChzzk(sameFixture, "KT", "DK", "2026-08-12T10:00:00Z").map(v => v.no), [9],
+assert.deepStrictEqual(fullVod.pickChzzk(sameFixture, "KT", "DK", "2026-08-12T10:00:00Z").sets.map(v => v.no), [9],
   "그날 경기 영상만 골라야 함");
 // SOOP 제목 칸은 title 이다 — title_name 을 읽어 한동안 0건이었다
 assert.deepStrictEqual(

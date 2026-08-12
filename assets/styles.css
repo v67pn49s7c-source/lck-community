@@ -63,7 +63,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left: -32px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260813c") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260813d") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -2310,6 +2310,7 @@ a.bracket-match:hover { border-color: var(--accent); }
 /* 풀 영상 다시보기 — 유튜브에는 하이라이트만 올라오고 전체 경기는 치지직·SOOP 에 있다 */
 .replay-full { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 14px 12px; }
 .replay-full-lb { font-size: var(--fs-xs); font-weight: 800; color: var(--text-dim); }
+.replay-full-lb.sets { margin-left: 6px; }
 .replay-full-btn {
   display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 0 13px;
   border-radius: 8px; font-size: var(--fs-sm); font-weight: 800; text-decoration: none;

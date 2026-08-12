@@ -65,28 +65,37 @@ async function getJSON(url, headers) {
 }
 
 // ── 치지직 ────────────────────────────────────────────────
+// 공식 채널에는 세 종류가 올라온다.
+//   ① 하루 전체 방송   "DNS vs NS - KT vs DK | 2026 LCK"        (5~7시간)  ← 진짜 풀영상
+//   ② 세트별           "KT vs DK 게임 2 VOD | 08.12 | 2026 LCK"  (약 1시간)
+//   ③ 하이라이트·인터뷰                                          (제외)
+// ①을 대표로 걸고, ②는 세트 버튼으로 따로 준다.
+const SET_NO = /게임\s*(\d+)/;
 function pickChzzk(rows, a, b, at) {
-  return (rows || [])
+  const list = (rows || [])
     .map(v => ({
       title: String(v.videoTitle || "").replace(/\s+/g, " ").trim(),
       no: v.videoNo, published: v.publishDate || v.publishDateAt || "",
+      seconds: +v.duration || 0,
     }))
     .filter(v => v.no && hasTeam(v.title, a) && hasTeam(v.title, b))
     .filter(v => !NOT_FULL.test(v.title))
-    .filter(v => titleDateOK(v.title, at) && nearMatch(v.published, at))
-    // "게임 N VOD" 가 세트별 풀 영상이다. 1세트부터 보게 오름차순.
-    .sort((x, y) => {
-      const n = t => (String(t).match(/게임\s*(\d+)/) || [])[1] || 99;
-      return n(x.title) - n(y.title) || Date.parse(x.published || 0) - Date.parse(y.published || 0);
-    });
+    .filter(v => titleDateOK(v.title, at) && nearMatch(v.published, at));
+
+  const sets = list.filter(v => SET_NO.test(v.title))
+    .sort((x, y) => (+(x.title.match(SET_NO) || [])[1] || 99) - (+(y.title.match(SET_NO) || [])[1] || 99));
+  // 하루 전체 방송 = 세트 번호가 없고 충분히 긴 것 (짧은 잡영상이 섞이지 않게)
+  const full = list.filter(v => !SET_NO.test(v.title) && v.seconds >= 120 * 60)
+    .sort((x, y) => y.seconds - x.seconds)[0] || null;
+  return { full, sets };
 }
 async function fromChzzk(a, b, at) {
   const url = `https://api.chzzk.naver.com/service/v1/channels/${CHZZK_CHANNEL_ID}/videos?size=40&sortType=LATEST`;
   const j = await getJSON(url);
   const rows = ((j || {}).content || {}).data || [];
-  return pickChzzk(rows, a, b, at).map(v => ({
-    title: v.title, url: `https://chzzk.naver.com/video/${v.no}`, published: v.published,
-  }));
+  const link = v => v && ({ title: v.title, url: `https://chzzk.naver.com/video/${v.no}`, published: v.published });
+  const { full, sets } = pickChzzk(rows, a, b, at);
+  return { full: link(full), sets: sets.map(link) };
 }
 
 // ── SOOP ─────────────────────────────────────────────────
@@ -126,14 +135,15 @@ async function handler(req, res) {
 
   // 한쪽이 죽어도 다른 쪽은 보여 준다
   const [chzzk, soop] = await Promise.all([
-    fromChzzk(a, b, at).catch(() => []),
+    fromChzzk(a, b, at).catch(() => ({ full: null, sets: [] })),
     // SOOP 은 제목이 "[A vs B]" 순서라 반대로도 한 번 더 찾는다
     Promise.all([fromSoop(a, b, at).catch(() => []), fromSoop(b, a, at).catch(() => [])])
       .then(([x, y]) => (x.length ? x : y)),
   ]);
 
   const value = {
-    chzzk: { items: chzzk.slice(0, 5), channelUrl: CHZZK_CHANNEL_URL },
+    // full = 하루 전체 방송 다시보기(있으면 이걸 대표로), sets = 세트별
+    chzzk: { full: chzzk.full, sets: (chzzk.sets || []).slice(0, 5), channelUrl: CHZZK_CHANNEL_URL },
     soop: { items: soop.slice(0, 5), channelUrl: SOOP_STATION_URL },
   };
   cache.set(key, { at: Date.now(), value });

@@ -17,11 +17,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260813c">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260813c">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260813d">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260813d">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260813c">
+  <link rel="stylesheet" href="assets/styles.css?v=20260813d">
 </head>
 <body>
   <main class="page">
@@ -100,13 +100,13 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260813c"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260813c"></script>
-  <script src="assets/invariants.js?v=20260813c"></script>
-  <script src="assets/store.js?v=20260813c"></script>
-  <script src="assets/app.js?v=20260813c"></script>
-  <script src="assets/ddragon.js?v=20260813c"></script>
-  <script src="assets/race.js?v=20260813c"></script>
+  <script src="assets/data.js?v=20260813d"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260813d"></script>
+  <script src="assets/invariants.js?v=20260813d"></script>
+  <script src="assets/store.js?v=20260813d"></script>
+  <script src="assets/app.js?v=20260813d"></script>
+  <script src="assets/ddragon.js?v=20260813d"></script>
+  <script src="assets/race.js?v=20260813d"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -187,15 +187,19 @@
                href="${esc(item.url)}" title="${esc(item.title)}">${label}</a>`
           : `<a class="replay-full-btn ${cls} off" target="_blank" rel="noopener noreferrer"
                href="${esc(channelUrl)}" title="아직 안 올라왔습니다 — 공식 채널로 이동">${label}</a>`;
-        const cz = (data?.chzzk?.items || []), sp = (data?.soop?.items || []);
-        // 치지직은 세트별로 올라온다 — 1세트만 대표로 걸고 나머지는 세트 버튼으로
-        const czExtra = cz.slice(1).map((v, i) => `<a class="replay-full-set" target="_blank" rel="noopener noreferrer"
-            href="${esc(v.url)}" title="${esc(v.title)}">${i + 2}세트</a>`).join("");
+        // 치지직은 **하루 전체 방송**(풀영상)이 따로 있다 — 그걸 대표로 건다.
+        // 없으면(옛 경기) 1세트로 대신하고, 세트별은 작은 버튼으로 따로 준다.
+        const czFull = data?.chzzk?.full || null;
+        const czSets = data?.chzzk?.sets || [];
+        const sp = (data?.soop?.items || []);
+        const czMain = czFull || czSets[0];
+        const czExtra = czSets.map((v, i) => `<a class="replay-full-set" target="_blank" rel="noopener noreferrer"
+            href="${esc(v.url)}" title="${esc(v.title)}">${i + 1}세트</a>`).join("");
         return `<div class="replay-full" id="replay-full">
           <span class="replay-full-lb">풀 영상</span>
-          ${btn("chzzk", "치지직", cz[0], data?.chzzk?.channelUrl || "https://chzzk.naver.com")}
-          ${czExtra}
+          ${btn("chzzk", "치지직", czMain, data?.chzzk?.channelUrl || "https://chzzk.naver.com")}
           ${btn("soop", "SOOP", sp[0], data?.soop?.channelUrl || "https://www.sooplive.co.kr")}
+          ${czExtra ? `<span class="replay-full-lb sets">세트별</span>${czExtra}` : ""}
         </div>`;
       };
       fullVodBtns = `<div class="replay-full" id="replay-full"><span class="replay-full-lb">풀 영상 찾는 중…</span></div>`;
