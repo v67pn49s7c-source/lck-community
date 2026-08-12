@@ -243,9 +243,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260812j")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260812j")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812j")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260812k")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260812k")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812k")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -295,7 +295,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812j");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260812k");
 
   renderTabBar(groupName);
 }
@@ -1657,57 +1657,39 @@ const SB_OBJ = [
 ];
 
 // ── 목표물 아이콘 ────────────────────────────────────────
-// 전부 **직접 그린 플랫 아이콘**이다. 외곽선 없이 면으로만 채운다.
-//   · 외부 요청 0회 (예전에는 드래곤 아이콘만 외부 자산 저장소에서 받아 왔다.
-//     그 서버가 죽으면 목표물이 통째로 안 보였다)
-//   · 밝은/어두운 테마 자동 대응, 크기를 키워도 안 깨진다
-// 구멍(눈·안쪽 면)은 fill-rule="evenodd" 로 뚫는다 — 배경색을 몰라도 되기 때문이다.
-const OBJ_SVG = {
-  // 바론: 뿔 달린 머리 + 점 네 개(구멍). 점을 마름모로 놓아야 고양이 눈처럼 안 읽힌다.
-  barons: `<path fill-rule="evenodd" d="M4.2 1.9 8.6 6.5a10.4 10.4 0 0 1 6.8 0l4.4-4.6-1.3 6.4A8.3 8.3 0 0 1 21 13.5c0 4.4-3.9 7.5-9 8.8-5.1-1.3-9-4.4-9-8.8 0-1.9.7-3.7 2.5-5.2zM12 7.9a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 0 0 0-3.4zm-3.6 3.6a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 0 0 0-3.4zm7.2 0a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 0 0 0-3.4zM12 15.1a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 0 0 0-3.4z"/>`,
-  // 전령: 큰 눈 하나. 곁가지를 붙이면 작게 줄었을 때 티끌처럼 보인다.
-  heralds: `<path fill-rule="evenodd" d="M12 3.9C5.9 3.9 1.4 9.3.6 10.9a2.1 2.1 0 0 0 0 2.2C1.4 14.7 5.9 20.1 12 20.1s10.6-5.4 11.4-7a2.1 2.1 0 0 0 0-2.2C22.6 9.3 18.1 3.9 12 3.9zm0 4.1a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"/>`,
-  // 공허유충: 알 세 개 (작으면 점처럼 보여서 크게 겹쳐 놓는다)
-  grubs: `<path d="M7 3.4c2.3 0 4.1 2.3 4.1 5.1S9.3 13.6 7 13.6 2.9 11.3 2.9 8.5 4.7 3.4 7 3.4z"/><path d="M18 8.2c1.9 0 3.4 1.9 3.4 4.2s-1.5 4.2-3.4 4.2-3.4-1.9-3.4-4.2 1.5-4.2 3.4-4.2z"/><path d="M10.6 13.2c2.3 0 4.1 2.3 4.1 5.1s-1.8 5.1-4.1 5.1-4.1-2.3-4.1-5.1 1.8-5.1 4.1-5.1z"/>`,
-  // 아타칸: 뾰족한 꽃 모양
-  atakhan: `<path fill-rule="evenodd" d="M12 1.4 14.4 8l6.6-2.4L18.6 12l2.4 6.4L14.4 16 12 22.6 9.6 16 3 18.4 5.4 12 3 5.6 9.6 8zm0 7.4a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 0 0 0-6.4z"/>`,
-  // 포탑 — 가늘면 그냥 막대처럼 보인다. 받침·몸통·성가퀴를 뚜렷하게.
-  towers: `<path d="M5.4 20.2h13.2v2.6H5.4zM8.4 9.8h7.2l1.1 10.4H7.3zM6.1 6.6h11.8v3.2H6.1zM7.4 2.2h2.8v4.4H7.4zM10.6 2.2h2.8v4.4h-2.8zM13.8 2.2h2.8v4.4h-2.8z"/>`,
-  // 억제기: 결정
-  inhib: `<path fill-rule="evenodd" d="M12 1.5 20.5 7v10L12 22.5 3.5 17V7zm0 5.2L8 9.3v5.4l4 2.6 4-2.6V9.3z"/>`,
+// **라이엇 공식 게임 자산**(미니맵 아이콘)을 그대로 쓴다.
+// 직접 그려도 봤지만 원본만큼 안 나온다 — 사람들이 인게임에서 늘 보던 그림이라
+// 조금만 달라도 어색하게 읽힌다.
+// ⚠ 외부 저장소라 그 서버가 죽으면 그림이 안 뜬다. 그래서 개수(숫자)는 아이콘과
+//   따로 그려 두고, 그림이 실패하면 그림만 감춘다 (개수는 계속 보인다).
+const OBJ_ICON_ROOT = "https://raw.communitydragon.org/latest/game/assets/ux/minimap/icons/";
+const OBJ_ICON_FILE = {
+  barons: "baron.png", heralds: "riftherald.png", grubs: "grub.png",
+  atakhan: "atakhan_r.png", towers: "tower.png", inhib: "inhibitor.png",
 };
-
-// 드래곤 원소 — 같은 규칙(플랫·면으로만)으로 직접 그린다.
-const DRAKE_SVG = {
-  infernal: `<path d="M13.4 1.2c.6 3.3-.7 5.4-2.4 7.2-1.9 2-4.2 3.9-4.2 7.2A7.2 7.2 0 0 0 18 16c0-3.6-2.1-5.5-2.1-8.3 0 0-1.6 1.5-1.9 3.1-.6-2.9.6-6.6-.6-9.6z"/>`,
-  ocean:    `<path d="M12 1.8c4.3 5.4 7 8.6 7 11.9A7 7 0 1 1 5 13.7c0-3.3 2.7-6.5 7-11.9z"/>`,
-  mountain: `<path d="M12 3.4 20.8 19H3.2zM6.6 12.4l2.6-4.6 2.6 4.6-2.6 2z"/>`,
-  cloud:    `<path d="M2.4 8.4h12.2a2.6 2.6 0 1 0-2.6-2.6H9.6a5 5 0 1 1 5 5H2.4zM2.4 15.6h9.4a2.6 2.6 0 1 1-2.6 2.6H6.8a5 5 0 1 0 5-5H2.4z"/>`,
-  hextech:  `<path fill-rule="evenodd" d="M12 1.5 20.5 7v10L12 22.5 3.5 17V7zm1 4.6-4.6 6.6h2.9l-.7 5.2 4.6-6.6h-2.9z"/>`,
-  chemtech: `<path fill-rule="evenodd" d="M9.5 2h5v1.9h-1v4.4l4.7 8.8A3 3 0 0 1 15.6 22H8.4a3 3 0 0 1-2.6-4.9l4.7-8.8V3.9h-1zm2.5 9.6-3.4 6.3h6.8z"/>`,
-  elder:    `<path fill-rule="evenodd" d="M12 1 15 7.4 21.6 9l-4.3 5.2 1 6.8L12 18l-6.3 3 1-6.8L2.4 9 9 7.4zm0 5.6-1.6 3.5-3.6.9 2.4 2.8-.5 3.7L12 15.9l3.3 1.6-.5-3.7 2.4-2.8-3.6-.9z"/>`,
-};
-const DRAKE_COLOR = {
-  infernal: "#ff7043", ocean: "#29b6d8", mountain: "#c9962e", cloud: "#4fc3ad",
-  hextech: "#5c86ff", chemtech: "#5cb85c", elder: "#b39ddb",
-};
-
+function gameIconHTML(file, cls) {
+  // ⚠ loading="lazy" 를 쓰면 안 된다 — 이 카드는 처음에 display:none 으로 시작해서
+  //   지연 로딩이 발동하지 않고 아이콘이 영영 안 뜬다. 작고 개수도 적으니 바로 받는다.
+  return `<img class="obj-ic ${cls || ""}" src="${OBJ_ICON_ROOT}${file}" alt=""
+    decoding="async" onerror="this.style.visibility='hidden'">`;
+}
 function objIconHTML(kind) {
-  const d = OBJ_SVG[kind];
-  if (!d) return "";
-  return `<svg class="obj-ic" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">${d}</svg>`;
+  const f = OBJ_ICON_FILE[kind];
+  return f ? gameIconHTML(f) : "";
 }
 function drakeIconHTML(kind, cls) {
-  const d = DRAKE_SVG[kind];
-  if (!d) return "";
-  return `<svg class="obj-ic ${cls || ""}" viewBox="0 0 24 24" aria-hidden="true"
-    fill="currentColor" style="color:${DRAKE_COLOR[kind] || "currentColor"}">${d}</svg>`;
+  return gameIconHTML(kind === "elder" ? "dragon_elder.png" : `dragon_${kind}.png`, cls);
 }
 
 // 드래곤 종류 — 리그피디아가 종류별로 세어 준다.
 const DRAKE_KO = {
   infernal: "화염", mountain: "대지", ocean: "바다", cloud: "바람",
   hextech: "마공학", chemtech: "화학공학", elder: "장로",
+};
+// 영혼 칩의 테두리·바탕에 쓰는 원소색 (아이콘 자체는 공식 이미지라 색이 이미 들어 있다)
+const DRAKE_COLOR = {
+  infernal: "#ff7043", ocean: "#29b6d8", mountain: "#c9962e", cloud: "#4fc3ad",
+  hextech: "#5c86ff", chemtech: "#5cb85c", elder: "#b39ddb",
 };
 const SOUL_AT = 4;
 
@@ -1769,15 +1751,18 @@ function setScoreboardHTML(match, set) {
     </div>`;
   };
 
-  // 킬·골드는 위쪽 큰 점수와 한 줄 요약으로 (막대 없이 숫자로 바로 읽힌다)
+  // 킬은 위쪽 큰 점수로. 골드는 양쪽으로 뻗는 막대 하나 — 격차가 한눈에 보인다.
+  // (목표물처럼 0 이 많은 항목이 아니라 늘 큰 두 숫자의 비교라 막대가 맞다)
   const kA = +((g.kills || {}).a) || 0, kB = +((g.kills || {}).b) || 0;
   const gA = +((g.gold || {}).a) || 0, gB = +((g.gold || {}).b) || 0;
-  const kFmt = v => (Math.round(v / 100) / 10) + "K";
+  const gMax = Math.max(gA, gB, 1);
   const goldLine = (gA || gB) ? `
-    <div class="sb-gold" role="group" aria-label="골드 ${kFmt(gA)} 대 ${kFmt(gB)}">
-      <span class="${gA >= gB ? "hi" : ""}">${kFmt(gA)}</span>
+    <div class="sb-gold" role="group" aria-label="골드 ${gA} 대 ${gB}">
+      <span class="sb-gold-bar l"><i style="width:${Math.round(gA / gMax * 100)}%;background:${A.color}"></i></span>
+      <b class="${gA >= gB ? "hi" : ""}">${gA.toLocaleString()}</b>
       <em>골드</em>
-      <span class="${gB >= gA ? "hi" : ""}">${kFmt(gB)}</span>
+      <b class="${gB >= gA ? "hi" : ""}">${gB.toLocaleString()}</b>
+      <span class="sb-gold-bar r"><i style="width:${Math.round(gB / gMax * 100)}%;background:${B.color}"></i></span>
     </div>` : "";
 
   // 목표물 — 팀별로 한 줄씩, 아이콘 + 개수만. 0 은 흐리게 둬서 대비로 읽히게 한다.
@@ -1818,15 +1803,17 @@ function setScoreboardHTML(match, set) {
       <b>${esc(soulNm)}</b></span>`;
   };
 
-  const objRow = (t, s) => `
-    <div class="sb-obj-row" style="--team-color:${t.color}">
-      <span class="sb-obj-team">${teamLogoHTML(t, 18)}<b>${esc(t.abbr)}</b></span>
-      <span class="sb-obj-chips">${objChips(s)}${drakeChips(s)}</span>
+  // 좌우 대칭 한 줄 — 가운데 '목표물' 을 두고 양쪽으로 각 팀 것이 펼쳐진다.
+  // 팀별 두 줄로 쌓으면 같은 항목이 세로로 안 맞아 비교가 안 된다.
+  const objSide = (s, right) => `
+    <div class="sb-obj-side${right ? " r" : ""}">
+      <span class="sb-obj-chips">${objChips(s)}</span>
+      <span class="sb-obj-drakes">${drakeChips(s)}</span>
     </div>`;
   const objBlock = `<div class="sb-obj">
+      ${objSide("a", false)}
       <div class="sb-obj-lb">목표물</div>
-      ${objRow(A, "a")}
-      ${objRow(B, "b")}
+      ${objSide("b", true)}
     </div>`;
 
   const links = [

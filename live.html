@@ -17,11 +17,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260812j">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260812j">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260812k">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260812k">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260812j">
+  <link rel="stylesheet" href="assets/styles.css?v=20260812k">
 </head>
 <body>
   <main class="page">
@@ -100,13 +100,13 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260812j"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260812j"></script>
-  <script src="assets/invariants.js?v=20260812j"></script>
-  <script src="assets/store.js?v=20260812j"></script>
-  <script src="assets/app.js?v=20260812j"></script>
-  <script src="assets/ddragon.js?v=20260812j"></script>
-  <script src="assets/race.js?v=20260812j"></script>
+  <script src="assets/data.js?v=20260812k"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260812k"></script>
+  <script src="assets/invariants.js?v=20260812k"></script>
+  <script src="assets/store.js?v=20260812k"></script>
+  <script src="assets/app.js?v=20260812k"></script>
+  <script src="assets/ddragon.js?v=20260812k"></script>
+  <script src="assets/race.js?v=20260812k"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -262,9 +262,17 @@
         return m ? (+m[1] + +m[2] / 60) : 0;
       })();
 
-      const half = (list, teamId) => {
+      // 열 개수 — 팀 머리줄이 표 전체를 가로지르려면 이 값이 필요하다
+      const colN = 5 + (has.dmg ? 1 : 0) + (has.items ? 1 : 0);
+      // 진영(블루/레드)은 세트 기록에 있다. 없으면 표시하지 않는다.
+      const sideOfTeam = s => ((set.game || {}).blue ? ((set.game || {}).blue === s ? "블루 사이드" : "레드 사이드") : "");
+
+      // 두 팀을 **하나의 표**로 그린다. 예전에는 팀마다 표를 따로 만들어서
+      // 열 너비를 못 박아 억지로 맞춰야 했고, 조금만 어긋나도 위아래가 안 맞았다.
+      const half = (list, teamId, sideKey) => {
         const t = TEAM_MAP[teamId];
         const winner = set.win === "a" ? match.a : match.b;
+        const won = winner === teamId;
         const maxDmg = Math.max(1, ...list.map(p => +p.dmg || 0));
         // 아이템 칸 수 — 기본 6칸. 포지션 임무로 칸이 하나 더 열리는 선수가 있어서
         // (실제 기록에 7개까지 들어온다) 그 팀에서 가장 많은 개수에 맞춰 칸을 넓힌다.
@@ -272,21 +280,15 @@
         const itemCount = p => (p.items || "").split(",").filter(x => x.trim()).length;
         const slotN = Math.max(6, ...list.map(itemCount));
         return `
-        <div class="detail-team-head" style="--team-color:${t ? t.color : "#888"}">
-          ${t ? teamLogoHTML(t, 20) : ""} <b>${slotName(teamId)}</b>
-          ${suspect ? (winner === teamId ? `<span class="cat-chip">기록 확인 중</span>` : "")
-                    : (winner === teamId ? `<span class="cat-chip notice">세트 승</span>` : "")}
-        </div>
-        <div class="table-scroll">
-        <table class="detail-table" style="--team-color:${t ? t.color : "#888"}">
-          <colgroup>
-            <col class="c-player"><col class="c-kda">${col(has.dmg, `<col class="c-dmg">`)}
-            <col class="c-vs"><col class="c-cs"><col class="c-gold">${col(has.items, `<col class="c-items">`)}
-          </colgroup>
-          <thead><tr><th>선수</th><th>KDA</th>${col(has.dmg, "<th>딜량</th>")}
-            <th class="ta-r">시야</th><th class="ta-r">CS</th><th class="ta-r">골드</th>
-            ${col(has.items, "<th>아이템</th>")}</tr></thead>
-          <tbody>
+          <tbody style="--team-color:${t ? t.color : "#888"}">
+            <tr class="dt-team-row"><td colspan="${colN}">
+              <span class="dt-team">
+                ${t ? teamLogoHTML(t, 20) : ""}<b>${slotName(teamId)}</b>
+                ${suspect ? (won ? `<em class="wl">기록 확인 중</em>` : "")
+                          : `<em class="wl ${won ? "w" : "l"}">${won ? "승리" : "패배"}</em>`}
+                <span class="dt-team-side">${esc(sideOfTeam(sideKey))}</span>
+              </span>
+            </td></tr>
             ${list.map(p => {
               const pl = getPlayer(p.pid);
               const pos = lanePos(p) || (pl && pl.pos) || "";
@@ -324,7 +326,7 @@
                 <td class="dt-num dt-vs" data-k="시야">${p.vs != null ? p.vs : "-"}</td>
                 <td class="dt-num dt-cs" data-k="CS"><b>${cs}</b>${
                   lenM ? `<small>${(cs / lenM).toFixed(1)}</small>` : ""}</td>
-                <td class="dt-num dt-gold" data-k="골드">${p.gold}K</td>
+                <td class="dt-num dt-gold" data-k="골드">${Math.round((+p.gold || 0) * 1000).toLocaleString()}</td>
                 ${col(has.items, `<td class="dt-items" data-k="아이템" style="--slots:${slotN + 1}">
                   ${ddItemsHTML(p.items)}${
                     // 빈 칸도 자리를 채운다 — 줄마다 장신구가 같은 자리에 오게 하려면 필요하다
@@ -334,9 +336,7 @@
                 </td>`)}
               </tr>`;
             }).join("")}
-          </tbody>
-        </table>
-        </div>`;
+          </tbody>`;
       };
       // 챔피언이 기록된(=출전한) 선수만, 그 세트의 편 기준으로 나눠서 표시
       // (현재 소속으로 가르면 이적 선수가 반대편에 들어간다 — setSides 가 그것까지 처리한다)
@@ -351,7 +351,20 @@
       // 세트 스코어보드(밴픽·오브젝트·골드)를 표 위에 얹는다.
       // 아직 재수집하지 않은 세트는 재료가 없어 빈 문자열이 돌아온다.
       document.getElementById("details-body").innerHTML =
-        setScoreboardHTML(match, set) + half(aList, match.a) + half(bList, match.b);
+        setScoreboardHTML(match, set) + `
+        <div class="page-title-row detail-stats-title"><h3 class="page-title">선수 스탯</h3></div>
+        <div class="table-scroll">
+        <table class="detail-table">
+          <colgroup>
+            <col class="c-player"><col class="c-kda">${col(has.dmg, `<col class="c-dmg">`)}
+            <col class="c-vs"><col class="c-cs"><col class="c-gold">${col(has.items, `<col class="c-items">`)}
+          </colgroup>
+          <thead><tr><th>선수</th><th>KDA</th>${col(has.dmg, "<th>딜량</th>")}
+            <th class="ta-r">시야</th><th class="ta-r">CS</th><th class="ta-r">골드</th>
+            ${col(has.items, "<th>아이템</th>")}</tr></thead>
+          ${half(aList, match.a, "a")}${half(bList, match.b, "b")}
+        </table>
+        </div>`;
     }
 
     // ── 팬심 평점 (경기 종료 후 · 아군/상대/중립 분리 + POG) ──

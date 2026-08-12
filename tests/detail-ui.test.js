@@ -72,8 +72,14 @@ vm.runInContext(source + "\n;globalThis.__ddTest = { DD, ddInit, ddLookup, ddIte
     "선수 이름 아래에 챔피언과 포지션을 함께 보여야 함");
   assert(css.includes(".dt-face .dd-nm { display: none; }"), "상세 표에서는 챔피언 이름을 숨겨야 함");
   assert(css.includes(".dt-dmg > i > b"), "딜량 막대 채움 스타일이 있어야 함");
-  assert(app.includes("DRAKE_SVG") && app.includes("function drakeIconHTML"),
-    "드래곤 종류는 이모지가 아니라 아이콘으로 보여야 함");
+  assert(app.includes("function drakeIconHTML") && app.includes("dragon_elder.png"),
+    "드래곤 종류는 이모지가 아니라 공식 게임 아이콘으로 보여야 함");
+  // 정보창은 양 끝 칸에서 화면 밖으로 나가 잘렸다 — 칸 기준으로 안쪽을 향해 펴야 한다
+  assert(/td\.dt-player \.dd-tip \{[^}]*left: 0/.test(css) && /td\.dt-items \.dd-tip \{[^}]*right: 0/.test(css),
+    "표 양 끝 칸의 정보창은 안쪽으로 펴져 잘리지 않아야 함");
+  // 모바일에서 td 선택자가 더 세서 아이템 격자가 무너졌었다
+  assert(/table\.detail-table td\.dt-items \{[^}]*display: grid/.test(css),
+    "좁은 화면에서도 아이템은 격자를 유지해야 함 (td 선택자에 밀리면 세로로 쌓인다)");
   // 아이템은 6칸(포지션 임무로 7칸)이 **한 줄**에. 예전에는 wrap 이라 4+2 로 접혔다.
   assert(live.includes("const slotN = Math.max(6"), "아이템 칸은 최소 6칸이어야 함");
   assert(live.includes(`class="dt-slot-empty"`) && live.includes("--slots:${slotN + 1}"),

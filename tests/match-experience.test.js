@@ -26,11 +26,21 @@ assert(live.includes("/api/lck-vod?") && live.includes("youtube-nocookie.com/emb
   "종료 경기는 한국 공식 VOD API와 임베드 플레이어를 사용해야 함");
 assert(!app.includes('g.vod ? `<a'), "Leaguepedia/Global VOD를 다시보기로 직접 노출하면 안 됨");
 
-// 아이콘은 직접 그린다 — 외부 CDN 이 죽으면 목표물이 통째로 안 보이던 구조를 없앴다
-assert(!app.includes("communitydragon.org"), "목표물 아이콘을 외부 CDN 에서 받아오면 안 됨");
-["infernal", "ocean", "mountain", "cloud", "hextech", "chemtech", "elder"].forEach(k =>
-  assert(new RegExp(`\\b${k}:`).test(app.slice(app.indexOf("const DRAKE_SVG"))),
-    `드래곤 원소 ${k} 아이콘이 있어야 함`));
+// 목표물 아이콘은 라이엇 공식 게임 자산을 쓴다 (직접 그린 것보다 훨씬 잘 읽힌다).
+// 다만 외부 저장소라, 그림이 실패해도 **개수는 계속 보여야** 한다.
+assert(app.includes("OBJ_ICON_ROOT") && app.includes("communitydragon.org"),
+  "목표물 아이콘은 공식 게임 자산을 써야 함");
+["baron.png", "riftherald.png", "grub.png", "tower.png", "inhibitor.png", "dragon_elder.png"].forEach(f =>
+  assert(app.includes(f), `${f} 아이콘이 연결돼야 함`));
+assert(/onerror="this\.style\.visibility='hidden'"/.test(app),
+  "아이콘을 못 받아도 개수는 남아야 함 (그림만 감춘다)");
+// 목표물은 가운데 이름을 두고 좌우 대칭 한 줄 — 팀별로 쌓으면 같은 항목이 세로로 안 맞는다
+assert(app.includes('class="sb-obj-side') && app.includes(">목표물</div>"),
+  "목표물은 가운데 이름을 두고 좌우로 펼쳐야 함");
+assert(/\.sb-obj-side\.r[\s\S]{0,140}row-reverse/.test(css), "오른쪽은 거울상이어야 함");
+// 골드는 늘 큰 두 숫자의 비교라 막대가 맞다 (목표물과 반대)
+assert(app.includes('class="sb-gold-bar l"') && app.includes("gA.toLocaleString()"),
+  "골드는 양쪽으로 뻗는 막대 + 전체 숫자여야 함");
 // 영혼 원소 역산 — 3번째 드래곤의 원소가 그 판의 영혼이고, 4마리를 모은 팀이 얻는다.
 // 우리는 순서를 못 받으므로 양 팀 개수를 합쳐 역산한다. 실제로 돌려서 확인한다.
 const soulSrc = app.slice(app.indexOf("function soulKind"), app.indexOf("function setScoreboardHTML"));
@@ -44,8 +54,7 @@ assert.strictEqual(soulKind({ drakes: { a: { infernal: 2 }, b: { ocean: 2 } } })
   "동수라 어느 쪽인지 모르면 단정하지 않아야 함");
 assert.strictEqual(soulKind({ drakes: { a: { elder: 2, ocean: 1 }, b: { ocean: 3 } } }), "ocean",
   "장로 드래곤은 영혼 계산에서 빼야 함");
-assert(app.includes('class="obj-chip soul"') && app.includes("✦"),
-  "드래곤 4마리 획득 팀에는 영혼을 명시해야 함");
+assert(app.includes('class="obj-chip soul"'), "드래곤 4마리 획득 팀에는 영혼을 명시해야 함");
 // 목표물은 막대그래프가 아니라 아이콘 + 개수로 — 0 만 늘어선 빈 막대는 읽히지 않았다
 assert(!app.includes("SB_ROWS") && app.includes("SB_OBJ") && app.includes("function objIconHTML"),
   "목표물은 비교 막대가 아니라 아이콘으로 보여야 함");
@@ -85,3 +94,10 @@ assert.strictEqual(vodApi.pickKoreanVod([{ videoId: "old2025", title: "DK vs KT 
   "DK", "KT", "2026-08-10T00:00:00Z"), null, "검색 결과의 과거 시즌 동명 경기를 연결하면 안 됨");
 
 console.log("✓ 경기 홈·다중 선택·한국 VOD·오브젝트·팀 게시판 모바일 테스트 통과");
+
+// 상수를 지우면서 쓰는 곳을 안 지워 화면이 통째로 안 그려진 적이 있다(2026-08-12).
+// node --check 는 이런 걸 못 잡는다 — 쓰는 이름이 정의돼 있는지 직접 본다.
+["DRAKE_COLOR", "DRAKE_KO", "SB_OBJ", "OBJ_ICON_FILE", "SOUL_AT"].forEach(name => {
+  if (!new RegExp(`\\b${name}\\s*[\\[.(]`).test(app)) return;   // 안 쓰면 없어도 된다
+  assert(new RegExp(`const ${name}\\s*=`).test(app), `${name} 을 쓰는데 정의가 없다`);
+});

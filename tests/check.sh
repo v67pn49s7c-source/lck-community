@@ -67,6 +67,26 @@ done
 okk "Python 구문 검사 완료"
 
 # ── ⑤ 회귀 테스트 ───────────────────────────────────────────────────
+# ── CSS 중괄호 짝 검사 ────────────────────────────────────────────
+# 규칙이 실수로 @media·@container 블록 **안으로 빨려 들어가면** 그 스타일이
+# 특정 화면 크기에서만 먹는다. 브라우저는 조용히 넘어가고 눈으로도 잘 안 보인다.
+# (2026-08-12 실제로 스코어보드 스타일 일부가 520px 이하 전용이 됐다)
+node -e '
+  const fs = require("fs");
+  let bad = 0;
+  for (const f of ["assets/styles.css"]) {
+    const s = fs.readFileSync(f, "utf8");
+    let d = 0, line = 1;
+    for (const ch of s) {
+      if (ch === "\n") line++;
+      else if (ch === "{") d++;
+      else if (ch === "}") { d--; if (d < 0) { console.error(`${f}:${line} 짝 없는 }`); bad = 1; break; } }
+    }
+    if (d !== 0) { console.error(`${f} 닫히지 않은 블록 ${d}개`); bad = 1; }
+  }
+  process.exit(bad);
+' && okk "CSS 중괄호 짝 맞음" || bad "CSS 중괄호가 어긋남 — 규칙이 엉뚱한 블록 안에 들어갔을 수 있다"
+
 node tests/invariants.test.js || bad "invariants.test 실패"
 node tests/leaguepedia-integrity.test.js || bad "leaguepedia-integrity.test 실패"
 node tests/leaguepedia-atomic-transport.test.js || bad "leaguepedia-atomic-transport.test 실패"
