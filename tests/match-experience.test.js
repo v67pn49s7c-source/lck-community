@@ -225,6 +225,19 @@ assert.strictEqual(vodApi.pickKoreanVod([searchRows[0]], "DK", "KT", searchAt).v
   assert.strictEqual(vodApi.pickKoreanVod(both, "KT", "DK", "2026-08-12T10:00:00Z").videoId, "m112bbbbbbb",
     "8/12 경기에는 8/12 영상이 걸려야 함");
 
+  // 공식 채널 하이라이트는 두 종류 — '매치 N'(경기 전체) 과 '게임 N'(한 세트 클립).
+  // 안 가르면 먼저 올라온 세트 클립이 이긴다 (2026-08-13 실제 사고).
+  const mixed = [
+    { videoId: "game1aaaaaa", title: "명명백백 메타챔 클레드 | KT vs DK 게임 1 하이라이트 | 2026 LCK", published: "2026-08-12T12:02:00Z" },
+    { videoId: "match112bbb", title: "KT vs DK | 매치 112 하이라이트 | 2026 LCK", published: "2026-08-12T13:14:00Z" },
+    { videoId: "weeklyccccc", title: "수련회 메타의 정점 | LCK 위클리 매드무비 Week 11 | KT vs DK", published: "2026-08-12T14:00:00Z" },
+  ];
+  const at12 = "2026-08-12T10:00:00Z";
+  assert.strictEqual(vodApi.pickKoreanVod(mixed, "KT", "DK", at12).videoId, "match112bbb",
+    "세트 클립이 아니라 매치 하이라이트를 골라야 함");
+  assert.strictEqual(vodApi.pickKoreanVod([mixed[0]], "KT", "DK", at12), null, "세트 클립은 걸면 안 됨");
+  assert.strictEqual(vodApi.pickKoreanVod([mixed[2]], "KT", "DK", at12), null, "위클리 매드무비는 걸면 안 됨");
+
   // 검색 결과에서 상대 시간을 실제로 읽어 오는가
   const parsed = vodApi.parseSearchPage(`<script>var ytInitialData = ${JSON.stringify({
     contents: [{ videoRenderer: { videoId: "abcdefghijk", title: { simpleText: "A vs B" },
