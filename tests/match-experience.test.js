@@ -192,10 +192,13 @@ const initialData = { contents: [{ childVideoRenderer: {
 } }] };
 const searchRows = vodApi.parseSearchPage(`<script>var ytInitialData = ${JSON.stringify(initialData)};</script>`);
 assert.strictEqual(searchRows.length, 2, "공식 채널 내부 검색 결과의 일반·재생목록 영상을 읽어야 함");
-// 공식 채널은 경기 뒤에 '매치 N 하이라이트' 를 올린다 — 그걸 가장 먼저 고른다
-assert.strictEqual(vodApi.pickKoreanVod(searchRows, "DK", "KT", "2026-08-10T00:00:00Z").videoId, "clip0001",
+// 공식 채널은 경기 뒤에 '매치 N 하이라이트' 를 올린다 — 그걸 가장 먼저 고른다.
+// ⚠ 픽스처가 "3시간 전" 영상이므로 경기 시각도 그에 맞춰야 한다. 날짜를 고정해 두면
+//   허용 구간(경기 ~ 이틀 뒤)이 시간이 갈수록 빗나가 테스트가 저절로 깨진다.
+const searchAt = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+assert.strictEqual(vodApi.pickKoreanVod(searchRows, "DK", "KT", searchAt).videoId, "clip0001",
   "매치 하이라이트가 있으면 그것을 우선 골라야 함");
-assert.strictEqual(vodApi.pickKoreanVod([searchRows[0]], "DK", "KT", "2026-08-10T00:00:00Z").videoId, "official9",
+assert.strictEqual(vodApi.pickKoreanVod([searchRows[0]], "DK", "KT", searchAt).videoId, "official9",
   "하이라이트가 없으면 VOD 글자가 없는 공식 풀영상 제목도 허용해야 함");
 // ── 같은 대진의 **예전 경기** 영상이 걸리면 안 된다 (2026-08-13 실제 사고) ──
 // BFX vs KRX 는 8/9 에도 있었고 8/13 에도 있다. 검색 결과에는 정확한 날짜가 없어서
@@ -236,7 +239,7 @@ assert.strictEqual(vodApi.pickKoreanVod([searchRows[0]], "DK", "KT", "2026-08-10
  ["GEN vs KT | 매치 5 프리뷰 | 2026 LCK", "프리뷰"],
  ["GEN vs KT | 인터뷰 | 2026 LCK", "인터뷰"]].forEach(([title, kind]) =>
   assert.strictEqual(vodApi.pickKoreanVod([{ videoId: "teaser01", title, published: "", publishedAgo: "1시간 전" }],
-    "GEN", "KT", "2026-08-10T00:00:00Z"), null, `${kind} 영상을 다시보기로 연결하면 안 됨`));
+    "GEN", "KT", searchAt), null, `${kind} 영상을 다시보기로 연결하면 안 됨`));
 assert.strictEqual(vodApi.pickKoreanVod([{ videoId: "old2025", title: "DK vs KT | 2025 LCK", published: "" }],
   "DK", "KT", "2026-08-10T00:00:00Z"), null, "검색 결과의 과거 시즌 동명 경기를 연결하면 안 됨");
 
