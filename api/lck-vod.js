@@ -57,7 +57,12 @@ function parseSearchPage(html) {
     const text = title.simpleText || (title.runs || []).map(run => run.text || "").join("");
     if (!text) return;
     seen.add(videoId);
-    rows.push({ videoId, title: text, published: "" });
+    // 검색 결과에는 정확한 날짜가 없고 "2일 전" 같은 **상대 시간**만 있다.
+    // 그거라도 읽어 두지 않으면 날짜 검사를 통째로 건너뛰게 되고,
+    // 같은 대진의 **예전 경기 영상**이 오늘 경기 화면에 걸린다. (2026-08-13 실제 사고)
+    const relText = (renderer.publishedTimeText || {}).simpleText
+      || ((renderer.publishedTimeText || {}).runs || []).map(r => r.text || "").join("");
+    rows.push({ videoId, title: text, published: "", publishedAgo: relText || "" });
   };
   const walk = value => {
     if (!value || typeof value !== "object") return;
@@ -85,6 +90,28 @@ const VOD_FULL = /(FULL\s*(VOD|MATCH)|VOD|다시보기|풀\s*영상|전체\s*경
 // 경기 기록이 아닌 것 — 제목으로 확실히 뺀다 (날짜가 없어도 걸러지도록)
 const VOD_NOT_MATCH = /(티저|TEASER|예고|프리뷰|PREVIEW|인터뷰|INTERVIEW|비하인드|BEHIND|메이킹|SHORTS?|쇼츠|기자회견|미디어\s*데이|오프닝|OPENING|플레이\s*오브\s*더)/i;
 
+// "2일 전" · "3시간 전" · "1주 전" → 대략 언제 올라왔는지 (밀리초)
+// 정확할 필요는 없다. **어제 것과 나흘 전 것을 가르는** 정도면 충분하다.
+const AGO_UNIT = { 초: 1e3, 분: 6e4, 시간: 36e5, 일: 864e5, 주: 6048e5, 개월: 2592e6, 년: 31536e6 };
+function agoToMs(text) {
+  const m = String(text || "").match(/(\d+)\s*(초|분|시간|일|주|개월|년)\s*전/);
+  if (!m) return NaN;
+  return Date.now() - (+m[1]) * AGO_UNIT[m[2]];
+}
+
+// 이 영상이 **그 경기 것**이라고 볼 수 있나.
+//   · 경기 시작 3시간 전 ~ 열흘 뒤 사이에 올라왔어야 한다
+//   · 날짜를 전혀 모르면 **거부한다** — 같은 대진이 시즌에 여러 번 있어서,
+//     확인 못 하는 영상을 걸면 엉뚱한 날 경기가 걸린다 (실제로 그랬다)
+function vodDateOK(item, at) {
+  if (!Number.isFinite(at)) return true;              // 경기 시각을 모르면 판단 보류
+  const exact = Date.parse(item.published || "");
+  const approx = agoToMs(item.publishedAgo);
+  const when = Number.isFinite(exact) ? exact : approx;
+  if (!Number.isFinite(when)) return false;           // 날짜를 모르는 영상은 쓰지 않는다
+  return when >= at - 3 * 60 * 60 * 1000 && when <= at + 10 * 24 * 60 * 60 * 1000;
+}
+
 function pickKoreanVod(items, a, b, matchAt) {
   const at = Date.parse(matchAt || "");
   // 0 = 매치 하이라이트(우선), 1 = 풀 VOD, 2 = 옛 "A vs B | 라운드" 형식
@@ -99,19 +126,32 @@ function pickKoreanVod(items, a, b, matchAt) {
     })
     .filter(item => rankOf(item.title) < 2
       || /^\s*[A-Z0-9]+\s+vs\s+[A-Z0-9]+\s*\|/i.test(item.title))
-    .filter(item => {
-      const published = Date.parse(item.published || "");
-      return !Number.isFinite(at) || !Number.isFinite(published) || published >= at - 3 * 60 * 60 * 1000;
-    })
+    .filter(item => vodDateOK(item, at))
     .sort((x, y) => rankOf(x.title) - rankOf(y.title)
       || Date.parse(y.published || "") - Date.parse(x.published || ""))[0] || null;
 }
+
+// LCK 한국 공식 유튜브의 매치 하이라이트는 **경기 다음 날** 올라온다.
+// 그 전에는 찾을 것이 없는데도 뒤지다 보면, 같은 대진의 예전 경기 영상을 물어 온다.
+// 그래서 24시간이 지나기 전에는 **아예 찾지 않는다.** (사장님 확인, 2026-08-13)
+const VOD_WAIT_MS = 24 * 60 * 60 * 1000;
+const tooEarly = at => {
+  const m = Date.parse(at || "");
+  return Number.isFinite(m) && Date.now() < m + VOD_WAIT_MS;
+};
 
 async function handler(req, res) {
   const query = (req && req.query) || {};
   const a = String(query.a || "").trim();
   const b = String(query.b || "").trim();
   if (!a || !b) return fail(res, 400, "두 팀이 필요합니다");
+
+  if (tooEarly(query.at)) {
+    return ok(res, {
+      status: "pending", reason: "too-early",
+      source: "LCK 한국 공식 YouTube", channelUrl: LCK_KR_CHANNEL_URL,
+    });
+  }
   try {
     const response = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${LCK_KR_CHANNEL_ID}`, {
       headers: { "user-agent": "TheNexus-LCK-FanSite/2.0" },
@@ -142,4 +182,4 @@ async function handler(req, res) {
 }
 
 module.exports = handler;
-module.exports._test = { parseFeed, parseSearchPage, hasTeam, pickKoreanVod };
+module.exports._test = { parseFeed, parseSearchPage, hasTeam, pickKoreanVod, agoToMs, vodDateOK };

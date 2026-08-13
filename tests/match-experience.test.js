@@ -8,6 +8,7 @@ const schedule = fs.readFileSync("schedule.html", "utf8");
 const css = fs.readFileSync("assets/styles.css", "utf8");
 const sitemap = fs.readFileSync("api/sitemap.js", "utf8");
 const vodApi = require("../api/lck-vod.js")._test;
+const vodSrc = fs.readFileSync("api/lck-vod.js", "utf8");
 
 assert(app.includes('["전체 경기 일정", "schedule.html"]'), "경기 하위 메뉴에 전체 일정 탭이 있어야 함");
 assert(matches.includes('id="recent-matches"') && matches.includes('id="next-matches"'),
@@ -180,10 +181,14 @@ assert.strictEqual(vodApi.pickKoreanVod(rows, "DNS", "DK", "2026-08-12T08:00:00Z
 assert.strictEqual(vodApi.hasTeam("DNS vs NS FULL VOD", "NS"), true, "짧은 팀 약어도 독립 토큰으로 찾아야 함");
 assert.strictEqual(vodApi.hasTeam("DNS vs BRO FULL VOD", "NS"), false, "NS를 DNS 일부로 오인하면 안 됨");
 
+// 실제 검색 결과에는 정확한 날짜가 없고 "3시간 전" 같은 상대 시간만 온다.
+// 그것마저 없으면 우리는 그 영상을 **쓰지 않는다** (엉뚱한 날 경기가 걸리므로).
 const initialData = { contents: [{ childVideoRenderer: {
   videoId: "official9", title: { simpleText: "DK vs KT | 2026 LCK 정규 시즌" },
+  publishedTimeText: { simpleText: "3시간 전" },
 } }, { videoRenderer: {
   videoId: "clip0001", title: { runs: [{ text: "DK vs KT | 매치 하이라이트 | 2026 LCK" }] },
+  publishedTimeText: { simpleText: "3시간 전" },
 } }] };
 const searchRows = vodApi.parseSearchPage(`<script>var ytInitialData = ${JSON.stringify(initialData)};</script>`);
 assert.strictEqual(searchRows.length, 2, "공식 채널 내부 검색 결과의 일반·재생목록 영상을 읽어야 함");
@@ -192,12 +197,34 @@ assert.strictEqual(vodApi.pickKoreanVod(searchRows, "DK", "KT", "2026-08-10T00:0
   "매치 하이라이트가 있으면 그것을 우선 골라야 함");
 assert.strictEqual(vodApi.pickKoreanVod([searchRows[0]], "DK", "KT", "2026-08-10T00:00:00Z").videoId, "official9",
   "하이라이트가 없으면 VOD 글자가 없는 공식 풀영상 제목도 허용해야 함");
+// ── 같은 대진의 **예전 경기** 영상이 걸리면 안 된다 (2026-08-13 실제 사고) ──
+// BFX vs KRX 는 8/9 에도 있었고 8/13 에도 있다. 검색 결과에는 정확한 날짜가 없어서
+// 시간 검사를 건너뛰다가 8/9 하이라이트가 오늘 경기 화면에 걸렸다.
+{
+  const today = "2026-08-13T08:00:00Z";
+  const old = { videoId: "old11111111", title: "BFX vs KRX | 매치 110 하이라이트 | 2026 LCK", published: "", publishedAgo: "4일 전" };
+  const fresh = { videoId: "new11111111", title: "KRX vs BFX | 매치 118 하이라이트 | 2026 LCK", published: "", publishedAgo: "3시간 전" };
+  const undated = { videoId: "nodate11111", title: "KRX vs BFX | 매치 118 하이라이트 | 2026 LCK", published: "", publishedAgo: "" };
+  assert.strictEqual(vodApi.pickKoreanVod([old], "KRX", "BFX", today), null,
+    "며칠 전에 올라온 같은 대진 영상을 걸면 안 됨");
+  assert.strictEqual((vodApi.pickKoreanVod([fresh], "KRX", "BFX", today) || {}).videoId, "new11111111",
+    "그 경기 직후 영상은 걸어야 함");
+  assert.strictEqual(vodApi.pickKoreanVod([undated], "KRX", "BFX", today), null,
+    "날짜를 전혀 모르는 영상은 쓰지 않는다 (확인 못 하면 안 건다)");
+  // 검색 결과에서 상대 시간을 실제로 읽어 오는가
+  const parsed = vodApi.parseSearchPage(`<script>var ytInitialData = ${JSON.stringify({
+    contents: [{ videoRenderer: { videoId: "abcdefghijk", title: { simpleText: "A vs B" },
+      publishedTimeText: { simpleText: "2일 전" } } }] })};</script>`);
+  assert.strictEqual(parsed[0].publishedAgo, "2일 전", "검색 결과의 '2일 전' 을 읽어야 함");
+  assert.ok(Math.abs(vodApi.agoToMs("2일 전") - (Date.now() - 2 * 864e5)) < 1000, "상대 시간을 시각으로 바꿔야 함");
+}
+
 // 티저는 경기 **전**에 올라오는데 검색 결과에는 날짜가 없어 시간으로 못 거른다.
 // 제목으로 확실히 빼지 않으면 다시보기 자리에 티저가 뜬다 (2026-08-12 실제 사고).
 [["GEN vs KT | 매치 5 티저 | 2026 LCK", "티저"],
  ["GEN vs KT | 매치 5 프리뷰 | 2026 LCK", "프리뷰"],
  ["GEN vs KT | 인터뷰 | 2026 LCK", "인터뷰"]].forEach(([title, kind]) =>
-  assert.strictEqual(vodApi.pickKoreanVod([{ videoId: "teaser01", title, published: "" }],
+  assert.strictEqual(vodApi.pickKoreanVod([{ videoId: "teaser01", title, published: "", publishedAgo: "1시간 전" }],
     "GEN", "KT", "2026-08-10T00:00:00Z"), null, `${kind} 영상을 다시보기로 연결하면 안 됨`));
 assert.strictEqual(vodApi.pickKoreanVod([{ videoId: "old2025", title: "DK vs KT | 2025 LCK", published: "" }],
   "DK", "KT", "2026-08-10T00:00:00Z"), null, "검색 결과의 과거 시즌 동명 경기를 연결하면 안 됨");
@@ -208,6 +235,12 @@ assert(/const missing = wantSets > 0/.test(live) && /세트 기록이 아직 없
   "빠진 세트를 안내해야 함");
 assert(/\(s\._idx \?\? -1\) === k/.test(live),
   "빠진 세트는 배열 위치가 아니라 **진짜 세트 번호**로 따져야 함");
+
+// 유튜브 하이라이트는 경기 **다음 날** 올라온다 — 그 전에는 찾지도 않는다
+assert(/const VOD_WAIT_MS = 24 \* 60 \* 60 \* 1000/.test(vodSrc) && /reason: "too-early"/.test(vodSrc),
+  "경기 24시간 안에는 하이라이트를 찾지 않아야 함");
+assert(/매치 하이라이트는 내일 올라옵니다/.test(live),
+  "너무 이르면 화면이 그렇다고 말해야 함");
 
 console.log("✓ 경기 홈·다중 선택·한국 VOD·오브젝트·팀 게시판 모바일 테스트 통과");
 

@@ -17,11 +17,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260813k">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260813k">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260813l">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260813l">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260813k">
+  <link rel="stylesheet" href="assets/styles.css?v=20260813l">
 </head>
 <body>
   <main class="page">
@@ -100,13 +100,13 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260813k"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260813k"></script>
-  <script src="assets/invariants.js?v=20260813k"></script>
-  <script src="assets/store.js?v=20260813k"></script>
-  <script src="assets/app.js?v=20260813k"></script>
-  <script src="assets/ddragon.js?v=20260813k"></script>
-  <script src="assets/race.js?v=20260813k"></script>
+  <script src="assets/data.js?v=20260813l"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260813l"></script>
+  <script src="assets/invariants.js?v=20260813l"></script>
+  <script src="assets/store.js?v=20260813l"></script>
+  <script src="assets/app.js?v=20260813l"></script>
+  <script src="assets/ddragon.js?v=20260813l"></script>
+  <script src="assets/race.js?v=20260813l"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -222,9 +222,14 @@
             referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
             <a class="replay-meta" href="${esc(data.url)}" target="_blank" rel="noopener noreferrer">
               <b>${esc(data.title || "LCK 매치 다시보기")}</b><span>YouTube에서 보기 ›</span></a>` + fullVodBtns;
+        } else if (data?.reason === "too-early") {
+          // 유튜브 하이라이트는 경기 다음 날 올라온다. 그 전에 아무거나 걸지 않는다.
+          body.innerHTML = `<div class="replay-pending"><b>매치 하이라이트는 내일 올라옵니다</b>
+            <span>LCK 한국 공식 채널은 경기 다음 날 하이라이트를 올립니다.
+            지금은 아래 풀 영상으로 보실 수 있습니다.</span></div>` + fullVodBtns;
         } else {
           body.innerHTML = `<div class="replay-pending"><b>매치 하이라이트 준비 중</b>
-            <span>경기 종료 후 보통 24시간 안에 LCK 한국 공식 채널에 올라옵니다. Global 영상은 대신 연결하지 않습니다.</span></div>` + fullVodBtns;
+            <span>LCK 한국 공식 채널에 올라오면 자동으로 연결됩니다. Global 영상은 대신 연결하지 않습니다.</span></div>` + fullVodBtns;
         }
       } catch {
         body.innerHTML = `<div class="replay-pending"><b>매치 다시보기 준비 중</b><span>잠시 후 다시 확인해 주세요.</span></div>` + fullVodBtns;
