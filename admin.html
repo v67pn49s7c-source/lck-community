@@ -13,11 +13,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260813l">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260813l">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260814a">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260814a">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260813l">
+  <link rel="stylesheet" href="assets/styles.css?v=20260814a">
 </head>
 <body>
   <main class="page">
@@ -176,16 +176,20 @@
       <!-- 경기 상세 입력 -->
       <section class="card admin-panel" data-tab="details">
         <div class="card-head">
-          <h2 class="card-title">경기 상세 입력 <span class="sub">세트별 KDA·아이템·룬 (추후 API 자동 수집 자리)</span></h2>
-          <div style="display:flex; gap:8px">
-            <select id="dt-match" style="min-width:220px"></select>
-            <select id="dt-set" style="min-width:90px"></select>
-          </div>
+          <h2 class="card-title">경기 상세 입력 <span class="sub">밴픽 · 오브젝트 · 선수 기록 — 빠진 칸만 골라서 채우기</span></h2>
         </div>
+
+        <!-- 빈칸 목록: 어느 경기 어느 세트에 뭐가 비었는지 한눈에. 눌러서 바로 이동 -->
+        <div id="dt-gaps" class="dt-gaps"></div>
+
+        <div class="dt-pick">
+          <input id="dt-search" placeholder="경기 찾기 — 팀 이름이나 날짜 (예: 젠지, 8/1)" autocomplete="off">
+          <select id="dt-match"></select>
+        </div>
+        <div id="dt-sets" class="dt-sets"></div>
         <div id="dt-grid"></div>
         <div class="admin-note">
-          종료된 경기를 선택하고 세트를 고른 뒤, 선수별 수치를 입력하고 저장하세요.
-          입력된 세트는 해당 경기의 라이브 페이지 "경기 상세"에 표시됩니다. 샘플: 8/2 DNS vs BRO 경기에 3세트 입력돼 있음.
+          비어 있는 칸은 <b>노란 테두리</b>로 표시됩니다. 출전하지 않은 선수는 챔피언을 비워 두세요 — 저장할 때 자동으로 빠집니다.
         </div>
       </section>
 
@@ -352,13 +356,13 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260813l"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260813l"></script>
-  <script src="assets/invariants.js?v=20260813l"></script>
-  <script src="assets/store.js?v=20260813l"></script>
-  <script src="assets/app.js?v=20260813l"></script>
-  <script src="assets/ddragon.js?v=20260813l"></script>
-  <script src="assets/brackets.js?v=20260813l"></script>
+  <script src="assets/data.js?v=20260814a"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260814a"></script>
+  <script src="assets/invariants.js?v=20260814a"></script>
+  <script src="assets/store.js?v=20260814a"></script>
+  <script src="assets/app.js?v=20260814a"></script>
+  <script src="assets/ddragon.js?v=20260814a"></script>
+  <script src="assets/brackets.js?v=20260814a"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -789,95 +793,428 @@
       renderPlayers();
     });
 
-    // ── 경기 상세 입력 ──
-    function renderDetailEditor() {
-      const mSel = document.getElementById("dt-match");
-      const sSel = document.getElementById("dt-set");
-      const doneMatches = sortedMatches().filter(m => (m.status === "done" || m.status === "live") && knownTeams(m));
-      if (!doneMatches.length) {
-        document.getElementById("dt-grid").innerHTML = `<div class="empty-note">종료/진행 중인 경기가 없습니다</div>`;
+    // ── 경기 상세 입력 ──────────────────────────────────────────────
+    // 예전 편집기는 선수 한 명당 9칸을 한 줄에 늘어놓아 화면 밖으로 넘쳤고,
+    // 무엇보다 game(밴픽·오브젝트·골드·경기 시간)을 **저장할 수단이 아예 없었다**.
+    // 그래서 수집기가 못 채운 칸은 손으로도 못 채웠다 (8/1 GEN-DK 2세트가 그 사례).
+    // 이제 셋 다 넣고, 무엇이 비었는지 목록으로 먼저 보여 준다.
+    const DT_LANES = ["탑", "정글", "미드", "원딜", "서폿"];
+    const DT_DRAKES = ["infernal", "mountain", "ocean", "cloud", "hextech", "chemtech"];
+    // 입력 칸을 둘 오브젝트. 장로는 drakes.elder 로 세므로 여기 없다 (화면 표시와 같은 규칙).
+    const DT_OBJ = [
+      { k: "towers", name: "타워" }, { k: "inhib", name: "억제기" },
+      { k: "barons", name: "바론" }, { k: "heralds", name: "전령" },
+      { k: "grubs", name: "공허충" }, { k: "atakhan", name: "아타칸" },
+    ];
+
+    const dtSum = o => (+(o || {}).a || 0) + (+(o || {}).b || 0);
+
+    function dtBlankGame() {
+      const z = () => ({ a: 0, b: 0 });
+      return {
+        blue: "a", len: "", kills: z(), gold: z(),
+        towers: z(), inhib: z(), barons: z(), heralds: z(), grubs: z(), atakhan: z(),
+        dragons: z(), drakes: { a: {}, b: {} }, bans: { a: [], b: [] }, picks: { a: [], b: [] },
+      };
+    }
+
+    /** 이 세트에서 비어 있는 항목 이름들. 빈 배열이면 다 찼다는 뜻. */
+    function dtSetGaps(set) {
+      if (!set) return ["기록 전체"];
+      const g = set.game || {};
+      const miss = [];
+      if (!(set.players || []).length) miss.push("선수 기록");
+      if (!((g.picks || {}).a || []).length && !((g.picks || {}).b || []).length) miss.push("밴픽");
+      if (!dtSum(g.towers)) miss.push("오브젝트");
+      if (!dtSum(g.gold)) miss.push("골드");
+      if (!dtSum(g.kills)) miss.push("킬");
+      if (!g.len) miss.push("경기 시간");
+      return miss;
+    }
+
+    /** 종료 경기의 세트별 빈칸. 스코어만큼 세트가 있어야 한다. */
+    function dtMatchGaps(match) {
+      const total = (match.scoreA || 0) + (match.scoreB || 0);
+      if (match.status !== "done" || !total) return [];
+      const sets = (getDetails(match.id) || { sets: [] }).sets;
+      const out = [];
+      for (let n = 0; n < total; n++) {
+        const miss = dtSetGaps(sets.find(x => (x._idx ?? -1) === n));
+        if (miss.length) out.push({ n, miss });
+      }
+      return out;
+    }
+
+    function renderDetailGaps() {
+      const host = document.getElementById("dt-gaps");
+      if (!host) return;
+      const rows = sortedMatches().filter(m => m.status === "done" && knownTeams(m))
+        .map(m => ({ m, gaps: dtMatchGaps(m) })).filter(x => x.gaps.length);
+      const nSets = rows.reduce((n, x) => n + x.gaps.length, 0);
+      if (!nSets) {
+        host.innerHTML = `<div class="dt-gaps-ok">빈칸 없음 — 종료된 경기 기록이 모두 채워져 있습니다</div>`;
         return;
       }
-      if (!mSel.options.length || !doneMatches.find(m => m.id === mSel.value)) {
-        mSel.innerHTML = doneMatches.map(m =>
-          `<option value="${m.id}">${slotName(m.a)} vs ${slotName(m.b)} · ${fmtWhen(m.at)}</option>`).join("");
-        mSel.onchange = () => { sSel.innerHTML = ""; renderDetailEditor(); };
-      }
-      const match = doneMatches.find(m => m.id === mSel.value) || doneMatches[0];
+      host.innerHTML = `
+        <div class="dt-gaps-head">채울 곳 <b>${nSets}</b>군데 <span>누르면 바로 이동합니다</span></div>
+        <div class="dt-gaps-list">
+          ${rows.slice(0, 40).map(({ m, gaps }) => gaps.map(g => `
+            <button type="button" class="dt-gap" data-mid="${esc(m.id)}" data-set="${g.n}">
+              <span class="dt-gap-when">${esc(fmtWhen(m.at).replace(" KST", ""))}</span>
+              <span class="dt-gap-who">${esc(slotName(m.a))} vs ${esc(slotName(m.b))}</span>
+              <span class="dt-gap-set">${g.n + 1}세트</span>
+              <span class="dt-gap-miss">${g.miss.map(x => `<i>${esc(x)}</i>`).join("")}</span>
+            </button>`).join("")).join("")}
+        </div>`;
+      host.querySelectorAll(".dt-gap").forEach(b => b.addEventListener("click", () => {
+        document.getElementById("dt-match").value = b.dataset.mid;
+        dtWork = null;                       // 다른 경기로 넘어가니 작업본을 버린다
+        renderDetailEditor(Number(b.dataset.set));
+        document.getElementById("dt-grid").scrollIntoView({ behavior: "smooth", block: "start" });
+      }));
+    }
+
+    // 현재 편집 중인 작업본. 입력할 때마다 여기에 쌓고, 저장 버튼에서 한 번에 보낸다.
+    // (칸을 하나 고칠 때마다 화면을 다시 그리면 커서가 튀어서, 값만 조용히 담는다)
+    let dtWork = null;
+
+    function dtLoadWork(match, setIdx) {
       const d = getDetails(match.id) || { sets: [] };
-      // 목록은 **진짜 세트 번호** 기준이다 (배열 위치가 아니다).
-      // 그래야 2세트만 수집된 경기에서 "1세트 (새로)"를 골라 빠진 세트를 채울 수 있다.
-      // 몇 세트까지 보일지는 실제 스코어(2:1이면 3세트)와 이미 있는 번호 중 큰 쪽으로.
+      const existing = d.sets.find(x => (x._idx ?? -1) === setIdx);
+      const game = { ...dtBlankGame(), ...JSON.parse(JSON.stringify((existing || {}).game || {})) };
+      // 빠진 하위 객체 보정 (예전에 저장된 기록은 일부 키가 없다)
+      ["kills", "gold", "towers", "inhib", "barons", "heralds", "grubs", "atakhan", "dragons"]
+        .forEach(k => { game[k] = { a: +(game[k] || {}).a || 0, b: +(game[k] || {}).b || 0 }; });
+      game.drakes = { a: { ...((game.drakes || {}).a || {}) }, b: { ...((game.drakes || {}).b || {}) } };
+      game.bans = { a: [...((game.bans || {}).a || [])], b: [...((game.bans || {}).b || [])] };
+      game.picks = { a: [...((game.picks || {}).a || [])], b: [...((game.picks || {}).b || [])] };
+      const players = {};
+      ((existing || {}).players || []).forEach(p => { players[p.pid] = { ...p }; });
+      dtWork = {
+        matchId: match.id, setIdx, isNew: !existing,
+        win: (existing || {}).win || "a", game, players,
+      };
+      return dtWork;
+    }
+
+    /** 챔피언 이름 입력칸 — 타이핑하면 자동완성(datalist), 옆 버튼은 아이콘 목록. */
+    function dtChampInput(cls, value, extra) {
+      return `<span class="dt-champ">
+        <input class="${cls}" list="dt-champ-names" placeholder="챔피언" autocomplete="off"
+               value="${esc(value || "")}" ${extra || ""}>
+        <button type="button" class="dt-champ-btn dd-pickable" data-kind="champ" tabindex="-1" title="아이콘으로 고르기">▦</button>
+      </span>`;
+    }
+
+    /** 오브젝트 개수 조절 칸 (− 0 +) */
+    function dtStep(group, key, side, n) {
+      return `<span class="dt-step" data-group="${group}" data-key="${key}" data-side="${side}">
+        <button type="button" data-d="-1">−</button><b>${n}</b><button type="button" data-d="1">+</button>
+      </span>`;
+    }
+
+    function renderDetailEditor(forceSet) {
+      const mSel = document.getElementById("dt-match");
+      const searchEl = document.getElementById("dt-search");
+      const setsEl = document.getElementById("dt-sets");
+      const grid = document.getElementById("dt-grid");
+      const all = sortedMatches().filter(m => (m.status === "done" || m.status === "live") && knownTeams(m));
+      if (!all.length) {
+        grid.innerHTML = `<div class="empty-note">종료/진행 중인 경기가 없습니다</div>`;
+        return;
+      }
+      // 검색 — 팀 이름·약자·날짜 아무거나
+      const q = (searchEl.value || "").trim().toLowerCase();
+      const label = m => `${slotName(m.a)} vs ${slotName(m.b)} · ${fmtWhen(m.at).replace(" KST", "")}`;
+      const list = q ? all.filter(m => label(m).toLowerCase().includes(q)
+        || `${(TEAM_MAP[m.a] || {}).abbr || ""} ${(TEAM_MAP[m.b] || {}).abbr || ""}`.toLowerCase().includes(q)) : all;
+      const pool = list.length ? list : all;
+      const prevVal = mSel.value;
+      mSel.innerHTML = pool.map(m => {
+        const gaps = dtMatchGaps(m).length;
+        return `<option value="${esc(m.id)}">${esc(label(m))}${gaps ? ` — 빈칸 ${gaps}` : ""}</option>`;
+      }).join("");
+      if (pool.some(m => m.id === prevVal)) mSel.value = prevVal;
+      // on* 로 넣어야 다시 그릴 때마다 핸들러가 쌓이지 않는다.
+      // 검색칸은 다시 그리지 않으므로 타이핑 중에도 커서가 유지된다.
+      mSel.onchange = () => { dtWork = null; renderDetailEditor(0); };
+      searchEl.oninput = () => { dtWork = null; renderDetailEditor(0); };
+
+      const match = pool.find(m => m.id === mSel.value) || pool[0];
+      mSel.value = match.id;
+      const d = getDetails(match.id) || { sets: [] };
+
+      // 몇 세트까지 보일지 — 실제 스코어(2:1이면 3세트)와 이미 있는 번호 중 큰 쪽.
       const byScore = (match.scoreA || 0) + (match.scoreB || 0);
       const byHave = d.sets.length ? Math.max(...d.sets.map(x => (x._idx ?? 0) + 1)) : 0;
       const setCount = Math.min(Math.max(byScore, byHave, 1) + (byScore ? 0 : 1), 5);
-      if (sSel.dataset.for !== match.id || !sSel.options.length) {
-        sSel.dataset.for = match.id;
-        sSel.innerHTML = Array.from({ length: setCount }, (_, n) =>
-          `<option value="${n}">${n + 1}세트${d.sets.some(x => (x._idx ?? -1) === n) ? " ✓" : " (새로)"}</option>`).join("");
-        sSel.onchange = renderDetailEditor;
-      }
-      const setIdx = Number(sSel.value || 0);
-      const existing = d.sets.find(x => (x._idx ?? -1) === setIdx);
-      const starters = [...teamPlayers(match.a), ...teamPlayers(match.b)];
 
-      document.getElementById("dt-grid").innerHTML = `
-        <div class="admin-list">
-          <div class="admin-item" style="gap:6px">
-            <span class="muted">세트 승리 팀:</span>
-            <select id="dt-win">
-              <option value="a" ${existing?.win === "a" ? "selected" : ""}>${slotName(match.a)}</option>
-              <option value="b" ${existing?.win === "b" ? "selected" : ""}>${slotName(match.b)}</option>
-            </select>
-          </div>
-          ${starters.map((p, i) => {
-            const row = existing?.players.find(x => x.pid === p.id) || {};
-            const t = TEAM_MAP[p.team];
-            return `
-            <div class="admin-item dt-row" data-pid="${p.id}" style="gap:5px">
-              <span style="width:110px; display:flex; align-items:center; gap:5px; font-weight:700">
-                ${teamLogoHTML(t, 16)} ${esc(p.nick)}</span>
-              <input class="dc dd-pickable" data-kind="champ" readonly placeholder="챔피언 선택" value="${esc(row.champ || "")}" style="width:100px;cursor:pointer">
-              <input class="dsp dd-pickable" data-kind="spell" readonly placeholder="스펠 선택" value="${esc(row.spell || "")}" style="width:100px;cursor:pointer">
-              <input class="score dk2" type="number" min="0" placeholder="K" value="${row.k ?? ""}">
-              <input class="score dd" type="number" min="0" placeholder="D" value="${row.d ?? ""}">
-              <input class="score da" type="number" min="0" placeholder="A" value="${row.a ?? ""}">
-              <input class="score dcs" type="number" min="0" placeholder="CS" value="${row.cs ?? ""}" style="width:56px">
-              <input class="score dg" type="number" min="0" step="0.1" placeholder="골드k" value="${row.gold ?? ""}" style="width:60px">
-              <input class="di dd-pickable" data-kind="item" readonly placeholder="아이템 선택 (클릭)" value="${esc(row.items || "")}" style="flex:1; min-width:140px;cursor:pointer">
-              <input class="dr dd-pickable" data-kind="rune" readonly placeholder="룬 선택" value="${esc(row.runes || "")}" style="width:110px;cursor:pointer">
-            </div>`;
-          }).join("")}
-          <div class="admin-note">칸을 클릭하면 아이콘 선택창이 열립니다. <b>출전하지 않은 선수는 챔피언을 비워 두세요</b> — 저장 시 자동으로 제외되고, 평점·경기 상세에도 나오지 않습니다.</div>
-          <div class="admin-item" style="justify-content:flex-end; gap:8px">
-            ${existing ? `<button class="btn-danger" id="dt-del">이 세트 삭제</button>` : ""}
-            <button class="btn-primary" id="dt-save">${setIdx + 1}세트 저장</button>
+      let setIdx = forceSet != null ? forceSet
+        : (dtWork && dtWork.matchId === match.id ? dtWork.setIdx : 0);
+      if (setIdx >= setCount) setIdx = 0;
+
+      setsEl.innerHTML = Array.from({ length: setCount }, (_, n) => {
+        const miss = dtSetGaps(d.sets.find(x => (x._idx ?? -1) === n));
+        return `<button type="button" class="dt-settab${n === setIdx ? " on" : ""}${miss.length ? " gap" : " full"}" data-set="${n}">
+          ${n + 1}세트<i>${miss.length ? `빈칸 ${miss.length}` : "완료"}</i></button>`;
+      }).join("");
+      setsEl.querySelectorAll(".dt-settab").forEach(b => b.addEventListener("click", () => {
+        dtWork = null;
+        renderDetailEditor(Number(b.dataset.set));
+      }));
+
+      const w = (dtWork && dtWork.matchId === match.id && dtWork.setIdx === setIdx)
+        ? dtWork : dtLoadWork(match, setIdx);
+      const g = w.game;
+      const A = TEAM_MAP[match.a] || {}, B = TEAM_MAP[match.b] || {};
+      const roster = { a: teamPlayers(match.a), b: teamPlayers(match.b) };
+      const nameOf = s => slotName(s === "a" ? match.a : match.b);
+      const blank = v => (v ? "" : " dt-blank");
+
+      // 팀별 밴픽 칸 — 픽은 라인 고정칸이라 선수 행과 바로 연결된다.
+      const pbCol = s => `
+        <div class="dt-pb-col">
+          <div class="dt-pb-team">${teamLogoHTML(s === "a" ? A : B, 20)} <b>${esc(nameOf(s))}</b></div>
+          <div class="dt-pb-lbl">픽 <span>라인 순서</span></div>
+          ${DT_LANES.map((lane, i) => `
+            <div class="dt-pb-row">
+              <span class="dt-lane">${lane}</span>
+              ${dtChampInput("dt-pick", g.picks[s][i], `data-side="${s}" data-i="${i}"`)}
+            </div>`).join("")}
+          <div class="dt-pb-lbl">밴</div>
+          <div class="dt-pb-bans">
+            ${Array.from({ length: 5 }, (_, i) =>
+              dtChampInput("dt-ban", g.bans[s][i], `data-side="${s}" data-i="${i}"`)).join("")}
           </div>
         </div>`;
 
-      document.getElementById("dt-save").addEventListener("click", () => {
-        const players = [...document.querySelectorAll(".dt-row")].map(row => ({
-          pid: row.dataset.pid,
-          champ: row.querySelector(".dc").value.trim(),
-          spell: row.querySelector(".dsp").value.trim(),
-          k: +row.querySelector(".dk2").value || 0,
-          d: +row.querySelector(".dd").value || 0,
-          a: +row.querySelector(".da").value || 0,
-          cs: +row.querySelector(".dcs").value || 0,
-          gold: +row.querySelector(".dg").value || 0,
-          items: row.querySelector(".di").value.trim(),
-          runes: row.querySelector(".dr").value.trim(),
-        })).filter(p => p.champ); // 챔피언이 비어 있으면 미출전 → 저장 제외
-        saveDetailSet(match.id, setIdx, { win: document.getElementById("dt-win").value, players });
-        sSel.innerHTML = "";
-        renderDetailEditor();
+      // 오브젝트 — 화면 표시와 같은 좌우 대립 구도로 입력한다.
+      const objRow = r => `
+        <div class="dt-obj-row">
+          ${dtStep("obj", r.k, "a", g[r.k].a)}
+          <span class="dt-obj-name">${objIconHTML(r.k)}<i>${esc(r.name)}</i></span>
+          ${dtStep("obj", r.k, "b", g[r.k].b)}
+        </div>`;
+      const drakeRow = k => `
+        <div class="dt-obj-row">
+          ${dtStep("drake", k, "a", +g.drakes.a[k] || 0)}
+          <span class="dt-obj-name">${drakeIconHTML(k)}<i>${esc(DRAKE_KO[k])}</i></span>
+          ${dtStep("drake", k, "b", +g.drakes.b[k] || 0)}
+        </div>`;
+
+      const playerRows = s => roster[s].map(p => {
+        const row = w.players[p.id] || {};
+        return `
+        <div class="dt-prow" data-pid="${esc(p.id)}" data-side="${s}" data-pos="${esc(p.pos || "")}">
+          <span class="dt-pname">${teamLogoHTML(TEAM_MAP[p.team] || {}, 16)}<b>${esc(p.nick)}</b><i>${esc(p.pos || "")}</i></span>
+          ${dtChampInput("dt-pchamp", row.champ)}
+          <input class="dt-pspell dd-pickable" data-kind="spell" readonly placeholder="스펠" value="${esc(row.spell || "")}">
+          <input class="dt-pkda" placeholder="K/D/A" value="${row.champ || row.k != null ? `${row.k ?? 0}/${row.d ?? 0}/${row.a ?? 0}` : ""}">
+          <input class="dt-pcs" type="number" min="0" placeholder="CS" value="${row.cs ?? ""}">
+          <input class="dt-pgold" type="number" min="0" step="0.1" placeholder="골드k" value="${row.gold ?? ""}">
+          <input class="dt-pitems dd-pickable" data-kind="item" readonly placeholder="아이템" value="${esc(row.items || "")}">
+          <input class="dt-prunes dd-pickable" data-kind="rune" readonly placeholder="룬" value="${esc(row.runes || "")}">
+        </div>`;
+      }).join("");
+
+      grid.innerHTML = `
+        <datalist id="dt-champ-names"></datalist>
+        <div class="dt-edit">
+
+          <div class="dt-sec">
+            <h3>경기 결과</h3>
+            <div class="dt-basic">
+              <label>세트 승리 팀
+                <select class="dt-win">
+                  <option value="a" ${w.win === "a" ? "selected" : ""}>${esc(nameOf("a"))}</option>
+                  <option value="b" ${w.win === "b" ? "selected" : ""}>${esc(nameOf("b"))}</option>
+                </select>
+              </label>
+              <label>블루 진영
+                <select class="dt-blue">
+                  <option value="a" ${g.blue === "a" ? "selected" : ""}>${esc(nameOf("a"))}</option>
+                  <option value="b" ${g.blue === "b" ? "selected" : ""}>${esc(nameOf("b"))}</option>
+                </select>
+              </label>
+              <label>경기 시간
+                <input class="dt-len${blank(g.len)}" placeholder="28:46" value="${esc(g.len || "")}">
+              </label>
+            </div>
+            <div class="dt-vs">
+              <span class="dt-vs-side">${teamLogoHTML(A, 22)}<b>${esc(nameOf("a"))}</b></span>
+              <span class="dt-vs-mid">킬</span>
+              <span class="dt-vs-side r"><b>${esc(nameOf("b"))}</b>${teamLogoHTML(B, 22)}</span>
+            </div>
+            <div class="dt-pair">
+              <input class="dt-num dt-kills${blank(g.kills.a)}" data-key="kills" data-side="a" type="number" min="0" value="${g.kills.a || ""}" placeholder="0">
+              <em>킬</em>
+              <input class="dt-num dt-kills${blank(g.kills.b)}" data-key="kills" data-side="b" type="number" min="0" value="${g.kills.b || ""}" placeholder="0">
+            </div>
+            <div class="dt-pair">
+              <input class="dt-num dt-goldv${blank(g.gold.a)}" data-key="gold" data-side="a" type="number" min="0" value="${g.gold.a || ""}" placeholder="57900">
+              <em>골드</em>
+              <input class="dt-num dt-goldv${blank(g.gold.b)}" data-key="gold" data-side="b" type="number" min="0" value="${g.gold.b || ""}" placeholder="47700">
+            </div>
+            <p class="dt-hint">골드는 <b>전체 숫자</b>로 넣으세요 (57.9k → 57900).</p>
+          </div>
+
+          <div class="dt-sec">
+            <h3>밴픽</h3>
+            <div class="dt-pb">${pbCol("a")}${pbCol("b")}</div>
+            <p class="dt-hint">픽을 넣으면 아래 <b>선수 기록의 챔피언 칸이 라인에 맞춰 자동으로 채워집니다.</b></p>
+          </div>
+
+          <div class="dt-sec">
+            <h3>오브젝트</h3>
+            <div class="dt-obj-head">
+              <span>${teamLogoHTML(A, 20)}<b>${esc(nameOf("a"))}</b></span><i></i>
+              <span class="r"><b>${esc(nameOf("b"))}</b>${teamLogoHTML(B, 20)}</span>
+            </div>
+            ${DT_OBJ.map(objRow).join("")}
+            ${drakeRow("elder")}
+            <div class="dt-obj-sub">드래곤 (속성별)</div>
+            ${DT_DRAKES.map(drakeRow).join("")}
+          </div>
+
+          <div class="dt-sec">
+            <h3>선수 기록</h3>
+            <div class="dt-pteam">${teamLogoHTML(A, 20)}<b>${esc(nameOf("a"))}</b></div>
+            ${playerRows("a")}
+            <div class="dt-pteam">${teamLogoHTML(B, 20)}<b>${esc(nameOf("b"))}</b></div>
+            ${playerRows("b")}
+            <p class="dt-hint">KDA는 <b>3/1/2</b> 처럼 한 칸에 넣으면 됩니다. 출전하지 않은 선수는 챔피언을 비워 두세요.</p>
+          </div>
+
+          <div class="dt-actions">
+            ${w.isNew ? "" : `<button type="button" class="btn-danger" id="dt-del">이 세트 삭제</button>`}
+            <button type="button" class="btn-primary" id="dt-save">${setIdx + 1}세트 저장</button>
+          </div>
+        </div>`;
+
+      dtFillChampNames();
+      dtBind(match, setIdx, roster);
+      renderDetailGaps();
+    }
+
+    /** 챔피언 자동완성 목록 (Data Dragon). 실패해도 손으로 칠 수 있으니 조용히 넘어간다. */
+    async function dtFillChampNames() {
+      try {
+        const D = await ddFullInit();
+        const list = document.getElementById("dt-champ-names");
+        if (!list || list.options.length) return;
+        list.innerHTML = D.champs.map(c => `<option value="${esc(c.name)}">`).join("");
+      } catch {}
+    }
+
+    function dtBind(match, setIdx, roster) {
+      const grid = document.getElementById("dt-grid");
+      const w = dtWork, g = w.game;
+      const mark = (el, ok) => el.classList.toggle("dt-blank", !ok);
+
+      grid.querySelector(".dt-win").addEventListener("change", e => { w.win = e.target.value; });
+      grid.querySelector(".dt-blue").addEventListener("change", e => { g.blue = e.target.value; });
+      const lenEl = grid.querySelector(".dt-len");
+      lenEl.addEventListener("input", e => { g.len = e.target.value.trim(); mark(e.target, g.len); });
+
+      grid.querySelectorAll(".dt-num").forEach(el => el.addEventListener("input", e => {
+        g[e.target.dataset.key][e.target.dataset.side] = +e.target.value || 0;
+        mark(e.target, e.target.value !== "");
+      }));
+
+      // 오브젝트 조절 — 값만 바꾸고 그 칸의 숫자만 다시 쓴다 (전체 재렌더 없음)
+      grid.querySelectorAll(".dt-step").forEach(box => {
+        const { group, key, side } = box.dataset;
+        box.querySelectorAll("button").forEach(btn => btn.addEventListener("click", () => {
+          const cur = group === "obj" ? (+g[key][side] || 0) : (+g.drakes[side][key] || 0);
+          const next = Math.max(0, cur + Number(btn.dataset.d));
+          if (group === "obj") g[key][side] = next;
+          else g.drakes[side][key] = next;
+          box.querySelector("b").textContent = next;
+          box.classList.toggle("on", next > 0);
+        }));
+        box.classList.toggle("on", (group === "obj" ? +g[key][side] : +(g.drakes[side][key] || 0)) > 0);
+      });
+
+      // 픽 → 같은 라인의 선수 챔피언 칸을 따라 채운다 (이미 적어 둔 값은 건드리지 않는다)
+      const syncPick = (side, i, val) => {
+        const lane = DT_LANES[i];
+        const row = [...grid.querySelectorAll(`.dt-prow[data-side="${side}"]`)]
+          .find(r => r.dataset.pos === lane);
+        if (!row) return;
+        const el = row.querySelector(".dt-pchamp");
+        if (el && (!el.value.trim() || el.dataset.fromPick === "1")) {
+          el.value = val;
+          el.dataset.fromPick = "1";
+          const pid = row.dataset.pid;
+          w.players[pid] = { ...(w.players[pid] || {}), pid, champ: val };
+          mark(el, val);
+        }
+      };
+      grid.querySelectorAll(".dt-pick").forEach(el => el.addEventListener("change", e => {
+        const { side, i } = e.target.dataset;
+        g.picks[side][+i] = e.target.value.trim();
+        syncPick(side, +i, e.target.value.trim());
+      }));
+      grid.querySelectorAll(".dt-ban").forEach(el => el.addEventListener("change", e => {
+        g.bans[e.target.dataset.side][+e.target.dataset.i] = e.target.value.trim();
+      }));
+
+      // 선수 행 — 값이 바뀔 때마다 작업본에 담는다
+      grid.querySelectorAll(".dt-prow").forEach(row => {
+        const pid = row.dataset.pid;
+        const put = (k, v) => { w.players[pid] = { ...(w.players[pid] || {}), pid, [k]: v }; };
+        row.querySelector(".dt-pchamp").addEventListener("input", e => {
+          e.target.dataset.fromPick = "0";
+          put("champ", e.target.value.trim());
+          mark(e.target, e.target.value.trim());
+        });
+        row.querySelector(".dt-pkda").addEventListener("input", e => {
+          const m = e.target.value.match(/(\d+)\D+(\d+)\D+(\d+)/);
+          if (m) { put("k", +m[1]); put("d", +m[2]); put("a", +m[3]); }
+          mark(e.target, !!m);
+        });
+        row.querySelector(".dt-pcs").addEventListener("input", e => put("cs", +e.target.value || 0));
+        row.querySelector(".dt-pgold").addEventListener("input", e => put("gold", +e.target.value || 0));
+        // 아이콘 선택창은 값을 직접 써 넣으므로 change 로 받는다
+        row.querySelector(".dt-pspell").addEventListener("change", e => put("spell", e.target.value.trim()));
+        row.querySelector(".dt-pitems").addEventListener("change", e => put("items", e.target.value.trim()));
+        row.querySelector(".dt-prunes").addEventListener("change", e => put("runes", e.target.value.trim()));
+      });
+
+      grid.querySelector("#dt-save").addEventListener("click", () => {
+        // 챔피언이 비어 있으면 미출전 → 저장에서 뺀다 (예전 규칙 그대로)
+        const players = Object.values(w.players)
+          .filter(p => (p.champ || "").trim())
+          .map(p => ({
+            pid: p.pid, champ: p.champ.trim(), spell: p.spell || "",
+            k: +p.k || 0, d: +p.d || 0, a: +p.a || 0,
+            cs: +p.cs || 0, gold: +p.gold || 0,
+            items: p.items || "", runes: p.runes || "",
+          }));
+        // 드래곤 총계는 **장로를 포함**해서 센다 (화면의 elementalDragons 가 다시 빼기 때문).
+        const total = s => Object.keys(g.drakes[s] || {}).reduce((n, k) => n + (+g.drakes[s][k] || 0), 0);
+        g.dragons = { a: total("a"), b: total("b") };
+        // 빈 칸을 걸러내면 자리가 밀린다 — 1·3번만 넣고 저장했다가 다시 열면
+        // 3번 픽이 2번 라인에 붙는다. 자리는 그대로 두고 뒤쪽 빈 칸만 잘라낸다.
+        // (화면 쪽 champs() 가 빈 값을 건너뛴다)
+        // Array.from — map 은 배열 구멍을 건너뛰어 null 로 저장된다 (동작은 같지만 지저분)
+        const trimTail = arr => {
+          const a = Array.from(arr || [], x => (x || "").trim());
+          while (a.length && !a[a.length - 1]) a.pop();
+          return a;
+        };
+        ["bans", "picks"].forEach(k => { g[k] = { a: trimTail(g[k].a), b: trimTail(g[k].b) }; });
+        saveDetailSet(match.id, setIdx, { win: w.win, players, game: g });
+        dtWork = null;
+        renderDetailEditor(setIdx);
         alert("저장했습니다. 해당 경기 라이브 페이지에서 확인하세요.");
       });
-      document.getElementById("dt-del")?.addEventListener("click", () => {
+
+      grid.querySelector("#dt-del")?.addEventListener("click", () => {
         if (!confirm(`${setIdx + 1}세트 기록을 삭제할까요?`)) return;
         deleteDetailSet(match.id, setIdx);
-        sSel.innerHTML = "";
-        renderDetailEditor();
+        dtWork = null;
+        renderDetailEditor(setIdx);
       });
     }
 

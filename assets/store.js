@@ -210,9 +210,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260813l"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260813l"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260813l"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814a"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814a"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814a"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -1883,15 +1883,23 @@ function getDetails(matchId) { return Cache.details[matchId] || null; }
 // 예전에는 배열 위치를 받고 새 세트 번호를 max(_idx)+1 로 지어냈다. 그래서
 // 2세트만 수집된 경기에서 "1세트 저장"이 2세트를 덮어쓰고, "2세트 저장"은
 // 있지도 않은 3세트를 만들었다. 빠진 1세트는 손으로 넣을 방법조차 없었다.
+// setData 에 game 키가 있으면 밴픽·오브젝트·골드까지 함께 저장한다.
+// ⚠ 예전에는 players 와 win 만 써서, 수집기가 game 을 못 채운 세트는 손으로도
+//    채울 방법이 없었다 (8/1 GEN-DK 2세트가 그 사례 — 리그피디아엔 있는데 우리 칸만 빔).
+//    game 키가 **없으면** 기존 game 을 건드리지 않는다 (부분 저장이 기록을 지우면 안 된다).
 function saveDetailSet(matchId, setIndex, setData) {
   const d = Cache.details[matchId] = Cache.details[matchId] || { sets: [] };
   const pos = d.sets.findIndex(s => (s._idx ?? -1) === setIndex);
-  if (pos >= 0) d.sets[pos] = { _idx: setIndex, ...setData };
+  const prev = pos >= 0 ? d.sets[pos] : null;
+  const merged = { ...(prev || {}), ...setData, _idx: setIndex };
+  if (pos >= 0) d.sets[pos] = merged;
   else {
-    d.sets.push({ _idx: setIndex, ...setData });
+    d.sets.push(merged);
     d.sets.sort((x, y) => (x._idx ?? 0) - (y._idx ?? 0));   // 중간 세트를 채웠을 때 순서 유지
   }
-  sb.from("match_details").upsert({ match_id: matchId, set_index: setIndex, win: setData.win, players: setData.players })
+  const row = { match_id: matchId, set_index: setIndex, win: setData.win, players: setData.players };
+  if ("game" in setData) row.game = setData.game;
+  sb.from("match_details").upsert(row)
     .then(r => sbWriteFail(r.error, "saveDetailSet"));
 }
 function deleteDetailSet(matchId, setIndex) {

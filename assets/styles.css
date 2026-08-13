@@ -66,7 +66,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260813l") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260814a") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -1050,6 +1050,148 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
 .admin-note { padding:11px 15px; font-size: var(--fs-sm); color: var(--text-dim); line-height: 1.7; background: var(--bg-soft); border-top: 1px solid var(--line); }
 
 .empty-note { padding:31px; text-align: center; color: var(--text-dim); font-size: var(--fs-sm); }
+
+/* ── 경기 상세 입력기 ────────────────────────────────────────────
+   한 줄에 9칸을 밀어 넣던 예전 편집기를 구역별로 나눴다.
+   비어 있는 칸은 노란 테두리(.dt-blank)로 스스로 드러나게 한다. */
+.dt-gaps { border-top: 1px solid var(--line); }
+.dt-gaps-ok {
+  padding:14px 15px; font-size: var(--fs-sm); font-weight: 700;
+  color: #2e7d32; background: rgba(76,175,80,.10); border-bottom: 1px solid var(--line);
+}
+.dt-gaps-head {
+  padding:11px 15px; font-size: var(--fs-sm); font-weight: 700;
+  background: var(--bg-soft); border-bottom: 1px solid var(--line);
+}
+.dt-gaps-head b { color: var(--accent-solid); }
+.dt-gaps-head span { font-weight: 500; color: var(--text-dim); margin-left:6px; }
+.dt-gaps-list { max-height: 230px; overflow-y: auto; border-bottom: 1px solid var(--line); }
+.dt-gap {
+  display: flex; align-items: center; gap:10px; flex-wrap: wrap;
+  width: 100%; padding:8px 15px; text-align: left; cursor: pointer;
+  background: none; border: 0; border-bottom: 1px solid var(--line);
+  font-size: var(--fs-sm); color: var(--text);
+}
+.dt-gap:hover { background: var(--bg-soft); }
+.dt-gap-when { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.dt-gap-who { font-weight: 700; }
+.dt-gap-set { font-weight: 700; color: var(--accent-solid); }
+.dt-gap-miss { display: flex; gap:4px; flex-wrap: wrap; margin-left: auto; }
+.dt-gap-miss i {
+  font-style: normal; font-size: 11px; padding:1px 7px; border-radius: 9px;
+  color: #8a6d00; background: rgba(255,193,7,.18); border: 1px solid rgba(255,193,7,.45);
+}
+
+.dt-pick { display: flex; gap:8px; padding:11px 15px; flex-wrap: wrap; }
+.dt-pick #dt-search { flex: 1; min-width: 180px; }
+.dt-pick #dt-match { flex: 2; min-width: 220px; }
+
+.dt-sets { display: flex; gap:6px; padding:0 15px 11px; flex-wrap: wrap; }
+.dt-settab {
+  display: flex; flex-direction: column; align-items: center; gap:1px;
+  padding:6px 14px; cursor: pointer; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--bg-soft);
+  font-size: var(--fs-sm); font-weight: 700; color: var(--text-sub);
+}
+.dt-settab i { font-style: normal; font-size: 10px; font-weight: 600; }
+.dt-settab.gap i { color: #8a6d00; }
+.dt-settab.full i { color: #2e7d32; }
+.dt-settab.on { color: #fff; background: var(--accent-solid); border-color: var(--accent-solid); }
+.dt-settab.on i { color: rgba(255,255,255,.85); }
+
+.dt-sec { border-top: 1px solid var(--line); padding:14px 15px; }
+.dt-sec h3 { font-size: var(--fs-base); font-weight: 800; margin:0 0 11px; }
+.dt-hint { font-size: 11px; color: var(--text-dim); line-height: 1.7; margin:9px 0 0; }
+.dt-edit input, .dt-edit select { padding:5px 9px; font-size: var(--fs-sm); }
+/* 비어 있는 칸 — 눈에 띄되 오류처럼 빨갛지는 않게 */
+.dt-edit .dt-blank { border-color: rgba(255,193,7,.75); background: rgba(255,193,7,.08); }
+
+.dt-basic { display: flex; gap:11px; flex-wrap: wrap; }
+.dt-basic label { display: flex; flex-direction: column; gap:4px; font-size: 11px; color: var(--text-dim); }
+.dt-vs { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap:8px; margin:14px 0 8px; }
+.dt-vs-side { display: flex; align-items: center; gap:6px; font-weight: 700; font-size: var(--fs-sm); }
+.dt-vs-side.r { justify-content: flex-end; }
+.dt-vs-mid { font-size: 11px; color: var(--text-dim); }
+.dt-pair { display: grid; grid-template-columns: 1fr 72px 1fr; align-items: center; gap:8px; margin-bottom:7px; }
+.dt-pair em { font-style: normal; text-align: center; font-size: 11px; color: var(--text-dim); }
+.dt-pair .dt-num { width: 100%; text-align: center; font-variant-numeric: tabular-nums; }
+
+/* 챔피언 칸 — 타이핑 자동완성 + 아이콘 목록 버튼 */
+.dt-champ { display: flex; align-items: stretch; min-width: 0; }
+.dt-champ input { flex: 1; min-width: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.dt-champ-btn {
+  padding:0 8px; cursor: pointer; color: var(--text-dim);
+  background: var(--bg-soft); border: 1px solid var(--line); border-left: 0;
+  border-radius: 0 6px 6px 0; font-size: 12px;
+}
+.dt-champ-btn:hover { color: var(--text); }
+
+.dt-pb { display: grid; grid-template-columns: 1fr 1fr; gap:15px; }
+.dt-pb-col { min-width: 0; }
+.dt-pb-team { display: flex; align-items: center; gap:6px; font-size: var(--fs-sm); margin-bottom:8px; }
+.dt-pb-lbl { font-size: 11px; font-weight: 700; color: var(--text-dim); margin:9px 0 5px; }
+.dt-pb-lbl span { font-weight: 500; }
+.dt-pb-row { display: grid; grid-template-columns: 42px 1fr; align-items: center; gap:6px; margin-bottom:5px; }
+.dt-lane { font-size: 11px; font-weight: 700; color: var(--text-dim); }
+.dt-pb-bans { display: grid; grid-template-columns: 1fr 1fr; gap:5px; }
+
+/* 대립 구도는 가운데 이름칸을 사이에 두므로, 너무 넓으면 양옆이 텅 빈다.
+   폭을 묶어 두면 +− 버튼과 이름이 가까워져 마우스 이동도 줄어든다. */
+.dt-obj-head, .dt-obj-row, .dt-obj-sub { max-width: 620px; margin-left: auto; margin-right: auto; }
+.dt-obj-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap:8px; margin-bottom:9px; }
+.dt-obj-head span { display: flex; align-items: center; gap:6px; font-size: var(--fs-sm); font-weight: 700; }
+.dt-obj-head span.r { justify-content: flex-end; }
+.dt-obj-sub { font-size: 11px; font-weight: 700; color: var(--text-dim); margin:13px 0 7px; }
+.dt-obj-row { display: grid; grid-template-columns: 1fr 128px 1fr; align-items: center; gap:8px; margin-bottom:5px; }
+.dt-obj-name { display: flex; align-items: center; justify-content: center; gap:5px; font-size: 11px; color: var(--text-sub); }
+.dt-obj-name img { width: 18px; height: 18px; }
+.dt-obj-name i { font-style: normal; }
+/* 폭을 내용에 맞추고 가운데(목표물 이름) 쪽으로 붙인다.
+   1fr 을 다 채우면 테두리가 열 끝까지 늘어나 대립 구도가 안 읽힌다. */
+.dt-step {
+  display: flex; align-items: center; justify-content: center; gap:2px;
+  width: max-content; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--bg-soft); opacity:.55;
+}
+.dt-obj-row > .dt-step[data-side="a"] { justify-self: end; }
+.dt-obj-row > .dt-step[data-side="b"] { justify-self: start; }
+.dt-step.on { opacity: 1; border-color: var(--accent-solid); }
+.dt-step button {
+  width: 28px; height: 28px; cursor: pointer; background: none; border: 0;
+  font-size: 15px; font-weight: 700; color: var(--text-sub); line-height: 1;
+}
+.dt-step button:hover { color: var(--accent-solid); }
+.dt-step b { min-width: 22px; text-align: center; font-variant-numeric: tabular-nums; font-size: var(--fs-sm); }
+
+.dt-pteam { display: flex; align-items: center; gap:6px; font-size: var(--fs-sm); margin:13px 0 7px; }
+.dt-prow {
+  display: grid; align-items: center; gap:5px; margin-bottom:5px;
+  grid-template-columns: 108px 132px 88px 82px 62px 68px 1fr 110px;
+}
+.dt-prow > input { min-width: 0; }
+.dt-pname { display: flex; align-items: center; gap:5px; font-size: var(--fs-sm); min-width: 0; }
+.dt-pname b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dt-pname i { font-style: normal; font-size: 10px; color: var(--text-dim); }
+.dt-pkda { text-align: center; font-variant-numeric: tabular-nums; }
+.dt-pcs, .dt-pgold { text-align: center; }
+.dt-pspell, .dt-pitems, .dt-prunes { cursor: pointer; }
+
+.dt-actions { display: flex; justify-content: flex-end; gap:8px; padding:14px 15px; border-top: 1px solid var(--line); }
+
+/* 좁은 화면 — 가로로 밀어 넣지 않고 접는다 */
+@media (max-width: 860px) {
+  .dt-pb { grid-template-columns: 1fr; }
+  /* 이름 / 챔피언·스펠 / KDA·CS·골드 / 아이템 / 룬 — 숫자 셋이 한 줄에 모여야
+     어느 칸이 무엇인지 위치로 기억된다 (2열로 흩어지면 다시 헷갈린다) */
+  .dt-prow { grid-template-columns: repeat(6, 1fr); }
+  .dt-prow > .dt-pname { grid-column: 1 / -1; }
+  .dt-prow > .dt-champ { grid-column: span 3; }
+  .dt-prow > .dt-pspell { grid-column: span 3; }
+  .dt-prow > .dt-pkda, .dt-prow > .dt-pcs, .dt-prow > .dt-pgold { grid-column: span 2; }
+  .dt-prow > .dt-pitems, .dt-prow > .dt-prunes { grid-column: 1 / -1; }
+  .dt-obj-row { grid-template-columns: 1fr 104px 1fr; }
+  .dt-gap-miss { margin-left: 0; width: 100%; }
+}
 
 /* ── 팀 게시판 잠금 (다른 팀 팬이 글을 열었을 때) ── */
 .post-locked { padding:48px 26px; text-align: center; }

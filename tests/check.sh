@@ -102,6 +102,7 @@ node tests/post-embed.test.js || bad "post-embed.test 실패"
 node tests/post-ref-match.test.js || bad "post-ref-match.test 실패"
 node tests/draft.test.js || bad "draft.test 실패"
 node tests/post-draft.test.js || bad "post-draft.test 실패"
+node tests/detail-editor.test.js || bad "detail-editor.test 실패"
 node tests/team-board-private.test.js || bad "team-board-private.test 실패"
 
 # ── ⑥ vercel.json 이 유효한 JSON 인가 (_comment 키가 배포를 깬 전력) ──

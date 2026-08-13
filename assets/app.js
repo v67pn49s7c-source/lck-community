@@ -243,9 +243,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260813l")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260813l")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260813l")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814a")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814a")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814a")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -295,7 +295,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260813l");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814a");
 
   renderTabBar(groupName);
 }
@@ -1750,11 +1750,13 @@ function setScoreboardHTML(match, set) {
     </div>`;
 
   // 밴·픽 — 순서 그대로. 밴은 흐리게 + 사선.
-  const champs = (list, kind) => (list || []).map(c =>
+  // 빈 자리는 건너뛴다 — 손으로 일부만 채운 세트는 자리를 지키려고 빈 칸을 남겨 둔다
+  // (관리자 편집기가 1·3번 픽만 넣어도 라인이 안 밀리게 하려는 것)
+  const champs = (list, kind) => (list || []).filter(Boolean).map(c =>
     `<span class="sb-ch ${kind}" title="${esc(c)}">${ddChampHTML(c, 26) || esc(c)}</span>`).join("");
   const pickBanRow = (label, key, kind) => {
     const v = g[key];
-    if (!v || (!(v.a || []).length && !(v.b || []).length)) return "";
+    if (!v || (!(v.a || []).filter(Boolean).length && !(v.b || []).filter(Boolean).length)) return "";
     return `<div class="sb-pb">
       <div class="sb-pb-side">${champs(v.a, kind)}</div>
       <div class="sb-pb-lb">${label}</div>
