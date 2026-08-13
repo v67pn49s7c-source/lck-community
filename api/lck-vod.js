@@ -103,13 +103,19 @@ function agoToMs(text) {
 //   · 경기 시작 3시간 전 ~ 열흘 뒤 사이에 올라왔어야 한다
 //   · 날짜를 전혀 모르면 **거부한다** — 같은 대진이 시즌에 여러 번 있어서,
 //     확인 못 하는 영상을 걸면 엉뚱한 날 경기가 걸린다 (실제로 그랬다)
+// ⚠ 창을 넓게 잡으면 안 된다. 같은 대진이 **사흘 만에** 또 있다
+//   (8/9 DK vs KT, 8/12 KT vs DK). 10일로 잡았더니 8/9 경기에 8/12 영상이 걸렸다.
+//   하이라이트는 경기 다음 날 올라오므로 **경기 시작 ~ 이틀 뒤**면 충분하다.
+const VOD_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
+function vodWhen(item) {
+  const exact = Date.parse(item.published || "");
+  return Number.isFinite(exact) ? exact : agoToMs(item.publishedAgo);
+}
 function vodDateOK(item, at) {
   if (!Number.isFinite(at)) return true;              // 경기 시각을 모르면 판단 보류
-  const exact = Date.parse(item.published || "");
-  const approx = agoToMs(item.publishedAgo);
-  const when = Number.isFinite(exact) ? exact : approx;
+  const when = vodWhen(item);
   if (!Number.isFinite(when)) return false;           // 날짜를 모르는 영상은 쓰지 않는다
-  return when >= at - 3 * 60 * 60 * 1000 && when <= at + 10 * 24 * 60 * 60 * 1000;
+  return when >= at - 3 * 60 * 60 * 1000 && when <= at + VOD_WINDOW_MS;
 }
 
 function pickKoreanVod(items, a, b, matchAt) {
@@ -127,8 +133,10 @@ function pickKoreanVod(items, a, b, matchAt) {
     .filter(item => rankOf(item.title) < 2
       || /^\s*[A-Z0-9]+\s+vs\s+[A-Z0-9]+\s*\|/i.test(item.title))
     .filter(item => vodDateOK(item, at))
+    // 같은 등급이면 **경기 시각에 가장 가까운** 것. 최신순으로 뽑으면 같은 대진의
+    // 나중 경기 영상이 이깁니다 — 실제로 그렇게 잘못 걸렸다.
     .sort((x, y) => rankOf(x.title) - rankOf(y.title)
-      || Date.parse(y.published || "") - Date.parse(x.published || ""))[0] || null;
+      || Math.abs(vodWhen(x) - at) - Math.abs(vodWhen(y) - at))[0] || null;
 }
 
 // LCK 한국 공식 유튜브의 매치 하이라이트는 **경기 다음 날** 올라온다.

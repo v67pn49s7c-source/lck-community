@@ -211,6 +211,17 @@ assert.strictEqual(vodApi.pickKoreanVod([searchRows[0]], "DK", "KT", "2026-08-10
     "그 경기 직후 영상은 걸어야 함");
   assert.strictEqual(vodApi.pickKoreanVod([undated], "KRX", "BFX", today), null,
     "날짜를 전혀 모르는 영상은 쓰지 않는다 (확인 못 하면 안 건다)");
+  // 같은 대진이 **사흘 만에** 또 있다 — 8/9 DK vs KT, 8/12 KT vs DK.
+  // 창을 넓게 잡거나 '최신순' 으로 뽑으면 8/9 화면에 8/12 영상이 걸린다 (실제 사고).
+  const both = [
+    { videoId: "m109aaaaaaa", title: "DK vs KT | 매치 109 하이라이트 | 2026 LCK", published: "2026-08-09T11:12:00Z" },
+    { videoId: "m112bbbbbbb", title: "KT vs DK | 매치 112 하이라이트 | 2026 LCK", published: "2026-08-12T13:14:00Z" },
+  ];
+  assert.strictEqual(vodApi.pickKoreanVod(both, "DK", "KT", "2026-08-09T08:00:00Z").videoId, "m109aaaaaaa",
+    "8/9 경기에는 8/9 영상이 걸려야 함");
+  assert.strictEqual(vodApi.pickKoreanVod(both, "KT", "DK", "2026-08-12T10:00:00Z").videoId, "m112bbbbbbb",
+    "8/12 경기에는 8/12 영상이 걸려야 함");
+
   // 검색 결과에서 상대 시간을 실제로 읽어 오는가
   const parsed = vodApi.parseSearchPage(`<script>var ytInitialData = ${JSON.stringify({
     contents: [{ videoRenderer: { videoId: "abcdefghijk", title: { simpleText: "A vs B" },
