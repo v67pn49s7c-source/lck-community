@@ -348,9 +348,9 @@ function renderHeader(activeMenu, activeTeamId) {
           stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814i")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814i")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814i")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814k")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814k")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814k")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -389,7 +389,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814i");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814k");
 
   renderTabBar(groupName);
 }
@@ -1471,44 +1471,88 @@ function renderHomeFeature() {
   }));
 }
 
-// ── 내 응원팀 한 줄 ──────────────────────────────────────────────
-// 응원팀을 고른 사람에게만 뜬다. 다른 팀 정보를 밀어내지 않도록 **한 줄**로 둔다.
+// ── 내 응원 한 줄 ────────────────────────────────────────────────
+// 최애팀 + 관심팀(최대 2) + 오늘 뛰는 최애선수를 **한 덩어리**로 보여 준다.
+// ⚠ 다른 팀 정보를 밀어내지 않게 아직도 '줄' 이다 — 카드로 키우면 홈 본문이 아래로 밀린다.
+// 권리는 최애팀에만 있다 (관심팀은 열람·노출뿐 — store.js 의 A안 주석 참고).
 function renderHomeMyTeam() {
   const el = document.getElementById("home-myteam");
   if (!el) return;
   const fav = typeof getFavTeam === "function" ? getFavTeam() : null;
   const team = fav ? TEAM_MAP[fav] : null;
-  if (!team) { el.style.display = "none"; return; }
+  const subs = (typeof getSubTeams === "function" ? getSubTeams() : []).map(id => TEAM_MAP[id]).filter(Boolean);
+  const favPlayers = typeof getFavPlayers === "function" ? getFavPlayers() : [];
+  if (!team && !subs.length && !favPlayers.length) { el.style.display = "none"; return; }
 
   const now = Date.now();
-  const next = sortedMatches().filter(m => knownTeams(m) && m.status !== "done" &&
-    (m.a === fav || m.b === fav) &&
-    (m.status === "live" || new Date(m.at).getTime() > now))[0];
-  const roster = teamPlayers(fav).slice(0, 5).map(p => p.nick).join(" · ");
+  const upcoming = sortedMatches().filter(m => knownTeams(m) && m.status !== "done" &&
+    (m.status === "live" || new Date(m.at).getTime() > now));
+  const nextOf = id => upcoming.find(m => m.a === id || m.b === id);
 
   el.style.display = "";
-  el.style.setProperty("--team-color", team.color);
-  if (!next) {
-    el.innerHTML = `
-      <span class="myteam-tag">MY TEAM</span>
-      ${teamLogoHTML(team, 26)}<b class="myteam-name">${esc(team.abbr)}</b>
-      <span class="myteam-when">예정된 경기 없음</span>
-      <a class="myteam-go" href="team.html?id=${q(team.id)}">팀 홈 ›</a>`;
-    return;
+  el.style.setProperty("--team-color", team ? team.color : "var(--accent)");
+
+  // ① 최애팀 줄
+  let html = "";
+  if (team) {
+    const next = nextOf(fav);
+    const foe = next ? TEAM_MAP[next.a === fav ? next.b : next.a] : null;
+    html += `
+      <div class="myteam-row">
+        <span class="myteam-tag">MY TEAM</span>
+        ${teamLogoHTML(team, 26)}<b class="myteam-name">${esc(team.abbr)}</b>
+        ${next ? `
+          <span class="myteam-when">${next.status === "live" ? "지금 경기 중"
+            : `${esc(homeDayLabel(next.at))} ${esc(fmtHM(next.at))}`}</span>
+          <span class="myteam-foe">vs ${teamLogoHTML(foe, 18)}<i>${esc(foe.abbr)}</i></span>
+          <a class="myteam-go" href="/match/${q(next.id)}">응원하러 가기 ›</a>`
+        : `<span class="myteam-when">예정된 경기 없음</span>
+           <a class="myteam-go" href="team.html?team=${q(team.id)}">팀 홈 ›</a>`}
+      </div>`;
   }
-  const foe = TEAM_MAP[next.a === fav ? next.b : next.a];
-  el.innerHTML = `
-    <span class="myteam-tag">MY TEAM</span>
-    ${teamLogoHTML(team, 26)}<b class="myteam-name">${esc(team.abbr)}</b>
-    <span class="myteam-when">${next.status === "live" ? "지금 경기 중"
-      : `${esc(homeDayLabel(next.at))} ${esc(fmtHM(next.at))}`}</span>
-    <span class="myteam-foe">vs ${teamLogoHTML(foe, 18)}<i>${esc(foe.abbr)}</i></span>
-    ${roster ? `<span class="myteam-roster">${esc(roster)}</span>` : ""}
-    <a class="myteam-go" href="/match/${q(next.id)}">응원하러 가기 ›</a>`;
+
+  // ② 관심팀 — 다음 경기만 짧게. 권리가 없으므로 '응원하러 가기' 대신 경기 링크만.
+  if (subs.length) {
+    html += `
+      <div class="myteam-row subs">
+        <span class="myteam-tag sub">관심팀</span>
+        ${subs.map(t => {
+          const n = nextOf(t.id);
+          const foe = n ? TEAM_MAP[n.a === t.id ? n.b : n.a] : null;
+          return `<a class="myteam-sub" href="${n ? `/match/${q(n.id)}` : `team.html?team=${q(t.id)}`}"
+            style="--team-color:${esc(t.color)}">
+            ${teamLogoHTML(t, 18)}<b>${esc(t.abbr)}</b>
+            <span>${n ? (n.status === "live" ? "경기 중" : `${esc(fmtHM(n.at))} vs ${esc(foe.abbr)}`) : "경기 없음"}</span>
+          </a>`;
+        }).join("")}
+      </div>`;
+  }
+
+  // ③ 오늘 뛰는 최애선수 — 경기가 있는 선수만. 없으면 줄 자체를 안 만든다.
+  const todayKey = fmtDayKey(new Date());
+  const playing = favPlayers.map(id => getPlayer(id)).filter(Boolean).map(p => {
+    const m = upcoming.find(x => (x.a === p.team || x.b === p.team) && fmtDayKey(x.at) === todayKey);
+    return m ? { p, m } : null;
+  }).filter(Boolean);
+  if (playing.length) {
+    html += `
+      <div class="myteam-row players">
+        <span class="myteam-tag sub">오늘 출전</span>
+        ${playing.map(({ p, m }) => {
+          const t = TEAM_MAP[p.team];
+          const foe = TEAM_MAP[m.a === p.team ? m.b : m.a];
+          const photo = typeof playerPhotoURL === "function" ? playerPhotoURL(p, 64) : null;
+          return `<a class="myteam-player" href="/match/${q(m.id)}" style="--team-color:${esc(t.color)}">
+            ${photo ? `<img src="${esc(photo)}" alt="" loading="lazy" decoding="async">` : teamLogoHTML(t, 18)}
+            <b>${esc(p.nick)}</b><span>${esc(fmtHM(m.at))} vs ${esc(foe.abbr)}</span>
+          </a>`;
+        }).join("")}
+      </div>`;
+  }
+
+  el.innerHTML = html;
 }
 
-// 가장 가까운 경기 날짜의 모든 경기를 팀 메뉴 바로 위 얇은 바로 보여 준다.
-// LCK는 보통 하루 2경기지만 휴식기·플레이오프의 1경기도 같은 코드로 자연스럽게 처리한다.
 /** 응원팀 고르기 바 — 아직 응원팀을 안 고른 사람에게만 뜨는 얇은 한 줄.
  *
  *  왜 큰 온보딩 화면이 아니라 바인가 — 홈 위쪽엔 이미 '오늘의 경기 바'와

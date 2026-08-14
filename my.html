@@ -13,10 +13,10 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260814i">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260814i">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260814k">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260814k">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260814i">
+  <link rel="stylesheet" href="assets/styles.css?v=20260814k">
 </head>
 <body>
   <main class="page">
@@ -87,11 +87,11 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260814i"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260814i"></script>
-  <script src="assets/store.js?v=20260814i"></script>
-  <script src="assets/app.js?v=20260814i"></script>
-  <script src="assets/story.js?v=20260814i"></script>
+  <script src="assets/data.js?v=20260814k"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260814k"></script>
+  <script src="assets/store.js?v=20260814k"></script>
+  <script src="assets/app.js?v=20260814k"></script>
+  <script src="assets/story.js?v=20260814k"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("MY", null);
@@ -142,12 +142,65 @@
                 : `<span style="color:var(--text-dim)">비회원 선택은 이 브라우저에만 남습니다</span>`)
             : `<b style="color:var(--accent)">응원팀은 ${FAV_COOLDOWN_DAYS}일에 한 번만 바꿀 수 있습니다</b>
                <span style="color:var(--text-dim)"> · 다음 변경 가능일 ${esc(fmtMD(lock.at))} (${lock.days}일 남음)</span>`}
+        </div>
+        <div id="fandom-extra"></div>`;
+      // ── 관심팀 · 최애선수 (A안) ──────────────────────────
+      // 관심팀은 열람·홈 노출만. 글쓰기·평점 집계는 최애팀만 — 그래서 잠금도 없다.
+      const subs = getSubTeams();
+      const favPl = getFavPlayers();
+      const rosterAll = [...TEAMS].flatMap(x => teamPlayers(x.id));
+      document.getElementById("fandom-extra").innerHTML = `
+        <div class="admin-note" style="padding-bottom:6px">
+          <b>관심팀</b> <span style="color:var(--text-dim)">최대 ${SUB_TEAM_MAX}개 · 언제든 바꿀 수 있어요
+            · 홈에 경기가 함께 보입니다 (글쓰기·평점 집계는 최애팀만)</span>
+          <div class="fav-pick">${TEAMS.filter(x => x.id !== (rec.fav || "")).map(x =>
+            `<button data-sub="${esc(x.id)}" class="${subs.includes(x.id) ? "active" : ""}" style="--pick-color:${x.color}"
+              title="${esc(x.name)}">${teamLogoHTML(x, 18)} ${esc(x.abbr)}</button>`).join("")}</div>
+        </div>
+        <div class="admin-note" style="padding-bottom:6px">
+          <b>최애선수</b> <span style="color:var(--text-dim)">최대 ${FAV_PLAYER_MAX}명 · 안 골라도 됩니다
+            · 고른 선수가 오늘 뛰면 홈에 표시됩니다</span>
+          <div class="fav-players">${favPl.map(id => {
+            const p = getPlayer(id); if (!p) return "";
+            const t = TEAM_MAP[p.team];
+            return `<button class="fav-player on" data-pl="${esc(p.id)}" style="--pick-color:${t ? t.color : "var(--accent)"}">
+              ${teamLogoHTML(t, 16)}<b>${esc(p.nick)}</b><i>✕</i></button>`;
+          }).join("") || `<span style="color:var(--text-dim);font-size:var(--fs-xs)">아직 고른 선수가 없습니다</span>`}</div>
+          <div class="row" style="margin-top:7px">
+            <select id="pl-add" style="max-width:260px">
+              <option value="">선수 추가…</option>
+              ${TEAMS.map(x => `<optgroup label="${esc(x.abbr)}">${teamPlayers(x.id)
+                .filter(p => !favPl.includes(p.id))
+                .map(p => `<option value="${esc(p.id)}">${esc(p.nick)} (${esc(p.pos || "")})</option>`).join("")}</optgroup>`).join("")}
+            </select>
+          </div>
         </div>`;
+
       document.querySelectorAll("[data-fav]").forEach(b => b.addEventListener("click", async () => {
         const r = await setFavTeam(b.dataset.fav === (rec.fav || "") ? "" : b.dataset.fav);
         if (r && r.error) { alert(r.error); return; }
         render();
       }));
+      document.querySelectorAll("[data-sub]").forEach(b => b.addEventListener("click", async () => {
+        const id = b.dataset.sub;
+        const cur = getSubTeams();
+        const next = cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id];
+        if (next.length > SUB_TEAM_MAX) { alert(`관심팀은 ${SUB_TEAM_MAX}개까지 고를 수 있습니다.`); return; }
+        const r = await setSubTeams(next);
+        if (r && r.error) { alert(r.error); return; }
+        render();
+      }));
+      document.querySelectorAll("[data-pl]").forEach(b => b.addEventListener("click", async () => {
+        const r = await toggleFavPlayer(b.dataset.pl);
+        if (r && r.error) { alert(r.error); return; }
+        render();
+      }));
+      document.getElementById("pl-add")?.addEventListener("change", async e => {
+        if (!e.target.value) return;
+        const r = await toggleFavPlayer(e.target.value);
+        if (r && r.error) { alert(r.error); e.target.value = ""; return; }
+        render();
+      });
 
       // ── 배지 ──
       const next = []; // 다음 목표 안내

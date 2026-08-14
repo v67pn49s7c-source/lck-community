@@ -166,7 +166,9 @@ function snapshotSave() {
     Object.entries(settings).forEach(([k, v]) => { if (!k.startsWith("logo_")) light[k] = v; });
     localStorage.setItem(SNAP_KEY, JSON.stringify({
       t: Date.now(), c: { ...rest, settings: light },
-      a: Auth.profile ? { id: Auth.profile.id, nick: Auth.profile.nick, fav_team: Auth.profile.fav_team, is_admin: !!Auth.profile.is_admin } : null,
+      a: Auth.profile ? { id: Auth.profile.id, nick: Auth.profile.nick, fav_team: Auth.profile.fav_team,
+        is_admin: !!Auth.profile.is_admin,
+        sub_teams: Auth.profile.sub_teams || [], fav_players: Auth.profile.fav_players || [] } : null,
       s: Auth.session ? { user: { id: Auth.session.user.id, email: Auth.session.user.email } } : null,
     }));
   } catch (e) { /* 용량 초과 등은 무시 — 스냅샷은 있으면 좋은 것 */ }
@@ -213,9 +215,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814i"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814i"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814i"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814k"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814k"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814k"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -1435,7 +1437,75 @@ async function setFavTeam(teamId) {
     return { error: r.error.message || "응원팀을 바꾸지 못했습니다" };
   }
   Auth.profile.fav_team_changed_at = new Date().toISOString();
+  // 최애팀을 바꾸면 관심팀에서 겹치는 것을 뺀다 (서버도 같이 정리한다 — schema29)
+  if (Array.isArray(Auth.profile.sub_teams))
+    Auth.profile.sub_teams = Auth.profile.sub_teams.filter(t => t !== teamId);
   return {};
+}
+
+// ── 다중 응원 (A안) ─────────────────────────────────────────
+// 최애팀 1 (글쓰기·평점 집계·창립 팬 자격 · 30일 잠금)
+//  + 관심팀 2 (열람·홈 노출만 · 잠금 없음)
+//  + 최애선수 5 (팀 무관 · 안 골라도 됨)
+//
+// ⚠ 관심팀에는 **권리를 주지 않는다.** 팀 게시판은 그 팀 팬 전용이라는 원칙과
+//   평점 own/opp 분리 집계의 기준이 흐려지기 때문이다 (canPostToTeam 참고).
+const SUB_TEAM_MAX = 2;
+const FAV_PLAYER_MAX = 5;
+
+/** 관심팀 목록. 비회원은 이 브라우저에만 남는다. */
+function getSubTeams() {
+  if (Auth.profile && Array.isArray(Auth.profile.sub_teams)) return Auth.profile.sub_teams.slice(0, SUB_TEAM_MAX);
+  try { return (JSON.parse(localStorage.getItem("nexus_sub_teams") || "[]") || []).slice(0, SUB_TEAM_MAX); }
+  catch { return []; }
+}
+/** 최애선수 목록. 로스터에서 사라진 선수는 조용히 걸러낸다. */
+function getFavPlayers() {
+  const raw = (Auth.profile && Array.isArray(Auth.profile.fav_players))
+    ? Auth.profile.fav_players
+    : (() => { try { return JSON.parse(localStorage.getItem("nexus_fav_players") || "[]") || []; } catch { return []; } })();
+  return raw.filter(id => Cache.players.some(p => p.id === id)).slice(0, FAV_PLAYER_MAX);
+}
+function isFavPlayer(id) { return getFavPlayers().includes(id); }
+
+/** 내가 챙겨 보는 팀 전부 (최애 + 관심). 홈 노출처럼 **권리가 없는** 곳에만 쓴다. */
+function myTeams() {
+  const fav = getFavTeam();
+  return [fav, ...getSubTeams()].filter(Boolean);
+}
+
+async function setSubTeams(list) {
+  const fav = getFavTeam();
+  const clean = [...new Set((list || []).filter(t => t && t !== fav))].slice(0, SUB_TEAM_MAX);
+  try { localStorage.setItem("nexus_sub_teams", JSON.stringify(clean)); } catch {}
+  if (!Auth.profile) return {};
+  const before = Auth.profile.sub_teams;
+  Auth.profile.sub_teams = clean;
+  const r = await sb.rpc("set_sub_teams", { p_teams: clean });
+  // SQL 을 아직 안 돌린 DB 에서도 화면은 그대로 동작해야 한다 (이 브라우저에만 남는다)
+  if (isMissingFunction(r.error)) return {};
+  if (r.error) { Auth.profile.sub_teams = before; return { error: r.error.message }; }
+  return {};
+}
+
+async function setFavPlayers(list) {
+  const clean = [...new Set((list || []).filter(Boolean))].slice(0, FAV_PLAYER_MAX);
+  try { localStorage.setItem("nexus_fav_players", JSON.stringify(clean)); } catch {}
+  if (!Auth.profile) return {};
+  const before = Auth.profile.fav_players;
+  Auth.profile.fav_players = clean;
+  const r = await sb.rpc("set_fav_players", { p_players: clean });
+  if (isMissingFunction(r.error)) return {};
+  if (r.error) { Auth.profile.fav_players = before; return { error: r.error.message }; }
+  return {};
+}
+
+/** 최애선수 켜기·끄기. 5명을 넘으면 막고 이유를 돌려준다. */
+async function toggleFavPlayer(id) {
+  const cur = getFavPlayers();
+  if (cur.includes(id)) return setFavPlayers(cur.filter(x => x !== id));
+  if (cur.length >= FAV_PLAYER_MAX) return { error: `최애선수는 ${FAV_PLAYER_MAX}명까지 고를 수 있습니다.` };
+  return setFavPlayers([...cur, id]);
 }
 
 // ── 팬 여권: 내 시즌 기록 집계 ─────────────────────────────

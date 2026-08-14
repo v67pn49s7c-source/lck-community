@@ -79,12 +79,23 @@ ok(/const storyGap = homeStoryWeight\(b\) - homeStoryWeight\(a\)/.test(app),
   "팬 참여 수보다 서사 강도가 먼저");
 
 // ── 내 응원팀 ───────────────────────────────────────────
-const my = app.slice(app.indexOf("function renderHomeMyTeam"));
-ok(/if \(!team\) \{ el\.style\.display = "none"; return; \}/.test(my), "안 고른 사람에겐 안 보여야 함");
+const my = app.slice(app.indexOf("function renderHomeMyTeam"), app.indexOf("function renderHomeMatchBar"));
+ok(/if \(!team && !subs\.length && !favPlayers\.length\) \{ el\.style\.display = "none"; return; \}/.test(my),
+  "최애팀·관심팀·최애선수가 하나도 없으면 안 보여야 함");
 ok(/예정된 경기 없음/.test(my), "다음 경기가 없어도 깨지지 않아야 함");
+// A안 — 권리는 최애팀에만. 관심팀 줄에 글쓰기·응원 동선을 주면 안 된다
+ok(/응원하러 가기/.test(my.slice(0, my.indexOf("myteam-row subs"))),
+  "'응원하러 가기' 는 최애팀 줄에만");
+ok(!/응원하러 가기/.test(my.slice(my.indexOf("myteam-row subs"))),
+  "관심팀·선수 줄에는 응원 동선을 주지 않는다 (권리 차등이 눈에도 보여야 한다)");
+ok(/오늘 출전/.test(my) && /fmtDayKey\(x\.at\) === todayKey/.test(my),
+  "최애선수는 **오늘 경기가 있을 때만** 보여 준다");
 ok(/renderHomeMyTeam\(\);/.test(app.slice(app.indexOf("async function initHome"))),
   "홈을 그릴 때 같이 그려야 함");
-ok(/\.myteam-roster \{[^}]*text-overflow: ellipsis/.test(css), "로스터가 길어도 줄이 안 밀려야 함");
+ok(/\.myteam-row \+ \.myteam-row \{[^}]*border-top/.test(css),
+  "최애팀·관심팀·선수 줄은 선으로 나뉘어야 함 (한 덩어리로 뭉치면 뭐가 뭔지 안 읽힌다)");
+ok(/\.myteam-tag\.sub \{[^}]*var\(--text-dim\)/.test(css),
+  "관심팀·선수 표식은 최애팀보다 한 단계 조용해야 함 (권리 차이가 눈에도 보이게)");
 
 // ── 저장 ────────────────────────────────────────────────
 const save = store.slice(store.indexOf("async function setMatchStory"));
@@ -113,5 +124,31 @@ const tiny = css.slice(css.indexOf("@media (max-width: 560px)"));
 ok(/\.hero-cheer, \.hero-links \{ display: grid; grid-template-columns: 1fr 1fr/.test(tiny),
   "좁은 화면에서 버튼은 2칸씩 (가로로 밀리면 안 됨)");
 ok(/\.hero-face \{ width: 76px; height: 76px; \}/.test(tiny), "좁은 화면에서 얼굴 크기 조정");
+
+// ── 다중 응원 (A안) ─────────────────────────────────────
+// ⚠ 이 파일들은 함수 정의가 통째로 사라져도 node --check 는 통과한다.
+//   실제로 블록을 교체하다 renderFanPickBar 를 지워 홈 전체가 죽은 적이 있다 (2026-08-14).
+//   화면을 그리는 데 꼭 필요한 함수는 여기서 이름으로 확인한다.
+["renderHeader", "renderFanPickBar", "renderHomeMatchBar", "renderHomeFeature",
+ "renderHomeMyTeam", "teamStripHTML", "navDrawerHTML", "authSlotHTML"].forEach(fn =>
+  ok(new RegExp(`function ${fn}\\(`).test(app), `app.js 에 ${fn} 가 있어야 함`));
+["getSubTeams", "getFavPlayers", "setSubTeams", "setFavPlayers", "toggleFavPlayer", "myTeams"]
+  .forEach(fn => ok(new RegExp(`function ${fn}\\(`).test(store), `store.js 에 ${fn} 가 있어야 함`));
+
+const sql = read("supabase/schema29_fandom_multi.sql");
+ok(/add column if not exists sub_teams   text\[\]/.test(sql), "관심팀 칸");
+ok(/add column if not exists fav_players text\[\]/.test(sql), "최애선수 칸");
+ok(/array_length\(clean, 1\) > 2/.test(sql), "관심팀은 서버에서도 2개까지");
+ok(/array_length\(clean, 1\) > 5/.test(sql), "최애선수는 서버에서도 5명까지");
+ok(/and t is distinct from cur/.test(sql), "최애팀은 관심팀이 될 수 없다");
+ok(/join public\.players p on p\.id = x\.id/.test(sql), "없는 선수 id 는 걸러낸다");
+ok(/'sub_teams', coalesce\(r\.sub_teams/.test(sql), "my_profile 이 새 칸을 돌려줘야 함");
+ok(/sub_teams = coalesce\(/.test(sql), "최애팀을 바꾸면 관심팀에서 겹치는 것을 뺀다");
+// A안의 핵심 — 관심팀에는 권리를 주지 않는다
+const canPost = store.slice(store.indexOf("function canPostToTeam"), store.indexOf("function canPostToTeam") + 260);
+ok(/Auth\.profile\?\.fav_team === teamId/.test(canPost) && !/sub_teams/.test(canPost),
+  "팀 게시판 글쓰기는 최애팀만 — 관심팀이 끼면 '그 팀 팬 전용' 원칙이 무너진다");
+ok(/isMissingFunction\(r\.error\)/.test(store.slice(store.indexOf("async function setSubTeams"))),
+  "SQL 을 아직 안 돌린 DB 에서도 화면은 살아야 함");
 
 console.log(`\nfandom-story.test: ${n} 통과, 0 실패`);
