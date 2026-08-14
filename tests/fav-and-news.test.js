@@ -54,6 +54,16 @@ const nf = app.slice(app.indexOf("async function renderHomeNews"), app.indexOf("
 ok(/if \(!items\.length\) return;/.test(nf),
   "기사가 없으면 카드 자체를 감춘다 — 빈 상자가 홈에 남는 것보다 낫다");
 ok(/catch \{ return; \}/.test(nf), "서버 함수가 없는 환경(로컬)에서도 조용히 넘어가야 함");
+// ⚠ api/_lib.js 의 ok() 는 본문을 **그대로** 보낸다 (data 로 감싸지 않는다).
+//   j.data.items 로만 읽어서 배포 후 뉴스가 0건으로 나온 적이 있다 (2026-08-15).
+const lib = read("api/_lib.js");
+ok(/res\.status\(200\)\.send\(JSON\.stringify\(body\)\)/.test(lib),
+  "ok() 는 본문을 감싸지 않는다 — 이 전제가 바뀌면 아래 두 줄도 같이 고쳐야 함");
+ok(/j\.items \|\| \(j\.data && j\.data\.items\)/.test(nf),
+  "뉴스는 감싸지 않은 모양을 먼저 읽어야 함");
+const store = read("assets/store.js");
+ok(/const body = \(j && j\.data\) \|\| j \|\| \{\};/.test(store),
+  "일정 동기화도 같은 실수를 했다 — 감싸지 않은 모양을 함께 읽어야 함");
 ok(/let newsLoaded = false/.test(app), "홈을 여러 번 그려도 뉴스는 한 번만 받는다");
 ok(/target="_blank" rel="noopener noreferrer"/.test(nf), "외부 링크는 새 창 + noopener");
 ok(/-webkit-line-clamp: 2/.test(css), "긴 제목이 카드를 밀지 않게 두 줄로 자른다");

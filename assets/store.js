@@ -215,9 +215,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814n"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814n"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814n"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814o"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814o"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814o"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -2402,7 +2402,10 @@ async function pingScheduleSync() {
     const r = await fetch("/api/schedule-sync", { method: "GET", keepalive: true });
     j = r.ok ? await r.json() : null;
   } catch { return; }              // 로컬 개발 등 서버 함수가 없으면 조용히 넘어간다
-  const n = j && j.data ? Number(j.data.결과변경) || 0 : 0;
+  // ⚠ 서버(ok())는 본문을 그대로 보낸다. j.data 로만 읽으면 늘 0 이라
+  //    "결과가 들어오면 화면을 다시 그린다" 가 영영 안 돌았다. (2026-08-15)
+  const body = (j && j.data) || j || {};
+  const n = Number(body.결과변경) || 0;
   if (!n) return;
   // 새 결과가 들어왔다 — 데이터를 다시 받아 **이번 방문자에게 바로** 보여 준다.
   try {

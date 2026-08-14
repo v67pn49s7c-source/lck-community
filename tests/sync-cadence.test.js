@@ -56,7 +56,11 @@ ok(sync.indexOf('saveSetting("schedule_sync"') < sync.indexOf("await fetchSchedu
 
 // ── 브라우저: 이번 방문자에게 바로 보여 준다 ────────────
 const ping = store.slice(store.indexOf("async function pingScheduleSync"), store.indexOf("storeFresh.then(pingScheduleSync)"));
-ok(/Number\(j\.data\.결과변경\)/.test(ping), "결과변경 값으로 판단해야 함");
+ok(/Number\(body\.결과변경\)/.test(ping), "결과변경 값으로 판단해야 함");
+// ⚠ 서버의 ok() 는 본문을 감싸지 않는다. j.data 로만 읽어서 이 기능이 배포 후
+//   내내 안 돌았다 (2026-08-15). 감싼 모양·안 감싼 모양을 함께 받는다.
+ok(/const body = \(j && j\.data\) \|\| j \|\| \{\};/.test(ping),
+  "감싸지 않은 응답도 읽어야 함");
 ok(!/갱신한경기/.test(ping), "갱신한경기(=늘 전체 일정 수)로 판단하면 안 됨");
 ok(/await fetchAll\(\)/.test(ping), "새 결과가 오면 데이터를 다시 받아야 함");
 ok(/if \(storeRedraw\) \{ try \{ storeRedraw\(\); return; \}/.test(ping), "화면을 다시 그려야 함");
