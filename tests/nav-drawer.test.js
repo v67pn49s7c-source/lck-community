@@ -31,6 +31,12 @@ ok(/nav-drawer-back" data-close/.test(app), "바깥을 눌러도 닫혀야 함")
 ok(/document\.body\.classList\.toggle\("nav-open-lock", on\)/.test(app),
   "열려 있는 동안 뒤 본문이 같이 스크롤되면 안 됨");
 ok(/body\.nav-open-lock \{ overflow: hidden; \}/.test(css), "그 잠금 스타일");
+// 데스크탑에는 상단 가로 메뉴가 이미 다 있다 — 길이 둘이면 헷갈린다
+ok(/\.nav-open \{ display: none;/.test(css), "햄버거는 기본이 숨김");
+ok(/@media \(max-width: 720px\) \{ \.nav-open \{ display: inline-flex; \} \}/.test(css),
+  "가로 메뉴가 숨는 720px 이하에서만 햄버거를 띄운다");
+ok(/@media \(max-width: 720px\)[\s\S]*?\.main-nav \{ display: none; \}/.test(css),
+  "그 전제(720px 이하에서 가로 메뉴가 숨는다)가 유지돼야 함");
 ok(/\.nav-drawer\[hidden\] \{ display: none; \}/.test(css),
   "hidden 만으로는 flex 가 이겨서 안 사라진다 — 명시해야 함");
 
@@ -56,5 +62,20 @@ const FILES = ["assets/styles.css", "assets/app.js", "assets/board.js",
   "live.html", "race.html", "awards.html", "player.html", "admin.html"];
 const tiny = FILES.flatMap(f => (read(f).match(/font-size: ?(9|10|11)px/g) || []).map(() => f));
 ok(tiny.length === 0, `9~11px 글씨가 남아 있다 — 휴대폰에서 안 읽힌다: ${[...new Set(tiny)].join(", ")}`);
+
+// ── 계정 칸: 모르는 것을 단정하지 않는다 ────────────────
+// 운영자 계정이 한 번씩 "프로필 설정 필요" 로 보인 사고 (2026-08-14)
+const store = read("assets/store.js");
+ok(/profileKnown: false/.test(store), "프로필을 확정했는지 따로 들고 있어야 함");
+ok(/\} else if \(r\.error\) \{[\s\S]{0,400}sbErr\(r\.error, "my_profile"\);/.test(store),
+  "my_profile 이 실패하면 기존 프로필을 지우면 안 됨 (지우면 스냅샷에 저장돼 계속 남는다)");
+ok(/Auth\.profile = r\.data \|\| null;\s*\n\s*Auth\.profileKnown = true;/.test(store),
+  "성공했을 때만 확정으로 표시");
+ok(/function authSlotHTML\(\)/.test(app) && /Auth\.profileKnown/.test(app),
+  "확인된 뒤에만 '프로필 설정 필요' 라고 말해야 함");
+ok(/is-loading" href="my\.html"/.test(app), "모르는 동안은 중립 표시");
+ok(/function refreshAuthSlot\(\)/.test(app) && /refreshAuthSlot\(\)/.test(store),
+  "서버 답이 오면 계정 칸을 고쳐 그려야 함");
+ok(/\.user-chip\.is-loading \{/.test(css), "그 중립 상태 스타일");
 
 console.log(`\nnav-drawer.test: ${n} 통과, 0 실패`);

@@ -222,6 +222,36 @@ function noIndex() {
   document.head.appendChild(m);
 }
 
+/** 헤더 오른쪽 계정 칸.
+ *
+ *  ⚠ "프로필 설정 필요" 는 **확인된 사실일 때만** 말한다.
+ *     예전에는 Auth.profile 이 비어 있기만 하면 그렇게 적었는데, 프로필은
+ *     스냅샷으로 먼저 그린 뒤 서버 답을 나중에 받는 구조라 "아직 모르는" 순간이
+ *     늘 있다. 그래서 멀쩡한 운영자 계정이 한 번씩 '프로필 설정 필요' 로 보였다.
+ *     (2026-08-14 제보) 모를 때는 아무 단정도 하지 않고 조용히 기다린다. */
+function authSlotHTML() {
+  if (!Auth.session) return `<a class="btn-login" href="login.html">로그인</a>`;
+  const out = Auth.profile
+    ? `<a class="user-chip" href="my.html" title="팬 여권 보기">${esc(Auth.profile.nick)}</a>`
+    : (Auth.profileKnown
+      ? `<a class="user-chip" href="login.html" title="닉네임·응원팀을 설정해 주세요">프로필 설정 필요</a>`
+      : `<a class="user-chip is-loading" href="my.html" title="불러오는 중">내 계정</a>`);
+  return out + `<button class="btn-login" id="btn-signout">로그아웃</button>`;
+}
+
+/** 서버 답이 도착하면 계정 칸만 조용히 고쳐 그린다 (헤더 전체를 다시 그리면 깜빡인다). */
+function refreshAuthSlot() {
+  const slot = document.getElementById("auth-slot");
+  if (!slot) return;
+  const next = authSlotHTML();
+  if (slot.innerHTML === next) return;
+  slot.innerHTML = next;
+  slot.querySelector("#btn-signout")?.addEventListener("click", async () => {
+    await sbSignOut();
+    location.reload();
+  });
+}
+
 /** 상단 팀 줄 — **로고만** 둔다.
  *  약자(BFX·BRO…)를 로고 밑에 또 적으면 로고 자체에 이미 이름이 들어 있어 겹쳐 읽힌다.
  *  이미 그 팀 게시판에 들어와 있으면(activeTeamId) 줄 자체를 그리지 않는다 —
@@ -318,9 +348,9 @@ function renderHeader(activeMenu, activeTeamId) {
           stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814h")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814h")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814h")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814i")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814i")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814i")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -331,12 +361,7 @@ function renderHeader(activeMenu, activeTeamId) {
              데스크톱에서 비로그인 방문자는 마이페이지에 갈 방법이 아예 없었다.
              비로그인도 예측·평점 기록이 이 브라우저에 쌓이므로 볼 것이 있다. (2026-08-07) -->
         <a class="btn-login my-link ${activeMenu === "MY" ? "on" : ""}" href="my.html" title="내 기록 · 팬 여권">내 기록</a>
-        ${Auth.session
-          ? (Auth.profile
-            ? `<a class="user-chip" href="my.html" title="팬 여권 보기">${esc(Auth.profile.nick)}</a>`
-            : `<a class="user-chip" href="login.html" title="닉네임·응원팀을 설정해 주세요">프로필 설정 필요</a>`)
-            + `<button class="btn-login" id="btn-signout">로그아웃</button>`
-          : `<a class="btn-login" href="login.html">로그인</a>`}
+        <span id="auth-slot">${authSlotHTML()}</span>
       </div>
     </div>
   </header>
@@ -364,7 +389,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814h");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814i");
 
   renderTabBar(groupName);
 }

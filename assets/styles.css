@@ -80,7 +80,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260814h") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260814i") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -200,6 +200,9 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
   --cut: var(--cut-md); clip-path: var(--chamfer-br);
   max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* 프로필을 아직 못 받은 잠깐 — 단정하지 않고 흐리게만 둔다 */
+.user-chip.is-loading { color: var(--text-dim); background: transparent; border-color: var(--line); }
+
 
 /* ── 팀 스트립 ── */
 /* ── 하위 메뉴 (묶음 안의 갈래) ──────────────────────────────
@@ -228,8 +231,11 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
    하단 탭바 5칸과 상단 가로 메뉴에 다 못 들어간 곳(선수·팀·대진표·수상 등)과
    10개 팀 게시판으로 가는 통로. 휴대폰에서는 상단 메뉴가 숨겨지므로
    이 서랍이 없으면 아예 갈 수 없는 화면이 생긴다. */
-.nav-open { margin-right:2px; }
+/* 데스크탑에는 상단 가로 메뉴가 이미 다 펼쳐져 있다 — 햄버거까지 두면 같은 곳으로
+   가는 길이 둘이라 오히려 헷갈린다. 가로 메뉴가 숨는 720px 이하에서만 띄운다. */
+.nav-open { display: none; margin-right:2px; }
 .nav-open svg { width: 18px; height: 18px; }
+@media (max-width: 720px) { .nav-open { display: inline-flex; } }
 body.nav-open-lock { overflow: hidden; }
 
 .nav-drawer { position: fixed; inset: 0; z-index: 300; display: flex; }

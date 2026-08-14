@@ -9,7 +9,10 @@ const SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsIn
 const sb = window.supabase.createClient(SB_URL, SB_ANON);
 
 // 로그인 상태 (fetchAll에서 채움)
-const Auth = { session: null, profile: null };
+// profileKnown — 프로필을 **서버에 물어봐서 확정했는가**.
+// 아직 모르는 상태와 "없다고 확인된" 상태는 화면에서 다르게 보여야 한다.
+// (모르는데 "프로필 설정 필요" 라고 단정하면 멀쩡한 계정이 미설정으로 보인다)
+const Auth = { session: null, profile: null, profileKnown: false };
 
 // 이 브라우저의 익명 id. 서버에 보내는 값은 **항상 이것**이고, 로그인 상태면
 // 서버가 알아서 계정 id로 바꿔 쓴다. 계정 id를 클라이언트가 보내지 않으므로
@@ -178,7 +181,7 @@ function snapshotLoad() {
     Object.assign(Cache, snap.c);
     indexStats();
     // 헤더의 로그인 표시·내 투표 표시가 깜빡이지 않게 (실제 인증은 서버가 다시 확인한다)
-    if (snap.a) Auth.profile = snap.a;
+    if (snap.a) Auth.profile = snap.a;   // 깜빡임 방지용 임시값 (확정 아님)
     if (snap.s) Auth.session = snap.s;
     const logos = JSON.parse(localStorage.getItem(LOGO_KEY) || "{}");
     Object.assign(Cache.settings, logos);
@@ -210,9 +213,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814e"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814e"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814e"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814i"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814i"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814i"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -286,14 +289,20 @@ async function fetchAll() {
     // is_admin은 공개 조회에서 아예 막혀 있다(schema14). 내 것만 서버 함수로 받는다.
     const r = await sb.rpc("my_profile");
     if (isMissingFunction(r.error)) {
-      const { data: prof } = await sb.from("profiles").select("*").eq("id", Auth.session.user.id).maybeSingle();
-      Auth.profile = prof || null;
-    } else {
+      const q = await sb.from("profiles").select("*").eq("id", Auth.session.user.id).maybeSingle();
+      if (!q.error) { Auth.profile = q.data || null; Auth.profileKnown = true; }
+    } else if (r.error) {
+      // ⚠ 실패했을 때 프로필을 지우면 안 된다.
+      //   예전엔 여기서 null 을 넣었고, 그 상태가 스냅샷에 저장돼 다음 방문부터
+      //   멀쩡한 계정이 "프로필 설정 필요" 로 보였다 (2026-08-14 운영자 계정 제보).
       sbErr(r.error, "my_profile");
+    } else {
       Auth.profile = r.data || null;
+      Auth.profileKnown = true;
     }
   } else {
     Auth.profile = null;
+    Auth.profileKnown = true;
   }
 
   const prevLogos = {};
@@ -2333,6 +2342,8 @@ async function pingScheduleSync() {
   if (storeRedraw) { try { storeRedraw(); return; } catch { /* 아래 토스트로 */ } }
   showRefreshToast();              // 다시 그리는 법을 모르는 화면은 새로고침을 권한다
 }
+// 서버가 프로필을 확정해 주면 헤더 계정 칸을 고쳐 그린다 (스냅샷으로 먼저 그린 값 보정)
+storeFresh.then(() => { if (typeof refreshAuthSlot === "function") refreshAuthSlot(); }).catch(() => {});
 storeFresh.then(pingScheduleSync).catch(() => {});
 
 // 페이지를 떠날 때 (투표·평점 등 방금 바꾼 내용까지) 스냅샷 갱신
