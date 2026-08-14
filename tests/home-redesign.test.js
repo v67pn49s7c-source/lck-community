@@ -9,9 +9,9 @@ assert(html.includes('id="home-match-bar"') === false,
   "경기 바는 실제 데이터를 읽은 뒤 JS가 팀 메뉴 위에 만들어야 함");
 assert(html.includes("전체 게시판") && html.includes("최신 글 5개"),
   "홈 본문은 전체 게시판 최신 글 5개를 중심으로 구성해야 함");
-assert(html.includes('id="home-feature-card"') &&
-  html.indexOf('id="home-feature-card"') < html.indexOf('class="home-intro"'),
-  "자동 핵심 경기 카드는 게시판 제목과 분리해 그 위에 둬야 함");
+assert(html.includes('id="home-hero"') &&
+  html.indexOf('id="home-hero"') < html.indexOf('class="home-intro"'),
+  "오늘의 서사 히어로는 게시판 제목과 분리해 그 위에 둬야 함");
 assert(html.includes('id="standings-body"') && html.includes('id="home-schedule-body"'),
   "사이드바에 순위와 이후 경기 일정이 있어야 함");
 assert(html.indexOf('id="standings-body"') < html.indexOf('id="home-schedule-body"'),
@@ -21,12 +21,13 @@ assert(!html.includes('id="predict-widget"') && !html.includes('id="founding-rac
 
 assert(app.includes("function renderHomeMatchBar()") && app.includes("fmtDayKey(m.at) === day"),
   "가장 가까운 날짜의 경기를 묶는 홈 경기 바가 있어야 함");
-assert(app.includes("function renderHomeFeature()") && app.includes("function homePreviousMeeting(match)"),
-  "핵심 경기 문구는 최근 맞대결 데이터로 자동 교체해야 함");
-assert(app.includes('getSetting("home_feature_copy")') && app.includes("custom.match_id === match.id"),
-  "관리자 문구는 저장 당시 핵심 경기에만 덮어써야 함");
-assert(html.includes('id="home-feature-story"') && fs.readFileSync("admin.html", "utf8").includes('id="home-copy-admin"'),
-  "관리자 화면에서 홈 핵심 경기 문구를 편집할 수 있어야 함");
+assert(app.includes("function renderHomeFeature()") && app.includes("storyFor(match)"),
+  "히어로 카피는 오늘의 서사(story.js)에서 와야 함");
+assert(fs.readFileSync("assets/story.js", "utf8").includes("function storyAuto(match)"),
+  "서사가 없는 경기는 기록에서 자동으로 만들어야 함");
+assert(fs.readFileSync("admin.html", "utf8").includes('id="home-copy-admin"') &&
+  fs.readFileSync("admin.html", "utf8").includes('id="hc-headline"'),
+  "관리자 화면에서 경기별 서사를 편집할 수 있어야 함");
 assert(app.includes("const shown = pct.n >= 10") && app.includes("home-match-rate-pending"),
   "표본 10명 전에는 예측 비율을 숨겨야 함");
 assert(app.includes('home-match-cta-long">예측하기') && app.includes('home-match-cta-short">예측'),

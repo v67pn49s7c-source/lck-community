@@ -13,11 +13,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260814a">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260814a">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260814b">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260814b">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260814a">
+  <link rel="stylesheet" href="assets/styles.css?v=20260814b">
 </head>
 <body>
   <main class="page">
@@ -296,12 +296,13 @@
       <!-- 홈 핵심 경기 문구 -->
       <section class="card admin-panel" data-tab="home-copy">
         <div class="card-head">
-          <h2 class="card-title">홈 핵심 경기 문구 <span class="sub">현재 핵심 경기에만 적용 · 다음 경기에는 자동 문구로 복귀</span></h2>
+          <h2 class="card-title">오늘의 서사 <span class="sub">경기마다 "왜 봐야 하는지" 한 줄 · 안 넣으면 기록에서 자동으로 만듭니다</span></h2>
         </div>
         <div class="admin-form" id="home-copy-admin"></div>
         <div class="admin-note">
-          경기와 버튼은 일정 데이터에서 자동으로 정해집니다. 여기서는 홈 상단 카드의 <b>관전 제목과 보조 설명만</b>
-          바꿉니다. 저장 당시 경기 ID와 함께 묶이므로 다음 경기로 넘어간 뒤 예전 문구가 잘못 노출되지 않습니다.
+          제목을 비우고 저장하면 <b>자동 서사로 되돌아갑니다.</b> 자동 서사는 우리가 실제로 가진 기록
+          (직전 맞대결 결과·실제 순위·연승 기록)만 씁니다 — 라이벌 관계나 별명 같은 건
+          <b>여기서 직접 넣을 때만</b> 나옵니다. 선수를 고르면 홈 상단에 그 선수 얼굴이 크게 걸립니다.
         </div>
       </section>
 
@@ -356,13 +357,14 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260814a"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260814a"></script>
-  <script src="assets/invariants.js?v=20260814a"></script>
-  <script src="assets/store.js?v=20260814a"></script>
-  <script src="assets/app.js?v=20260814a"></script>
-  <script src="assets/ddragon.js?v=20260814a"></script>
-  <script src="assets/brackets.js?v=20260814a"></script>
+  <script src="assets/data.js?v=20260814b"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260814b"></script>
+  <script src="assets/invariants.js?v=20260814b"></script>
+  <script src="assets/store.js?v=20260814b"></script>
+  <script src="assets/app.js?v=20260814b"></script>
+  <script src="assets/story.js?v=20260814b"></script>
+  <script src="assets/ddragon.js?v=20260814b"></script>
+  <script src="assets/brackets.js?v=20260814b"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -1256,48 +1258,118 @@
       });
     }
 
-    // ── 홈 핵심 경기 문구 ──
+    // ── 오늘의 서사 ──────────────────────────────────────────────
+    // 예전엔 "핵심 경기 한 줄"만 고칠 수 있었다. 이제 다가오는 경기 아무거나 골라
+    // 서사(유형·눈썹·제목·부제·설명)와 **주인공 선수 두 명**까지 넣는다.
+    // 안 넣은 경기는 story.js 의 자동 서사(사실만)로 알아서 채워진다.
+    let hcMatchId = null;
+
     function renderHomeCopyAdmin() {
       const el = document.getElementById("home-copy-admin");
-      const match = homeFeaturedMatch(homeNearestGames());
-      let saved = {};
-      try { saved = JSON.parse(getSetting("home_feature_copy") || "{}"); } catch {}
-      if (!match || !knownTeams(match)) {
-        el.innerHTML = `<div class="empty-note">예정된 핵심 경기가 없습니다. 일정이 등록되면 여기서 문구를 편집할 수 있습니다.</div>`;
+      const now = Date.now();
+      const games = sortedMatches().filter(m => knownTeams(m) && m.status !== "done" &&
+        (m.status === "live" || new Date(m.at).getTime() > now)).slice(0, 12);
+      if (!games.length) {
+        el.innerHTML = `<div class="empty-note">예정된 경기가 없습니다. 일정이 등록되면 여기서 서사를 넣을 수 있습니다.</div>`;
         return;
       }
+      if (!games.some(m => m.id === hcMatchId)) hcMatchId = games[0].id;
+      const match = games.find(m => m.id === hcMatchId);
       const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
-      const current = saved.match_id === match.id ? saved : {};
-      el.innerHTML = `<div class="row">
-          <label style="flex:1">적용 경기
-            <input value="${esc(`${fmtWhen(match.at)} · ${A.abbr} vs ${B.abbr}`)}" disabled>
+      const saved = storyAdmin(match.id) || {};
+      const auto = storyAuto(match);
+      const roster = [...teamPlayers(match.a), ...teamPlayers(match.b)];
+      const picked = saved.players || [];
+
+      const playerOpts = (slot, teamId) => {
+        const chosen = picked.find(id => (getPlayer(id) || {}).team === teamId) || "";
+        return `<select id="hc-p${slot}">
+          <option value="">— 지정 안 함 —</option>
+          ${teamPlayers(teamId).map(p =>
+            `<option value="${esc(p.id)}" ${p.id === chosen ? "selected" : ""}>${esc(p.nick)} (${esc(p.pos || "")})</option>`).join("")}
+        </select>`;
+      };
+
+      el.innerHTML = `
+        <div class="row">
+          <label style="flex:2">경기 고르기
+            <select id="hc-match">
+              ${games.map(m => {
+                const ta = TEAM_MAP[m.a], tb = TEAM_MAP[m.b];
+                const has = storyAdmin(m.id) ? " ✓" : "";
+                return `<option value="${esc(m.id)}" ${m.id === match.id ? "selected" : ""}>${esc(fmtWhen(m.at))} · ${esc(ta.abbr)} vs ${esc(tb.abbr)}${has}</option>`;
+              }).join("")}
+            </select>
+          </label>
+          <label style="flex:1">서사 유형
+            <select id="hc-type">
+              ${STORY_TYPES.map(t =>
+                `<option value="${esc(t.k)}" ${t.k === (saved.type || "star") ? "selected" : ""}>${esc(t.name)}</option>`).join("")}
+            </select>
           </label>
         </div>
         <div class="row">
-          <label style="flex:1">관전 제목
-            <input id="home-copy-title" maxlength="80" value="${esc(current.title || "")}" placeholder="예: 3일 만의 재대결, KT는 되갚을 수 있을까요?">
+          <label style="flex:1">눈썹 문구 <span class="muted">비우면 유형 기본값</span>
+            <input id="hc-eyebrow" maxlength="20" value="${esc(saved.eyebrow || "")}" placeholder="예: 오늘의 빅매치">
           </label>
-          <label style="flex:1">보조 설명
-            <input id="home-copy-subtitle" maxlength="100" value="${esc(current.subtitle || "")}" placeholder="예: 8월 9일 맞대결 DK 2:1 승리">
+          <label style="flex:2">제목 <span class="muted">짧고 강하게</span>
+            <input id="hc-headline" maxlength="40" value="${esc(saved.headline || "")}" placeholder="예: 이커 가문의 맞대결">
           </label>
         </div>
+        <div class="row">
+          <label style="flex:1">부제
+            <input id="hc-sub" maxlength="40" value="${esc(saved.subheadline || "")}" placeholder="예: Faker vs ShowMaker">
+          </label>
+          <label style="flex:2">설명 <span class="muted">한두 문장</span>
+            <input id="hc-desc" maxlength="90" value="${esc(saved.description || "")}" placeholder="예: 오늘 협곡의 중심은 미드다.">
+          </label>
+        </div>
+        <div class="row">
+          <label style="flex:1">${esc(A.abbr)} 주인공
+            ${playerOpts("a", match.a)}
+          </label>
+          <label style="flex:1">${esc(B.abbr)} 주인공
+            ${playerOpts("b", match.b)}
+          </label>
+        </div>
+        <div class="admin-note" style="border-top:0;background:transparent;padding:9px 0">
+          ${auto
+            ? `이 경기를 비워 두면 자동 서사가 나갑니다 → <b>${esc(auto.eyebrow)}</b> · ${esc(auto.headline)}`
+            : `이 경기는 자동으로 만들 서사가 없습니다 (팀 이름과 시간만 나갑니다).`}
+        </div>
         <div class="row actions">
-          <button class="btn-primary" type="button" id="home-copy-save">홈 문구 저장</button>
-          <button class="btn-secondary" type="button" id="home-copy-reset">자동 문구로 복귀</button>
+          <button class="btn-primary" type="button" id="hc-save">서사 저장</button>
+          <button class="btn-secondary" type="button" id="hc-reset">비우기 (자동으로)</button>
         </div>`;
-      document.getElementById("home-copy-save").addEventListener("click", async () => {
-        const title = document.getElementById("home-copy-title").value.trim();
-        const subtitle = document.getElementById("home-copy-subtitle").value.trim();
-        if (!title) { alert("관전 제목을 입력해 주세요."); return; }
-        const r = await setSetting("home_feature_copy", JSON.stringify({ match_id: match.id, title, subtitle }));
-        if (r.error) { alert("저장하지 못했습니다: " + r.error.message); return; }
-        alert("홈 핵심 경기 문구를 저장했습니다.");
-      });
-      document.getElementById("home-copy-reset").addEventListener("click", async () => {
-        const r = await setSetting("home_feature_copy", "");
-        if (r.error) { alert("초기화하지 못했습니다: " + r.error.message); return; }
+
+      document.getElementById("hc-match").addEventListener("change", e => {
+        hcMatchId = e.target.value;
         renderHomeCopyAdmin();
-        alert("자동 문구로 되돌렸습니다.");
+      });
+
+      document.getElementById("hc-save").addEventListener("click", async () => {
+        const headline = document.getElementById("hc-headline").value.trim();
+        if (!headline) { alert("제목을 입력해 주세요. (비우려면 '비우기'를 누르세요)"); return; }
+        const players = [document.getElementById("hc-pa").value, document.getElementById("hc-pb").value]
+          .filter(Boolean);
+        const r = await setMatchStory(match.id, {
+          type: document.getElementById("hc-type").value,
+          eyebrow: document.getElementById("hc-eyebrow").value.trim(),
+          headline,
+          subheadline: document.getElementById("hc-sub").value.trim(),
+          description: document.getElementById("hc-desc").value.trim(),
+          players,
+        });
+        if (r && r.error) { alert("저장하지 못했습니다: " + r.error.message); return; }
+        renderHomeCopyAdmin();
+        alert("서사를 저장했습니다. 홈 상단에서 확인하세요.");
+      });
+
+      document.getElementById("hc-reset").addEventListener("click", async () => {
+        const r = await setMatchStory(match.id, null);
+        if (r && r.error) { alert("비우지 못했습니다: " + r.error.message); return; }
+        renderHomeCopyAdmin();
+        alert("자동 서사로 되돌렸습니다.");
       });
     }
 

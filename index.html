@@ -17,10 +17,10 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260814a">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260814a">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260814b">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260814b">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260814a">
+  <link rel="stylesheet" href="assets/styles.css?v=20260814b">
 </head>
 <body class="home-redesign">
   <main class="page home-redesign-page">
@@ -30,18 +30,14 @@
       <section class="fanpick-bar" id="fanpick-bar" style="display:none"
         aria-label="응원팀 고르기"></section>
 
-      <section class="card home-feature-card" id="home-feature-card" style="display:none"
-        aria-labelledby="home-feature-title">
-        <div class="home-feature-copy">
-          <span class="home-feature-kicker">오늘의 핵심 경기</span>
-          <h2 id="home-feature-title"></h2>
-          <p id="home-feature-story"></p>
-        </div>
-        <div class="home-feature-actions">
-          <a class="btn-primary" id="home-feature-predict" href="predict.html">승부 예측하기</a>
-          <a class="btn-secondary" id="home-feature-preview" href="matches.html">관전 포인트</a>
-        </div>
-      </section>
+      <!-- 오늘의 서사 — 안이 통째로 app.js 에서 그려진다.
+           운영자 서사 > 기록 기반 자동 서사 > 팀·시간만, 3단으로 자연스럽게 내려간다. -->
+      <section class="card home-hero" id="home-hero" style="display:none"
+        aria-label="오늘의 서사"></section>
+
+      <!-- 내 응원팀 한 줄 — 응원팀을 고른 사람에게만. 다른 팀 정보를 밀어내지 않는다. -->
+      <section class="home-myteam" id="home-myteam" style="display:none"
+        aria-label="내 응원팀"></section>
 
       <div class="home-intro">
         <h1>LCK 팬 커뮤니티</h1>
@@ -99,10 +95,12 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260814a"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260814a"></script>
-  <script src="assets/store.js?v=20260814a"></script>
-  <script src="assets/app.js?v=20260814a"></script>
+  <script src="assets/data.js?v=20260814b"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260814b"></script>
+  <script src="assets/store.js?v=20260814b"></script>
+  <script src="assets/app.js?v=20260814b"></script>
+  <script src="assets/player-photos.js?v=20260814b"></script>
+  <script src="assets/story.js?v=20260814b"></script>
   <script>initHome();</script>
 </body>
 </html>

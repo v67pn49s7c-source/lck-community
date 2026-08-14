@@ -243,9 +243,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814a")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814a")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814a")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814b")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814b")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814b")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -295,7 +295,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814a");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814b");
 
   renderTabBar(groupName);
 }
@@ -1258,55 +1258,152 @@ function homePreviousMeeting(match) {
     .sort((a, b) => new Date(b.at) - new Date(a.at))[0] || null;
 }
 
+// 히어로에 세울 경기 — **서사가 강한 쪽**이 먼저다.
+// 같은 날 "1위 vs 2위"와 "그냥 재대결"이 같이 있으면 앞의 것이 오늘의 이야기다.
+// 그 다음이 팬 참여 수, 마지막이 늦게 열리는 경기(황금 시간대) 순.
+// 특정 팀을 하드코딩하지 않아 10개 팀을 같은 기준으로 다룬다.
+const STORY_WEIGHT = { admin: 4, standings: 3, streak: 2, rematch: 1 };
+function homeStoryWeight(m) {
+  const s = typeof storyFor === "function" ? storyFor(m) : null;
+  if (!s) return 0;
+  return s.source === "admin" ? STORY_WEIGHT.admin : (STORY_WEIGHT[s.type] || 1);
+}
 function homeFeaturedMatch(games) {
-  // 팬 참여가 있으면 참여가 많은 경기를, 아직 표본이 없으면 늦게 열리는 경기를 고른다.
-  // 특정 팀을 하드코딩하지 않아 10개 팀을 같은 기준으로 다룬다.
   return games.slice().sort((a, b) => {
+    const storyGap = homeStoryWeight(b) - homeStoryWeight(a);
+    if (storyGap) return storyGap;
     const voteGap = communityPct(b).n - communityPct(a).n;
     return voteGap || new Date(b.at) - new Date(a.at);
   })[0] || null;
 }
 
+// ── 홈 히어로: 오늘의 서사 ───────────────────────────────────────
+// 예전 카드는 "GEN vs DK · 17:00" 한 줄이었다. 그건 일정표지 이야기가 아니다.
+// 이제 같은 자리에서 **왜 이 경기를 봐야 하는지**를 먼저 말한다.
+//
+// 3단 폴백 — 어느 단계에서 멈춰도 화면은 멀쩡하다:
+//   ① 운영자가 넣은 서사 (선수 얼굴까지)  ② 기록에서 뽑은 사실 서사  ③ 팀·시간만
+// 지어낸 라이벌 서사는 ②에 절대 들어가지 않는다 (story.js 참고).
+
+/** 히어로 한쪽 — 지정 선수가 있으면 얼굴, 없으면 팀 로고. */
+function heroSideHTML(team, player, side) {
+  const photo = player && typeof playerPhotoURL === "function" ? playerPhotoURL(player, 160) : null;
+  const face = photo
+    ? `<span class="hero-face"><img src="${esc(photo)}" alt="" loading="eager" decoding="async"></span>`
+    : `<span class="hero-crest">${teamLogoHTML(team, 54)}</span>`;
+  return `
+    <div class="hero-side ${side}" style="--team-color:${esc(team.color)}">
+      ${face}
+      ${player ? `<b class="hero-who">${esc(player.nick)}</b>` : ""}
+      <span class="hero-team"${player ? "" : ` data-solo="1"`}>
+        ${player ? teamLogoHTML(team, 16) : ""}<i>${esc(team.abbr)}</i>
+      </span>
+    </div>`;
+}
+
 function renderHomeFeature() {
-  const card = document.getElementById("home-feature-card");
+  const card = document.getElementById("home-hero");
   if (!card) return;
   const match = homeFeaturedMatch(homeNearestGames());
   if (!match) { card.style.display = "none"; return; }
 
   const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
-  const prev = homePreviousMeeting(match);
-  let story = `${esc(A.abbr)}와 ${esc(B.abbr)}, 팬들의 선택은 어느 쪽일까요?`;
-  let history = `${homeDayLabel(match.at)} ${fmtHM(match.at)} KST`;
-  if (prev && prev.scoreA !== prev.scoreB) {
-    const winner = prev.scoreA > prev.scoreB ? TEAM_MAP[prev.a] : TEAM_MAP[prev.b];
-    const loser = prev.scoreA > prev.scoreB ? TEAM_MAP[prev.b] : TEAM_MAP[prev.a];
-    const high = Math.max(prev.scoreA, prev.scoreB), low = Math.min(prev.scoreA, prev.scoreB);
-    const days = Math.max(1, Math.round((new Date(match.at) - new Date(prev.at)) / 86400e3));
-    const pp = kstParts(prev.at);
-    story = days <= 14
-      ? `${days}일 만의 재대결, ${esc(loser.abbr)}는 되갚을 수 있을까요?`
-      : `${esc(A.abbr)}와 ${esc(B.abbr)}, 다시 만난 두 팀의 승부입니다.`;
-    history = `${Number(pp.month)}월 ${Number(pp.day)}일 맞대결 ${esc(winner.abbr)} ${high}:${low} 승리`;
-  }
-  // 운영자가 잡은 관전 문구는 저장 당시의 경기에서만 쓴다. 다음 경기로 넘어가면
-  // 자동 문구로 복귀하므로 어제의 리벤지 카피가 다른 대진에 남지 않는다.
-  try {
-    const custom = JSON.parse(getSetting("home_feature_copy") || "{}");
-    if (custom.match_id === match.id && String(custom.title || "").trim()) {
-      story = esc(String(custom.title).trim());
-      history = esc(String(custom.subtitle || "").trim()) || history;
-    }
-  } catch {}
+  const story = typeof storyFor === "function" ? storyFor(match) : null;
+  const picked = typeof storyPlayers === "function" ? storyPlayers(story) : [];
+  // 지정 선수는 각자 자기 팀 쪽에 세운다 (순서를 믿지 않는다 — 운영자가 뒤집어 넣어도 맞게)
+  const pA = picked.find(p => p.team === match.a) || null;
+  const pB = picked.find(p => p.team === match.b) || null;
+
+  const when = match.status === "live" ? "LIVE" : `${homeDayLabel(match.at)} ${fmtHM(match.at)} KST`;
+  const eyebrow = story ? story.eyebrow : "다음 경기";
+  const headline = story ? story.headline : `${A.abbr} vs ${B.abbr}`;
+  const sub = story && story.subheadline ? story.subheadline : "";
+  const desc = story && story.description ? story.description : "";
+  const fav = typeof getFavTeam === "function" ? getFavTeam() : null;
+
+  const cheerBtn = t => {
+    const mine = fav === t.id;
+    return `<button type="button" class="hero-cheer-btn${mine ? " mine" : ""}" data-team="${esc(t.id)}"
+      style="--team-color:${esc(t.color)}">
+      ${teamLogoHTML(t, 18)}<span>${mine ? `내 팀 ${esc(t.abbr)}` : `${esc(t.abbr)} 응원하기`}</span></button>`;
+  };
 
   card.style.display = "";
-  card.querySelector("#home-feature-title").innerHTML = `
-    ${teamLogoHTML(A, 30)}<strong>${esc(A.abbr)}</strong><span>VS</span>
-    <strong>${esc(B.abbr)}</strong>${teamLogoHTML(B, 30)}
-    <time>${match.status === "live" ? "LIVE" : `${homeDayLabel(match.at)} ${fmtHM(match.at)} KST`}</time>`;
-  card.querySelector("#home-feature-story").innerHTML = `<strong>${story}</strong><span>${history}</span>`;
-  const href = `/match/${q(match.id)}`;
-  card.querySelector("#home-feature-predict").href = `${href}#fanpulse-card`;
-  card.querySelector("#home-feature-preview").href = `${href}#preview-card`;
+  card.className = `card home-hero${(pA || pB) ? " has-face" : ""}`;
+  card.innerHTML = `
+    <div class="hero-copy">
+      <p class="hero-eyebrow">${esc(eyebrow)}</p>
+      <h2 class="hero-headline">${esc(headline)}</h2>
+      ${sub ? `<p class="hero-sub">${esc(sub)}</p>` : ""}
+      <p class="hero-when"><b>${esc(A.abbr)} vs ${esc(B.abbr)}</b><time>${esc(when)}</time></p>
+      ${desc ? `<p class="hero-desc">${esc(desc)}</p>` : ""}
+    </div>
+    <div class="hero-stage">
+      ${heroSideHTML(A, pA, "a")}
+      <span class="hero-vs" aria-hidden="true">VS</span>
+      ${heroSideHTML(B, pB, "b")}
+    </div>
+    <div class="hero-actions">
+      <div class="hero-cheer" role="group" aria-label="응원팀 고르기">${cheerBtn(A)}${cheerBtn(B)}</div>
+      <div class="hero-links">
+        <a class="btn-primary" href="/match/${q(match.id)}#fanpulse-card">승부 예측하기</a>
+        <a class="btn-secondary" href="/match/${q(match.id)}#preview-card">관전 포인트</a>
+      </div>
+    </div>`;
+
+  // 응원하기 = 그 팀을 내 응원팀으로. 이미 고른 사람은 바로 경기 화면으로 보낸다
+  // (응원팀은 회원의 경우 30일 잠금이라, 누른다고 말없이 바꿔 버리면 안 된다).
+  card.querySelectorAll(".hero-cheer-btn").forEach(btn => btn.addEventListener("click", async () => {
+    const id = btn.dataset.team;
+    const cur = typeof getFavTeam === "function" ? getFavTeam() : null;
+    if (cur !== null) { location.href = `/match/${q(match.id)}#fanpulse-card`; return; }
+    card.querySelectorAll(".hero-cheer-btn").forEach(b => { b.disabled = true; });
+    const r = await setFavTeam(id);
+    if (r && r.error) {
+      alert(r.error);
+      card.querySelectorAll(".hero-cheer-btn").forEach(b => { b.disabled = false; });
+      return;
+    }
+    document.getElementById("fanpick-bar")?.style.setProperty("display", "none");
+    renderHomeFeature();
+    renderHomeMyTeam();
+  }));
+}
+
+// ── 내 응원팀 한 줄 ──────────────────────────────────────────────
+// 응원팀을 고른 사람에게만 뜬다. 다른 팀 정보를 밀어내지 않도록 **한 줄**로 둔다.
+function renderHomeMyTeam() {
+  const el = document.getElementById("home-myteam");
+  if (!el) return;
+  const fav = typeof getFavTeam === "function" ? getFavTeam() : null;
+  const team = fav ? TEAM_MAP[fav] : null;
+  if (!team) { el.style.display = "none"; return; }
+
+  const now = Date.now();
+  const next = sortedMatches().filter(m => knownTeams(m) && m.status !== "done" &&
+    (m.a === fav || m.b === fav) &&
+    (m.status === "live" || new Date(m.at).getTime() > now))[0];
+  const roster = teamPlayers(fav).slice(0, 5).map(p => p.nick).join(" · ");
+
+  el.style.display = "";
+  el.style.setProperty("--team-color", team.color);
+  if (!next) {
+    el.innerHTML = `
+      <span class="myteam-tag">MY TEAM</span>
+      ${teamLogoHTML(team, 26)}<b class="myteam-name">${esc(team.abbr)}</b>
+      <span class="myteam-when">예정된 경기 없음</span>
+      <a class="myteam-go" href="team.html?id=${q(team.id)}">팀 홈 ›</a>`;
+    return;
+  }
+  const foe = TEAM_MAP[next.a === fav ? next.b : next.a];
+  el.innerHTML = `
+    <span class="myteam-tag">MY TEAM</span>
+    ${teamLogoHTML(team, 26)}<b class="myteam-name">${esc(team.abbr)}</b>
+    <span class="myteam-when">${next.status === "live" ? "지금 경기 중"
+      : `${esc(homeDayLabel(next.at))} ${esc(fmtHM(next.at))}`}</span>
+    <span class="myteam-foe">vs ${teamLogoHTML(foe, 18)}<i>${esc(foe.abbr)}</i></span>
+    ${roster ? `<span class="myteam-roster">${esc(roster)}</span>` : ""}
+    <a class="myteam-go" href="/match/${q(next.id)}">응원하러 가기 ›</a>`;
 }
 
 // 가장 가까운 경기 날짜의 모든 경기를 팀 메뉴 바로 위 얇은 바로 보여 준다.
@@ -1394,9 +1491,12 @@ function renderHomeMatchBar() {
           const A = TEAM_MAP[m.a], B = TEAM_MAP[m.b];
           const pct = communityPct(m);
           const shown = pct.n >= 10;
-          return `<a class="home-match-game" href="/match/${q(m.id)}"
+          // 이 경기를 볼 이유 한 줄. 서사가 없으면 줄 자체가 안 생긴다.
+          const hook = typeof storyHook === "function" ? storyHook(m) : "";
+          return `<a class="home-match-game${hook ? " has-hook" : ""}" href="/match/${q(m.id)}"
             aria-label="${fmtHM(m.at)} ${esc(A.abbr)} 대 ${esc(B.abbr)} 승부 예측">
             <time>${m.status === "live" ? "LIVE" : fmtHM(m.at)}</time>
+            ${hook ? `<span class="home-match-hook">${esc(hook)}</span>` : ""}
             <span class="home-match-team">${teamLogoHTML(A, 26)}<b>${esc(A.abbr)}</b></span>
             ${shown
               ? `<span class="home-match-rate"><b>${pct.a}%</b><i><span style="width:${pct.a}%"></span></i><b>${pct.b}%</b></span>`
@@ -1492,10 +1592,12 @@ function renderHomeUpcomingSchedule() {
     const label = key === day ? "" : `<div class="home-schedule-day">${homeDayLabel(m.at)}</div>`;
     day = key;
     const A = TEAM_MAP[m.a], B = TEAM_MAP[m.b];
-    return `${label}<a class="home-schedule-row" href="/match/${q(m.id)}">
+    const hook = typeof storyHook === "function" ? storyHook(m) : "";
+    return `${label}<a class="home-schedule-row${hook ? " has-hook" : ""}" href="/match/${q(m.id)}">
       <time>${m.status === "live" ? "LIVE" : fmtHM(m.at)}</time>
       <span>${teamLogoHTML(A, 20)}${esc(A.abbr)}</span><b>VS</b>
       <span>${teamLogoHTML(B, 20)}${esc(B.abbr)}</span>
+      ${hook ? `<em class="home-schedule-hook">${esc(hook)}</em>` : ""}
     </a>`;
   }).join("");
 }
@@ -1620,6 +1722,7 @@ async function initHome() {
     renderFanPickBar(draw);   // 팀을 고르면 내 팀 기준으로 홈을 다시 그린다
     renderHomeMatchBar();
     renderHomeFeature();
+    renderHomeMyTeam();
     renderHotPosts();
     renderHomeUpcomingSchedule();
     renderHomePulse();

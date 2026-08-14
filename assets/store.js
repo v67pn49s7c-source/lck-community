@@ -210,9 +210,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814a"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814a"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814a"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814b"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814b"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814b"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -2162,6 +2162,21 @@ function setSetting(key, value) {
     return r;
   });
 }
+// ── 오늘의 서사 (경기별 팬덤 카피) ──
+// 새 테이블 없이 site_settings 한 칸에 {경기id: 서사} 로 모아 둔다.
+// ⚠ 저장할 때마다 **이미 끝난 경기의 서사는 지운다** — 안 그러면 시즌 내내 쌓여
+//    설정 한 칸이 계속 커지고, 지난 대진의 카피가 실수로 되살아날 수 있다.
+async function setMatchStory(matchId, story) {
+  await reloadSetting(STORY_KEY);            // 다른 창에서 넣은 서사를 덮어쓰지 않는다
+  let all = {};
+  try { all = JSON.parse(getSetting(STORY_KEY) || "{}") || {}; } catch {}
+  const live = new Set(Cache.matches.filter(m => m.status !== "done").map(m => m.id));
+  Object.keys(all).forEach(id => { if (id !== matchId && !live.has(id)) delete all[id]; });
+  if (story && String(story.headline || "").trim()) all[matchId] = story;
+  else delete all[matchId];
+  return setSetting(STORY_KEY, JSON.stringify(all));
+}
+
 // 서버가 바꾼 설정을 다시 읽어 온다.
 // 수집기(api/leaguepedia.js)가 lp_aliases 에 자동 연결을 덧붙이므로, 수집 직후에는
 // 화면이 들고 있는 값이 옛것이다. 그대로 저장하면 방금 이어진 이름이 날아간다.
