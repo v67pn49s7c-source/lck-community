@@ -36,8 +36,16 @@ assert(!app.includes("...candidates.filter(p => !preferred.includes(p))"),
   "반응 없는 자동 경기방으로 홈 게시판 다섯 칸을 채우면 안 됨");
 assert(app.includes(".slice(0, 2)") && app.includes(".slice(0, 5)"),
   "경기 바는 하루 최대 2경기, 전체 게시판은 5개를 표시해야 함");
-assert(app.includes('menu: "선수·팀", href: "players.html", label: "선수·팀"'),
-  "모바일 하단 메뉴의 마지막 칸은 선수·팀이어야 함");
+// 휴대폰에서는 상단 메뉴(.main-nav)와 '내 기록' 버튼(.my-link)이 둘 다 숨겨진다.
+// 그래서 마이페이지로 갈 길이 하단 탭바 말고는 없다. (2026-08-14 사장님 제보)
+assert(app.includes('menu: "MY", href: "my.html", label: "MY"'),
+  "모바일 하단 메뉴의 마지막 칸은 MY 여야 함 — 휴대폰에서 마이페이지 진입로가 여기뿐이다");
+assert(!/TAB_BAR[\s\S]*?menu: "선수·팀"[\s\S]*?\n\];/.test(app),
+  "선수·팀은 탭바에서 빠졌다 (다섯 칸을 MY 에 내줬다)");
+assert(app.includes('<a href="players.html">선수·팀</a>'),
+  "대신 푸터에 선수·팀 링크가 있어야 함 — 없으면 휴대폰에서 들어갈 길이 아예 사라진다");
+assert(/@media \(max-width: 760px\) \{ \.my-link \{ display: none; \} \}/.test(css),
+  "상단 '내 기록' 버튼이 모바일에서 숨는다는 전제가 유지돼야 함 (이게 바뀌면 탭바 판단도 다시)");
 assert(css.includes(".home-match-bar") && css.includes(".home-schedule-row"),
   "홈 경기 바와 사이드 일정 스타일이 있어야 함");
 assert(css.includes(".home-match-cta") && !css.includes(".home-match-game time:first-letter"),

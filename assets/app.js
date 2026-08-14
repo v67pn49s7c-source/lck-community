@@ -243,9 +243,9 @@ function renderHeader(activeMenu, activeTeamId) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814d")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814d")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814d")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814e")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814e")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814e")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -295,7 +295,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814d");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814e");
 
   renderTabBar(groupName);
 }
@@ -696,8 +696,12 @@ const TAB_BAR = [
     icon: `<path d="M12 3l2.6 5.6 6.4.8-4.7 4.3 1.3 6.3L12 17l-5.6 3 1.3-6.3L3 9.4l6.4-.8z"/>` },
   { menu: "커뮤니티", href: "community.html", label: "커뮤니티",
     icon: `<path d="M21 12a8 8 0 1 1-3.2-6.4L21 4l-1 4.2A8 8 0 0 1 21 12z"/><path d="M8 11h8M8 14.5h5"/>` },
-  { menu: "선수·팀", href: "players.html", label: "선수·팀",
-    icon: `<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7 0"/>` },
+  // ⚠ 다섯 번째 칸은 **MY** 다 (선수·팀이 아니다).
+  //   휴대폰에서는 상단 메뉴(.main-nav)와 '내 기록' 버튼(.my-link)이 둘 다 숨겨져서,
+  //   마이페이지로 갈 길이 하나도 없었다. 내 활동·팬 여권은 자주 들어가는 곳이라
+  //   탭바에 있어야 한다. 선수·팀은 아래 푸터에 링크를 남겨 뒀다. (2026-08-14)
+  { menu: "MY", href: "my.html", label: "MY",
+    icon: `<circle cx="12" cy="8" r="3.6"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/>` },
 ];
 
 function renderTabBar(activeMenu) {
@@ -738,6 +742,9 @@ function renderFooter() {
       </p>
       <p class="foot-links">
         모든 예측 참여는 무료이며 포인트는 환전·거래할 수 없습니다.
+        <!-- 선수·팀은 하단 탭바에서 MY 에 자리를 내줬다. 휴대폰에서는 상단 메뉴도
+             숨겨지므로, 여기 링크가 없으면 들어갈 길이 아예 사라진다. -->
+        · <a href="players.html">선수·팀</a>
         · <a href="terms.html">이용약관</a> · <a href="privacy.html">개인정보 처리방침</a>
         · 문의·신고: <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>
           / <a href="${SNS_URL}" target="_blank" rel="noopener noreferrer">인스타그램 ${SNS_HANDLE} DM</a>
