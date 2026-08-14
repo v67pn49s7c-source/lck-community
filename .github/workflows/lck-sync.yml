@@ -1,0 +1,66 @@
+# LCK 경기 결과 자동 따라가기
+#
+# 왜 필요한가 — Vercel 무료 요금제는 크론을 **하루 한 번**으로 제한한다.
+# 그래서 저녁 경기가 끝나도 다음 날 새벽까지 결과가 안 들어왔다.
+# 보완책으로 "방문자가 들어오면 서버가 확인" 하는 길도 있지만, 아무도 안 들어오면
+# 아무 일도 안 일어난다. 이 워크플로가 그 방문자 역할을 대신한다.
+#
+# 공개 저장소라 GitHub Actions 사용 시간은 무료·무제한이다.
+#
+# ⚠ 얼마나 자주 두드릴지는 **서버가** 정한다 (api/schedule-sync.js 의 gapMinutes):
+#    결과를 기다리는 경기가 있으면 10분, 없으면 3시간. 여기서 10분마다 불러도
+#    경기가 없는 시간대에는 서버가 그냥 건너뛴다. Leaguepedia 는 시도 횟수 기준으로
+#    차단하므로, 무작정 자주 부르는 것이 아니라 이 구조가 중요하다.
+#
+# ⚠ GitHub 은 **60일 동안 저장소에 아무 활동이 없으면 예약 실행을 꺼 버린다.**
+#    한동안 손을 안 댄 뒤에는 Actions 탭에서 다시 켜 줘야 한다.
+
+name: LCK 결과 동기화
+
+on:
+  schedule:
+    # UTC 기준. 08:00~17:59 UTC = 17:00~02:59 KST — LCK 경기 시간대와 그 뒤 정리 시간.
+    # 경기가 없는 새벽·오전에는 아예 돌지 않는다.
+    - cron: "*/10 8-17 * * *"
+  workflow_dispatch:        # 필요할 때 손으로 한 번 돌리기
+
+concurrency:
+  group: lck-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 경기 일정·결과 동기화
+        env:
+          SITE: https://lck-community.vercel.app
+        run: |
+          echo "→ $SITE/api/schedule-sync"
+          code=$(curl -sS -o body.json -w '%{http_code}' --max-time 90 "$SITE/api/schedule-sync")
+          echo "HTTP $code"
+          cat body.json; echo
+          # 서버가 간격 때문에 건너뛴 것은 정상이다. HTTP 오류만 실패로 본다.
+          case "$code" in 2*) ;; *) echo "::error::동기화 요청 실패 (HTTP $code)"; exit 1 ;; esac
+
+      - name: 세트 상세 수집 (토큰이 있을 때만)
+        env:
+          SITE: https://lck-community.vercel.app
+          TOKEN: ${{ secrets.CRON_SECRET }}
+        run: |
+          # KDA·챔피언·오브젝트까지 받아 오는 무거운 쪽. 스코어보다 늦어도 되므로
+          # 정시(:00)에만 부른다.
+          # ⚠ 토큰 검사는 셸에서 한다 — secrets 는 step 의 if: 에서 못 읽는다.
+          if [ -z "${TOKEN:-}" ]; then
+            echo "CRON_SECRET 이 없어 건너뜁니다 (스코어는 위 단계에서 이미 갱신됨)"
+            exit 0
+          fi
+          minute=$((10#$(date -u +%M)))     # 08 을 8진수로 읽지 않도록 10# 를 붙인다
+          if [ "$minute" -ge 10 ]; then echo "정시가 아니라 건너뜀 (:$minute)"; exit 0; fi
+          echo "→ $SITE/api/leaguepedia"
+          code=$(curl -sS -o detail.json -w '%{http_code}' --max-time 120 \
+            -H "Authorization: Bearer $TOKEN" "$SITE/api/leaguepedia")
+          echo "HTTP $code"
+          head -c 2000 detail.json; echo
+          case "$code" in 2*) ;; *) echo "::warning::세트 상세 수집 실패 (HTTP $code)" ;; esac

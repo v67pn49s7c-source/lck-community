@@ -5,7 +5,9 @@
 //
 // 세 가지 방법으로 돌아간다
 //   ① 매일 자동 (vercel.json 의 crons)
-//   ② 방문자가 들어올 때 — 마지막 갱신이 오래됐으면 한 번만 (아래 MIN_GAP_MIN)
+//   ② 방문자가 들어올 때 — 마지막 갱신이 오래됐으면 한 번만 (아래 gapMinutes)
+//   ④ GitHub Actions 가 경기 시간대에 10분마다 (.github/workflows/lck-sync.yml)
+//      — 무료 요금제의 "하루 한 번" 제한을 메우고, 방문자가 없어도 결과가 따라온다
 //   ③ 관리자 화면에서 손으로
 //
 // ②가 있어서 크론을 못 쓰는 요금제에서도 일정이 알아서 따라옵니다.
@@ -16,8 +18,24 @@
 const { ok, fail, sb, requireAdmin } = require("./_lib");
 const { val, wait, cargo, loadSetting, saveSetting, matchIdOf, stagePicker, resolveTid } = require("./_lp");
 
-const MIN_GAP_MIN = 30;          // 방문자가 부를 때 최소 간격
+// 갱신 간격은 **상황에 따라 바뀐다**.
+// 예전에는 늘 30분이었다. 그래서 경기가 끝난 직후에도 최대 30분을 기다렸고,
+// 반대로 경기가 없는 새벽에도 30분마다 Leaguepedia 를 두드렸다.
+// Leaguepedia 는 **시도 횟수 기준**으로 차단하므로 두 방향 다 손해다.
+const WAIT_GAP_MIN = 10;         // 결과를 기다리는 경기가 있을 때 — 촘촘히
+const IDLE_GAP_MIN = 180;        // 그런 경기가 없을 때 — 뜸하게 (차단 위험 회피)
+const WAIT_WINDOW_H = 10;        // 시작 후 이 시간까지는 "결과 대기 중"으로 본다
 const ADOPT_HOURS = 30;          // 손으로 만든 경기를 같은 경기로 볼 시간 차이
+
+/** 지금 얼마나 자주 확인해야 하는가 (분). 시작했는데 아직 안 끝난 경기가 있으면 짧게. */
+function gapMinutes(matches, now) {
+  const waiting = (matches || []).some(m => {
+    if (!m || m.status === "done" || !m.at) return false;
+    const t = Date.parse(m.at);
+    return Number.isFinite(t) && t <= now && now - t < WAIT_WINDOW_H * 3600e3;
+  });
+  return waiting ? WAIT_GAP_MIN : IDLE_GAP_MIN;
+}
 
 // 받아온 일정을 저장해 두고 재사용한다 (제한에 걸려도 저장분으로 진행할 수 있게).
 const SCHED_CACHE_MIN = 10;
@@ -61,9 +79,15 @@ async function runSync({ pages, force }) {
   const teamMap = aliases.teams || {};
   const state = JSON.parse((await loadSetting("schedule_sync")) || "{}");
 
-  if (!force && state.at && Date.now() - state.at < MIN_GAP_MIN * 60000) {
-    return { skipped: true, 마지막갱신: new Date(state.at).toISOString(), 다음갱신까지분:
-      Math.ceil((MIN_GAP_MIN * 60000 - (Date.now() - state.at)) / 60000) };
+  // ⚠ 우리 DB 를 **간격 판정보다 먼저** 읽는다. 우리 표를 읽는 건 공짜에 가깝고,
+  //   Leaguepedia 를 얼마나 자주 두드릴지는 "지금 결과를 기다리는 경기가 있는가"로
+  //   정해야 하기 때문이다 (아래 gapMinutes).
+  const existing = await sb("matches?select=id,a,b,at,status,score_a,score_b,lp_id,tid,stage,counted");
+  const gap = gapMinutes(existing, Date.now());
+
+  if (!force && state.at && Date.now() - state.at < gap * 60000) {
+    return { skipped: true, 마지막갱신: new Date(state.at).toISOString(), 간격분: gap,
+      다음갱신까지분: Math.ceil((gap * 60000 - (Date.now() - state.at)) / 60000) };
   }
 
   const list = (pages && pages.length ? pages : (state.pages || [])).filter(Boolean);
@@ -82,10 +106,9 @@ async function runSync({ pages, force }) {
   const BUDGET_MS = 35000;
   const later = [];
 
-  // 우리 DB 의 경기 (짝짓기용)
-  const existing = await sb("matches?select=id,a,b,at,status,score_a,score_b,lp_id,tid,stage,counted");
   const byLp = {};
   existing.forEach(m => { if (m.lp_id) byLp[m.lp_id] = m; });
+  const changed = [];   // 상태·스코어가 **실제로** 달라진 경기 (화면 새로고침 판단용)
 
 
   // 새 경기의 그룹(스테이지)은 팀 명단으로 정한다 (api/_lp.js stagePicker)
@@ -153,6 +176,14 @@ async function runSync({ pages, force }) {
       if (prev && prev.counted) {
         row.status = prev.status; row.score_a = prev.score_a; row.score_b = prev.score_b;
       }
+      // ⚠ 무엇이 **실제로 달라졌는지** 센다.
+      //   예전에는 upsert 한 행 수(항상 40)를 "갱신한경기"로 돌려줬다. 늘 0이 아니니
+      //   브라우저는 그 값으로 "새 결과가 왔다"를 판단할 수 없었다.
+      const num = v => (v == null || v === "" ? null : Number(v));
+      if (!prev || prev.status !== row.status ||
+          num(prev.score_a) !== num(row.score_a) || num(prev.score_b) !== num(row.score_b)) {
+        changed.push(row.id);
+      }
       // ⚠ 여기서 키를 지우면 안 된다. 한 번에 보내는 행들의 키가 서로 다르면
       //    PostgREST 가 "All object keys must match" 로 통째로 거부한다.
       //    (기존 경기는 대회가 있고 새 경기는 없어서 실제로 이 오류가 났다)
@@ -181,6 +212,11 @@ async function runSync({ pages, force }) {
 
   const fresh = rows.filter(u => !existing.some(m => m.id === u.id));
   return {
+    // 브라우저가 "지금 화면을 다시 그려야 하나"를 판단하는 값은 **결과변경**이다.
+    // 갱신한경기(=upsert 한 행 수)는 늘 전체 일정 수라 판단에 쓸 수 없다.
+    결과변경: changed.length,
+    변경경기: changed.slice(0, 10),
+    간격분: gap,
     갱신한경기: saved, 훑어본일정: seen, 대회: list,
     ...(later.length ? { 다음에이어받음: later } : {}),
     모르는팀: [...unknownTeams],

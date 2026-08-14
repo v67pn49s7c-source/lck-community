@@ -17,10 +17,10 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260814b">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260814b">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260814c">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260814c">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260814b">
+  <link rel="stylesheet" href="assets/styles.css?v=20260814c">
 </head>
 <body>
   <main class="page">
@@ -68,12 +68,12 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260814b"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260814b"></script>
-  <script src="assets/store.js?v=20260814b"></script>
-  <script src="assets/app.js?v=20260814b"></script>
-  <script src="assets/story.js?v=20260814b"></script>
-  <script src="assets/race.js?v=20260814b"></script>
+  <script src="assets/data.js?v=20260814c"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260814c"></script>
+  <script src="assets/store.js?v=20260814c"></script>
+  <script src="assets/app.js?v=20260814c"></script>
+  <script src="assets/story.js?v=20260814c"></script>
+  <script src="assets/race.js?v=20260814c"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("경기", null);
@@ -97,6 +97,7 @@
     // 이게 없으면 다시 찾아온 사람은 늘 '지난번 자료'를 본다 — 경기가 끝나도
     // 순위·스코어가 그대로고, 이름을 바꿔도 옛 이름이 남는다. (2026-08-07)
     storeFresh.then(drawOverview).catch(() => {});
+    onStoreRefresh(drawOverview);   // 방금 들어온 경기 결과를 이 방문자에게 바로
     // 경우의 수 '정확본'은 세트 스코어까지 돌려 1초를 넘는다. 유휴 시간에 만든 뒤 한 번 더 그린다.
     raceWarmExact(changed => { if (changed) drawOverview(); });
     setupSidebarStandings();

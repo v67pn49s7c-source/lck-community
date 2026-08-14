@@ -210,9 +210,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814b"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814b"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814b"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814c"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814c"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814c"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -2303,18 +2303,35 @@ const storeFresh = (async () => {
 const storeReady = snapshotUsed ? Promise.resolve() : storeFresh;
 
 // ── LCK 경기 일정 자동 따라가기 ────────────────────────────
-// 서버가 Leaguepedia 일정표를 보고 우리 경기 표를 맞춘다. 매일 자동으로도 돌지만,
+// 서버가 Leaguepedia 일정표를 보고 우리 경기 표를 맞춘다. 정해진 시각에도 돌지만,
 // 요금제에 따라 하루 한 번뿐일 수 있어서 방문자가 들어올 때도 한 번 신호를 보낸다.
-// 실제 갱신 간격은 **서버가** 정한다(기본 30분) — 여러 명이 동시에 들어와도 한 번만 돈다.
-function pingScheduleSync() {
+// 실제 갱신 간격은 **서버가** 정한다 — 결과를 기다리는 경기가 있으면 10분, 없으면 3시간.
+
+/** 페이지가 "이렇게 다시 그리면 된다"를 알려 준다.
+ *  이게 없으면 새 결과가 들어와도 이번 방문자는 옛 화면을 그대로 본다
+ *  (예전엔 콘솔에 로그만 찍었다 — 두 번째 방문자부터 결과가 보였다). */
+let storeRedraw = null;
+function onStoreRefresh(fn) { if (typeof fn === "function") storeRedraw = fn; }
+
+async function pingScheduleSync() {
   try {
     if (sessionStorage.getItem("nexus_sched_ping")) return;
     sessionStorage.setItem("nexus_sched_ping", "1");
   } catch { /* 저장소를 못 쓰면 그냥 한 번 보낸다 */ }
-  fetch("/api/schedule-sync", { method: "GET", keepalive: true })
-    .then(r => r.ok ? r.json() : null)
-    .then(j => { if (j && j.data && j.data.갱신한경기) console.log("[일정] 갱신", j.data); })
-    .catch(() => { /* 로컬 개발 등 서버 함수가 없으면 조용히 넘어간다 */ });
+  let j = null;
+  try {
+    const r = await fetch("/api/schedule-sync", { method: "GET", keepalive: true });
+    j = r.ok ? await r.json() : null;
+  } catch { return; }              // 로컬 개발 등 서버 함수가 없으면 조용히 넘어간다
+  const n = j && j.data ? Number(j.data.결과변경) || 0 : 0;
+  if (!n) return;
+  // 새 결과가 들어왔다 — 데이터를 다시 받아 **이번 방문자에게 바로** 보여 준다.
+  try {
+    await fetchAll();
+    snapshotSave();
+  } catch { return; }
+  if (storeRedraw) { try { storeRedraw(); return; } catch { /* 아래 토스트로 */ } }
+  showRefreshToast();              // 다시 그리는 법을 모르는 화면은 새로고침을 권한다
 }
 storeFresh.then(pingScheduleSync).catch(() => {});
 
