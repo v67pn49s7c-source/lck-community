@@ -504,10 +504,10 @@ async function initPostPage() {
           ${c.id === bestId && bestN > 0 ? `<span class="cat-chip notice">BEST</span>` : ""}
           <span>${fmtAgo(c.ts)}</span>
           ${c.id != null ? `<button class="c-like ${myCommentLike(c.id) ? "liked" : ""}" data-cid="${esc(c.id)}"
-            style="margin-left:auto;color:${myCommentLike(c.id) ? "var(--accent)" : "var(--text-dim)"};font-size:11px;font-weight:700">
+            style="margin-left:auto;color:${myCommentLike(c.id) ? "var(--accent)" : "var(--text-dim)"};font-size:12px;font-weight:700">
             ▲ ${likes}</button>` : ""}
           ${c.id != null ? `<button class="c-del" data-cid="${esc(c.id)}"
-            style="color:var(--text-dim);font-size:11px">삭제</button>` : ""}
+            style="color:var(--text-dim);font-size:12px">삭제</button>` : ""}
         </div>
         <div class="c-body">${esc(c.body)}</div>
       </div>`;
@@ -567,7 +567,7 @@ async function initPostPage() {
       // 공식(관리자·phase 있음)과 회원 자유 투표를 화면에서도 구분한다 (P0-1)
       const box = el.querySelector("#post-poll");
       box.insertAdjacentHTML("beforebegin",
-        `<div class="poll-kind" style="font-size:11px;font-weight:700;color:var(--text-dim);margin:10px 0 4px">
+        `<div class="poll-kind" style="font-size:12px;font-weight:700;color:var(--text-dim);margin:10px 0 4px">
            ${poll.phase ? "공식 팬심지수 투표" : "글쓴이가 만든 자유 투표"}</div>`);
       renderPollInto(box, poll, m ? { teamA: m.a, teamB: m.b } : {});
     }

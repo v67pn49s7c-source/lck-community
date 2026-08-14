@@ -222,6 +222,73 @@ function noIndex() {
   document.head.appendChild(m);
 }
 
+/** 상단 팀 줄 — **로고만** 둔다.
+ *  약자(BFX·BRO…)를 로고 밑에 또 적으면 로고 자체에 이미 이름이 들어 있어 겹쳐 읽힌다.
+ *  이미 그 팀 게시판에 들어와 있으면(activeTeamId) 줄 자체를 그리지 않는다 —
+ *  화면 안에 팀 배너가 크게 있어서 같은 정보를 두 번 말하게 된다. (2026-08-14) */
+function teamStripHTML(activeTeamId) {
+  if (activeTeamId) return "";
+  return `
+  <div class="team-strip">
+    <div class="container team-strip-inner">
+      ${TEAMS.map(t => `
+        <a class="team-link" style="--team-color:${t.color}" href="team.html?team=${t.id}"
+          title="${esc(t.name)} 게시판" aria-label="${esc(t.name)} 게시판">
+          ${teamLogoHTML(t, 30)}
+        </a>`).join("")}
+    </div>
+  </div>`;
+}
+
+/** 전체 메뉴 서랍 — 하단 탭바·상단 가로 메뉴에 다 못 들어간 곳으로 가는 통로.
+ *  묶음과 그 안의 갈래를 한 번에 펼쳐 둔다 (두 번 눌러 들어가게 하지 않는다). */
+function navDrawerHTML(groupName, activeTeamId) {
+  const item = (href, label, on) =>
+    `<a href="${href}" class="nd-item${on ? " on" : ""}">${esc(label)}</a>`;
+  return `
+  <div class="nav-drawer" id="nav-drawer" hidden>
+    <div class="nav-drawer-back" data-close></div>
+    <nav class="nav-drawer-panel" aria-label="전체 메뉴">
+      <div class="nav-drawer-head">
+        <b>전체 메뉴</b>
+        <button type="button" class="btn-icon" data-close aria-label="닫기">✕</button>
+      </div>
+      <div class="nd-groups">
+        ${NAV_GROUPS.map(g => `
+          <div class="nd-group">
+            ${item(g.href, g.menu, g.menu === groupName)}
+            ${(g.subs || []).length > 1
+              ? `<div class="nd-subs">${g.subs.map(([n, h]) => `<a href="${h}">${esc(n)}</a>`).join("")}</div>`
+              : ""}
+          </div>`).join("")}
+        <div class="nd-group">${item("my.html", "MY · 팬 여권", groupName === "MY")}</div>
+      </div>
+      <div class="nd-teams-head">팀 게시판</div>
+      <div class="nd-teams">
+        ${TEAMS.map(t => `
+          <a href="team.html?team=${t.id}" class="nd-team${t.id === activeTeamId ? " on" : ""}"
+            style="--team-color:${t.color}">${teamLogoHTML(t, 26)}<span>${esc(t.abbr)}</span></a>`).join("")}
+      </div>
+    </nav>
+  </div>`;
+}
+
+function bindNavDrawer(root) {
+  const drawer = root.querySelector("#nav-drawer");
+  const opener = root.querySelector("#nav-open");
+  if (!drawer || !opener) return;
+  const setOpen = on => {
+    drawer.hidden = !on;
+    opener.setAttribute("aria-expanded", String(on));
+    // 서랍이 열려 있는 동안 뒤 본문이 같이 스크롤되면 어디를 보고 있는지 잃는다
+    document.body.classList.toggle("nav-open-lock", on);
+    if (on) drawer.querySelector(".nd-item")?.focus();
+  };
+  opener.addEventListener("click", () => setOpen(drawer.hidden));
+  drawer.querySelectorAll("[data-close]").forEach(el => el.addEventListener("click", () => setOpen(false)));
+  addEventListener("keydown", e => { if (e.key === "Escape" && !drawer.hidden) setOpen(false); });
+}
+
 function renderHeader(activeMenu, activeTeamId) {
   document.body.classList.add("app-ready"); // 데이터 로드 완료 → 화면 표시
   window.__readyMs = Math.round(performance.now()); // 로딩 체감 측정용
@@ -242,10 +309,18 @@ function renderHeader(activeMenu, activeTeamId) {
   header.innerHTML = `
   <header class="site-header">
     <div class="container header-inner">
+      <!-- 전체 메뉴 — 하단 탭바 5칸에 못 들어간 곳(선수·팀·순위·대진표·수상 등)과
+           10개 팀 게시판으로 가는 유일한 통로. 휴대폰에서는 상단 가로 메뉴가
+           숨겨지므로 이 버튼이 없으면 갈 수 없는 화면이 생긴다. (2026-08-14) -->
+      <button class="btn-icon nav-open" id="nav-open" aria-label="전체 메뉴 열기"
+        aria-expanded="false" aria-controls="nav-drawer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814e")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814e")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814e")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814h")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814h")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814h")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -266,16 +341,10 @@ function renderHeader(activeMenu, activeTeamId) {
     </div>
   </header>
   ${subNavHTML}
-  <div class="team-strip">
-    <div class="container team-strip-inner">
-      ${TEAMS.map(t => `
-        <a class="team-link ${t.id === activeTeamId ? "active" : ""}" style="--team-color:${t.color}" href="team.html?team=${t.id}" title="${t.name} 게시판">
-          ${teamLogoHTML(t, 30)}
-          <span class="team-abbr">${t.abbr}</span>
-        </a>`).join("")}
-    </div>
-  </div>`;
+  ${teamStripHTML(activeTeamId)}
+  ${navDrawerHTML(groupName, activeTeamId)}`;
   document.body.prepend(header);
+  bindNavDrawer(header);
 
   header.querySelector("#theme-toggle").addEventListener("click", () => {
     applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
@@ -295,7 +364,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814e");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814h");
 
   renderTabBar(groupName);
 }

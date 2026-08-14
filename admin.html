@@ -13,11 +13,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260814e">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260814e">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260814h">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260814h">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260814e">
+  <link rel="stylesheet" href="assets/styles.css?v=20260814h">
 </head>
 <body>
   <main class="page">
@@ -94,7 +94,7 @@
             </label>
             <label>일시 (KST)
               <input id="m-at" type="datetime-local" required>
-              <span class="muted" id="m-at-now" style="font-size:11px; color:var(--text-dim)"></span>
+              <span class="muted" id="m-at-now" style="font-size:12px; color:var(--text-dim)"></span>
             </label>
           </div>
           <div class="row">
@@ -117,7 +117,7 @@
             <label style="flex:2">대진 라벨 <span style="font-weight:400">(대진표에 표시되는 경기 이름 — 선택)</span>
               <input id="m-label" placeholder="예: UB R1 M1, LB R2, Grand Finals">
             </label>
-            <span class="muted" style="flex:3; align-self:end; font-size:11px; color:var(--text-dim); padding-bottom:6px">
+            <span class="muted" style="flex:3; align-self:end; font-size:12px; color:var(--text-dim); padding-bottom:6px">
               토너먼트라서 아직 팀이 안 정해졌다면 팀 선택에서 <b>"미정 (자리 이름 직접 입력)"</b>을 고르세요.
               나중에 팀이 확정되면 아래 목록에서 실제 팀으로 바꾸면 됩니다.
             </span>
@@ -357,14 +357,14 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260814e"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260814e"></script>
-  <script src="assets/invariants.js?v=20260814e"></script>
-  <script src="assets/store.js?v=20260814e"></script>
-  <script src="assets/app.js?v=20260814e"></script>
-  <script src="assets/story.js?v=20260814e"></script>
-  <script src="assets/ddragon.js?v=20260814e"></script>
-  <script src="assets/brackets.js?v=20260814e"></script>
+  <script src="assets/data.js?v=20260814h"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260814h"></script>
+  <script src="assets/invariants.js?v=20260814h"></script>
+  <script src="assets/store.js?v=20260814h"></script>
+  <script src="assets/app.js?v=20260814h"></script>
+  <script src="assets/story.js?v=20260814h"></script>
+  <script src="assets/ddragon.js?v=20260814h"></script>
+  <script src="assets/brackets.js?v=20260814h"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -386,9 +386,9 @@
         <div class="page-title-row"><h1 class="page-title">관리자 로그인</h1></div>
         <section class="card" style="max-width:420px">
           <form class="admin-form" id="login-form">
-            <label style="display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:var(--text-dim)">이메일
+            <label style="display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:700;color:var(--text-dim)">이메일
               <input id="login-email" type="email" required autocomplete="username"></label>
-            <label style="display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:var(--text-dim)">비밀번호
+            <label style="display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:700;color:var(--text-dim)">비밀번호
               <input id="login-pw" type="password" required autocomplete="current-password"></label>
             <div class="row actions"><button class="btn-primary" type="submit">로그인</button></div>
           </form>

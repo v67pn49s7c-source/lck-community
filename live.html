@@ -17,11 +17,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260814e">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260814e">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260814h">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260814h">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260814e">
+  <link rel="stylesheet" href="assets/styles.css?v=20260814h">
 </head>
 <body>
   <main class="page">
@@ -100,14 +100,14 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260814e"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260814e"></script>
-  <script src="assets/invariants.js?v=20260814e"></script>
-  <script src="assets/store.js?v=20260814e"></script>
-  <script src="assets/app.js?v=20260814e"></script>
-  <script src="assets/story.js?v=20260814e"></script>
-  <script src="assets/ddragon.js?v=20260814e"></script>
-  <script src="assets/race.js?v=20260814e"></script>
+  <script src="assets/data.js?v=20260814h"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260814h"></script>
+  <script src="assets/invariants.js?v=20260814h"></script>
+  <script src="assets/store.js?v=20260814h"></script>
+  <script src="assets/app.js?v=20260814h"></script>
+  <script src="assets/story.js?v=20260814h"></script>
+  <script src="assets/ddragon.js?v=20260814h"></script>
+  <script src="assets/race.js?v=20260814h"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -146,7 +146,7 @@
         <div style="text-align:center">
           ${live ? `<div class="live-badge" style="margin-bottom:6px">● LIVE</div>` : ""}
           <div class="lb-score">${(live || done) ? `${match.scoreA ?? 0} : ${match.scoreB ?? 0}` : "VS"}</div>
-          <div style="font-size:11px;color:var(--text-dim);margin-top:4px">${esc(match.label || match.stage || "")}</div>
+          <div style="font-size:12px;color:var(--text-dim);margin-top:4px">${esc(match.label || match.stage || "")}</div>
         </div>
         <div class="lb-team">${slotLogoHTML(match.b, 52)}<span>${slotName(match.b)}</span></div>`;
       renderStreams();

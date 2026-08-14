@@ -17,11 +17,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260814e">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260814e">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260814h">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260814h">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260814e">
+  <link rel="stylesheet" href="assets/styles.css?v=20260814h">
 </head>
 <body>
   <main class="page">
@@ -76,13 +76,13 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260814e"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260814e"></script>
-  <script src="assets/store.js?v=20260814e"></script>
-  <script src="assets/app.js?v=20260814e"></script>
-  <script src="assets/story.js?v=20260814e"></script>
-  <script src="assets/player-photos.js?v=20260814e"></script>
-  <script src="assets/ddragon.js?v=20260814e"></script>
+  <script src="assets/data.js?v=20260814h"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260814h"></script>
+  <script src="assets/store.js?v=20260814h"></script>
+  <script src="assets/app.js?v=20260814h"></script>
+  <script src="assets/story.js?v=20260814h"></script>
+  <script src="assets/player-photos.js?v=20260814h"></script>
+  <script src="assets/ddragon.js?v=20260814h"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("수상", null);
@@ -180,7 +180,7 @@
                 ${i === 0 ? `<td rowspan="${byWeek[wk].length}" class="aw-week">${wk}주</td>` : ""}
                 <td>${p ? `<a href="player.html?id=${p.id}"><b>${esc(a.nick || a.person)}</b></a>` : `<b>${esc(a.nick || a.person)}</b>`}
                   <span class="pom-sub" style="margin-left:6px">${esc(a.person && a.nick ? a.person : "")}</span></td>
-                <td>${t ? `${teamLogoHTML(t, 16)} ${esc(t.abbr)}` : `<span style="color:var(--text-dim);font-size:11px">${esc(a.note)}</span>`}</td>
+                <td>${t ? `${teamLogoHTML(t, 16)} ${esc(t.abbr)}` : `<span style="color:var(--text-dim);font-size:12px">${esc(a.note)}</span>`}</td>
                 <td>${esc(p ? p.pos : "")}</td>
               </tr>`;
             }).join("")).join("")}
@@ -202,7 +202,7 @@
                 <td class="aw-week">${a.ord}</td>
                 <td>${p ? `<a href="player.html?id=${p.id}"><b>${esc(a.nick || a.person)}</b></a>` : `<b>${esc(a.nick || a.person)}</b>`}
                   <span class="pom-sub" style="margin-left:6px">${t ? teamLogoHTML(t, 14) + " " + esc(t.abbr) : ""}</span></td>
-                <td>${a.champ ? ddChampHTML(a.champ) : `<span style="color:var(--text-dim);font-size:11px">미등록</span>`}</td>
+                <td>${a.champ ? ddChampHTML(a.champ) : `<span style="color:var(--text-dim);font-size:12px">미등록</span>`}</td>
                 <td>${TEAM_MAP[a.opp_team] ? teamLogoHTML(TEAM_MAP[a.opp_team], 16) + " " + esc(TEAM_MAP[a.opp_team].abbr) : "-"}</td>
                 <td style="font-variant-numeric:tabular-nums">${esc(a.at_date)}</td>
                 <td style="color:var(--text-sub)">${esc(a.note)}</td>

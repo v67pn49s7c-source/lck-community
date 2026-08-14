@@ -17,10 +17,10 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260814e">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260814e">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260814h">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260814h">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260814e">
+  <link rel="stylesheet" href="assets/styles.css?v=20260814h">
   <style>
     /* ── 우리 팀 카드 — 이 페이지에서 가장 먼저 읽혀야 하는 것 ── */
     .my-race { padding: 16px; }
@@ -73,7 +73,7 @@
     .race-sub { display: none; }
     @media (max-width: 620px) {
       .race-table .c-rank, .race-table .c-rec, .race-table .c-pt, .race-table .c-left { display: none; }
-      .race-sub { display: block; font-size: 11px; color: var(--text-dim); margin-top: 2px; font-weight: 500; }
+      .race-sub { display: block; font-size:12px; color: var(--text-dim); margin-top: 2px; font-weight: 500; }
       .race-table td, .race-table th { padding: 8px 5px; }
       .goal-mark { flex-basis: 56px; }
     }
@@ -148,12 +148,12 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260814e"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260814e"></script>
-  <script src="assets/store.js?v=20260814e"></script>
-  <script src="assets/app.js?v=20260814e"></script>
-  <script src="assets/story.js?v=20260814e"></script>
-  <script src="assets/race.js?v=20260814e"></script>
+  <script src="assets/data.js?v=20260814h"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260814h"></script>
+  <script src="assets/store.js?v=20260814h"></script>
+  <script src="assets/app.js?v=20260814h"></script>
+  <script src="assets/story.js?v=20260814h"></script>
+  <script src="assets/race.js?v=20260814h"></script>
   <script>
   storeReady.then(() => {
     renderHeader("경우의 수", null);
@@ -246,7 +246,7 @@
                      tie: "var(--warn)", none: "var(--text-dim)" }[s.tone];
       return `<td style="text-align:center">
         <b style="color:${tone}">${esc(s.head)}</b>
-        <br><span style="font-size:11px;color:var(--text-dim)">${esc(
+        <br><span style="font-size:12px;color:var(--text-dim)">${esc(
           s.tone === "safe" ? `잔여 ${row.remaining}경기 중` :
           s.tone === "hope" ? "이상 + 남의 도움" :
           s.tone === "done" ? "결과 무관" :
@@ -271,7 +271,7 @@
           <thead><tr>
             <th class="c-rank">#</th><th style="text-align:left">팀</th>
             <th class="c-rec">전적</th><th class="c-pt">득실</th><th class="c-left">잔여</th>
-            ${r.cuts.map(c => `<th style="text-align:center">${esc(c.what)}<br><span style="font-weight:400;font-size:11px;color:var(--text-dim)">${esc(c.label)} · 확정까지</span></th>`).join("")}
+            ${r.cuts.map(c => `<th style="text-align:center">${esc(c.what)}<br><span style="font-weight:400;font-size:12px;color:var(--text-dim)">${esc(c.label)} · 확정까지</span></th>`).join("")}
           </tr></thead>
           <tbody>
             ${r.rows.map((row, i) => {
