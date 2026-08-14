@@ -31,7 +31,21 @@
   --fs-lg: 18px;
   --fs-xl: 22px;
   --container: 1256px;
-  --cut: 10px;
+  /* ── 각진 모서리 (이 사이트의 형태 언어) ──────────────────────
+     둥근 모서리 대신 **모서리를 잘라낸다**. 크기는 셋뿐이고, 모양도 셋뿐이다.
+     예전엔 자르는 크기가 7가지(4~10px), 둥근 모서리가 14가지였다 —
+     지킬 규칙이 없으니 새 부품마다 각자 값을 발명했고 그래서 무너졌다.
+     ⚠ --chamfer-* 를 쓰는 규칙은 **반드시 --cut 을 같이 적는다.**
+        커스텀 속성은 상속되므로, 안 적으면 부모(예: 카드 10px)를 물려받는다.
+        tests/check.sh 가 이 규칙을 검사한다. */
+  --cut-lg: 10px;   /* 카드·패널 등 큰 면 */
+  --cut-md: 7px;    /* 버튼·탭·입력 등 누르는 것 */
+  --cut-sm: 4px;    /* 칩·뱃지 등 작은 조각 */
+  --cut: var(--cut-md);
+  --chamfer-br: polygon(0 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%);
+  --chamfer-tr: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+  --chamfer-tlbr: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+  --chamfer-t: polygon(var(--cut) 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%, 0 var(--cut));
 }
 
 :root[data-theme="light"] {
@@ -66,7 +80,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260814c") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260814d") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -168,7 +182,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
   padding:7px 15px;
   background: var(--card); border: 1px solid var(--line);
   font-size: var(--fs-sm); font-weight: 600; color: var(--text-sub);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+  --cut: var(--cut-md); clip-path: var(--chamfer-br);
 }
 .btn-login:hover { color: var(--text); border-color: var(--text-dim); }
 .btn-icon {
@@ -183,7 +197,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
   padding:6px 13px; font-size: var(--fs-sm); font-weight: 700;
   color: var(--accent); background: var(--accent-soft);
   border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
+  --cut: var(--cut-md); clip-path: var(--chamfer-br);
   max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
@@ -203,7 +217,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
    그래서 여기 안 고른 것은 테두리도 배경도 없는 맨 글씨로 둔다. */
 .sub-nav-inner a {
   flex-shrink: 0; white-space: nowrap;
-  padding:7px 14px; border-radius: 999px;
+  padding:7px 14px; --cut: var(--cut-md); clip-path: var(--chamfer-br);
   font-size: var(--fs-sm); font-weight: 600;
   color: var(--text-sub);
 }
@@ -239,7 +253,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
 
 .card {
   background: var(--card); border: 1px solid var(--line);
-  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+  --cut: var(--cut-lg); clip-path: var(--chamfer-tr);
   overflow: hidden;
 }
 .card + .card, .stack > * + * { margin-top:15px; }
@@ -294,7 +308,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
   display: flex; align-items: center; gap:13px; flex-wrap: wrap;
   padding:11px 15px; margin-bottom:13px;
   border: 1px solid var(--line); border-left: 3px solid var(--accent);
-  border-radius: 10px; background: var(--bg-soft);
+  --cut: var(--cut-md); clip-path: var(--chamfer-br); background: var(--bg-soft);
 }
 .fanpick-head { display: flex; flex-direction: column; gap:1px; flex: 0 0 auto; }
 .fanpick-head b { font-size: var(--fs-md); font-weight: 800; letter-spacing: -0.01em; }
@@ -306,7 +320,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
 .fanpick-teams::-webkit-scrollbar { display: none; }
 .fanpick-team {
   flex: 0 0 auto; display: inline-flex; align-items: center; gap:6px;
-  padding:6px 11px 6px 7px; border-radius: 999px; cursor: pointer;
+  padding:6px 11px 6px 7px; --cut: var(--cut-md); clip-path: var(--chamfer-br); cursor: pointer;
   border: 1px solid var(--line); background: var(--bg);
   color: var(--text-sub); font-weight: 700; font-size: var(--fs-sm);
 }
@@ -427,7 +441,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
 .hero-face img { width: 100%; height: 100%; object-fit: cover; object-position: center 18%; display: block; }
 .hero-crest {
   width: 68px; height: 68px; display: grid; place-items: center;
-  border-radius: 14px; background: var(--logo-tile); border: 1px solid var(--logo-line);
+  --cut: var(--cut-md); clip-path: var(--chamfer-br); background: var(--logo-tile); border: 1px solid var(--logo-line);
 }
 .hero-who { font-size: var(--fs-md); font-weight: 800; letter-spacing: -.02em; }
 .hero-team { display: flex; align-items: center; gap:4px; }
@@ -442,7 +456,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
 .hero-cheer { display: flex; gap:7px; }
 .hero-cheer-btn {
   min-height:38px; display: inline-flex; align-items: center; gap:6px;
-  padding:7px 13px; cursor: pointer; border-radius: var(--cut);
+  padding:7px 13px; cursor: pointer; --cut: var(--cut-md); clip-path: var(--chamfer-br);
   background: var(--bg-soft); border: 1px solid var(--line);
   font-size: var(--fs-xs); font-weight: 800; color: var(--text-sub);
 }
@@ -458,7 +472,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
 /* ── 내 응원팀 한 줄 ──────────────────────────────────────────── */
 .home-myteam {
   display: flex; align-items: center; flex-wrap: wrap; gap:6px 11px;
-  margin-bottom:18px; padding:11px 15px; border-radius: var(--cut);
+  margin-bottom:18px; padding:11px 15px; --cut: var(--cut-md); clip-path: var(--chamfer-br);
   background: var(--card); border: 1px solid var(--line);
   border-left: 3px solid var(--team-color); font-size: var(--fs-sm);
 }
@@ -484,7 +498,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
 
 .home-board-tabs { display: flex; gap:4px; padding:10px 14px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
 .home-board-tabs::-webkit-scrollbar { display: none; }
-.home-board-tabs button { flex: 0 0 auto; padding:6px 11px; color: var(--text-sub); font-size: var(--fs-xs); font-weight: 700; border-radius: 999px; }
+.home-board-tabs button { flex: 0 0 auto; padding:6px 11px; color: var(--text-sub); font-size: var(--fs-xs); font-weight: 700; --cut: var(--cut-md); clip-path: var(--chamfer-br); }
 .home-board-tabs button.active { color: #fff; background: var(--accent-solid); }
 .home-post-row {
   min-height:73px; display: grid; grid-template-columns: 46px minmax(0, 1fr) auto;
@@ -540,7 +554,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
 .chip-today {
   font-size: 11px; font-weight: 700; color: #fff;
   background: var(--accent-solid); padding:1px 8px;
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%);
+  --cut: var(--cut-sm); clip-path: var(--chamfer-br);
 }
 .chip-stage {
   font-size: 11px; font-weight: 600; color: var(--text-dim);
@@ -551,7 +565,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
   display: inline-flex; align-items: center; gap:4px;
   font-size: 11px; font-weight: 800; color: #221a06; background: #f5b942;
   padding:1px 8px; white-space: nowrap;
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%);
+  --cut: var(--cut-sm); clip-path: var(--chamfer-br);
 }
 .chip-pog b { font-variant-numeric: tabular-nums; }
 .chip-pom em { font-style: normal; }
@@ -559,7 +573,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
   display: inline-flex; align-items: center; gap:4px;
   font-size: 11px; font-weight: 800; color: #fff; background: var(--blue);
   padding:1px 8px; white-space: nowrap;
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%);
+  --cut: var(--cut-sm); clip-path: var(--chamfer-br);
 }
 .match-row {
   display: grid;
@@ -581,7 +595,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
 }
 .stake {
   font-size: var(--fs-xs); font-weight: 600; line-height: 1.45;
-  padding:2px 9px; border-radius: 4px;
+  padding:2px 9px; --cut: var(--cut-sm); clip-path: var(--chamfer-br);
   color: var(--text-sub); background: var(--bg-soft);
   border-left: 2px solid var(--line);
 }
@@ -603,7 +617,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
   font-weight: 800; font-size: var(--fs-md);
   background: var(--bg-soft); border: 1px solid var(--line);
   padding:3px 0;
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
+  --cut: var(--cut-md); clip-path: var(--chamfer-br);
 }
 .match-score .win { color: var(--text); }
 .match-score .lose { color: var(--text-dim); }
@@ -616,7 +630,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
   background: var(--bg-soft); border: 1px solid var(--line);
   padding:2px 9px; font-size: var(--fs-sm); font-weight: 700; color: var(--text-sub);
   font-variant-numeric: tabular-nums;
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
+  --cut: var(--cut-sm); clip-path: var(--chamfer-br);
 }
 .odds-pill b { color: var(--text); font-weight: 800; }
 
@@ -635,7 +649,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
   padding:6px 13px;
   font-size: var(--fs-sm); font-weight: 700; color: var(--text-sub);
   background: var(--bg-soft); border: 1px solid var(--line);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
+  --cut: var(--cut-md); clip-path: var(--chamfer-br);
 }
 .filter-tabs button.active, .filter-tabs a.active { background: var(--text); color: var(--bg); border-color: var(--text); }
 
@@ -705,7 +719,7 @@ table.board-table tr.notice .col-title { font-weight: 700; }
   display: inline-flex; align-items: center; gap:7px;
   padding:9px 24px; font-weight: 800;
   border: 1px solid var(--accent); color: var(--accent); background: var(--accent-soft);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%);
+  --cut: var(--cut-md); clip-path: var(--chamfer-br);
 }
 .vote-btn:hover { background: var(--accent-solid); color: #fff; }
 
@@ -743,14 +757,14 @@ table.board-table tr.notice .col-title { font-weight: 700; }
   padding:8px 20px;
   background: var(--accent-solid); color: #fff; font-weight: 700; font-size: var(--fs-sm);
   transition: opacity .15s;
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%);
+  --cut: var(--cut-md); clip-path: var(--chamfer-br);
 }
 .btn-primary:hover { opacity: .85; }
 .btn-secondary {
   padding:8px 18px;
   background: var(--bg-soft); border: 1px solid var(--line);
   color: var(--text-sub); font-weight: 700; font-size: var(--fs-sm);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%);
+  --cut: var(--cut-md); clip-path: var(--chamfer-br);
 }
 .btn-secondary:hover { color: var(--text); border-color: var(--text-dim); }
 .btn-danger {
@@ -774,7 +788,7 @@ table.board-table tr.notice .col-title { font-weight: 700; }
   display: flex; flex-direction: column; align-items: center; gap:6px;
   padding:9px 15px; border: 1px solid var(--line);
   background: var(--bg-soft);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%);
+  --cut: var(--cut-md); clip-path: var(--chamfer-br);
 }
 .predict-team button:hover { border-color: var(--team-color, var(--accent)); transition: border-color .15s; }
 .predict-team button.voted { border-color: var(--team-color, var(--accent)); background: var(--accent-soft); }
@@ -791,7 +805,7 @@ table.board-table tr.notice .col-title { font-weight: 700; }
   flex: 1; padding:7px 0;
   font-size: var(--fs-sm); font-weight: 700; color: var(--text-sub);
   background: var(--bg-soft); border: 1px solid var(--line);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+  --cut: var(--cut-md); clip-path: var(--chamfer-br);
 }
 .standing-tabs button.active { background: var(--accent-solid); border-color: var(--accent-solid); color: #fff; }
 table.standings { width: 100%; border-collapse: collapse; }
@@ -820,7 +834,7 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
   padding:2px 8px 2px 2px;
   color: var(--tag-color, var(--text-sub));
   background: color-mix(in srgb, var(--tag-color, #888) 12%, transparent);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
+  --cut: var(--cut-sm); clip-path: var(--chamfer-br);
 }
 .tag-team.no-logo { padding:2px 8px; }
 .tag-cat { flex-shrink: 0; font-size: var(--fs-xs); color: var(--text-dim); font-weight: 600; }
@@ -844,7 +858,7 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
 .stat-card {
   background: var(--card); border: 1px solid var(--line);
   padding:13px 15px;
-  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 0 100%);
+  --cut: var(--cut-lg); clip-path: var(--chamfer-tr);
 }
 /* 세 줄(라벨·숫자·설명)은 반드시 세로로 쌓인다. display 를 안 정해 두면
    <div> 로 쓴 화면은 멀쩡한데 <span> 으로 쓴 화면(팬 여권)은 한 줄로 붙어 버린다. */
@@ -867,7 +881,7 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
   /* 오른쪽 아래가 8px 잘려 있어 오른쪽 여백을 조금 더 준다 */
   padding:8px 14px 8px 11px; border: 1px solid var(--line); background: var(--bg-soft);
   font-weight: 700; font-size: var(--fs-md);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+  --cut: var(--cut-md); clip-path: var(--chamfer-br);
 }
 .pm-btn:hover { border-color: var(--team-color, var(--accent)); transition: border-color .15s; }
 .pm-btn.voted { border-color: var(--team-color, var(--accent)); background: var(--accent-soft); }
@@ -950,7 +964,7 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
   background: var(--card); border: 1px solid var(--line);
   padding:20px 11px 15px;
   transition: transform .15s;
-  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  --cut: var(--cut-lg); clip-path: var(--chamfer-tr);
 }
 .team-card:hover { border-color: var(--team-color, var(--accent)); transform: translateY(-2px); transition: border-color .15s, transform .15s; }
 .team-card .tc-name { font-weight: 800; font-size: var(--fs-md); }
@@ -973,7 +987,7 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
 .team-card.roster-card img.player-avatar { object-fit: cover; object-position: center 18%; }
 .roster-card .rc-pos {
   position: absolute; top: 8px; left: 8px; z-index: 2;
-  padding:3px 9px; border-radius: 6px;
+  padding:3px 9px; --cut: var(--cut-sm); clip-path: var(--chamfer-br);
   font-size: 11px; font-weight: 800; letter-spacing: .04em;
   color: #fff; background: rgba(12, 14, 20, .68);
   backdrop-filter: blur(4px);
@@ -999,11 +1013,11 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
 .filter-toggle {
   display: none; align-items: center; gap:7px; min-height:42px; padding:0 15px;
   font-size: var(--fs-sm); font-weight: 800; color: var(--text);
-  background: var(--card); border: 1px solid var(--accent); border-radius: 10px;
+  background: var(--card); border: 1px solid var(--accent); --cut: var(--cut-lg); clip-path: var(--chamfer-br);
 }
 .filter-toggle svg { width: 17px; height: 17px; }
 .filter-badge {
-  min-width: 18px; height: 18px; padding:0 6px; border-radius: 999px;
+  min-width: 18px; height: 18px; padding:0 6px; --cut: var(--cut-sm); clip-path: var(--chamfer-br);
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--accent-solid); color: #fff; font-size: 11px; font-weight: 800;
 }
@@ -1018,7 +1032,7 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
 .filter-team-list { display: grid; gap:3px; max-height: 340px; overflow-y: auto; }
 .filter-team-list button {
   display: flex; align-items: center; gap:10px; width: 100%; min-height:44px;
-  padding:7px 11px; border-radius: 9px; border: 1px solid transparent;
+  padding:7px 11px; --cut: var(--cut-md); clip-path: var(--chamfer-br); border: 1px solid transparent;
   background: transparent; color: var(--text-sub); font-size: var(--fs-sm); font-weight: 800; text-align: left;
 }
 .filter-team-list button .team-logo { width: 22px !important; height: 22px !important; flex: 0 0 22px; }
@@ -1165,7 +1179,7 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
 .dt-gap-set { font-weight: 700; color: var(--accent-solid); }
 .dt-gap-miss { display: flex; gap:4px; flex-wrap: wrap; margin-left: auto; }
 .dt-gap-miss i {
-  font-style: normal; font-size: 11px; padding:1px 7px; border-radius: 9px;
+  font-style: normal; font-size: 11px; padding:1px 7px; --cut: var(--cut-sm); clip-path: var(--chamfer-br);
   color: #8a6d00; background: rgba(255,193,7,.18); border: 1px solid rgba(255,193,7,.45);
 }
 
@@ -1176,7 +1190,7 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
 .dt-sets { display: flex; gap:6px; padding:0 15px 11px; flex-wrap: wrap; }
 .dt-settab {
   display: flex; flex-direction: column; align-items: center; gap:1px;
-  padding:6px 14px; cursor: pointer; border-radius: 8px;
+  padding:6px 14px; cursor: pointer; --cut: var(--cut-md); clip-path: var(--chamfer-br);
   border: 1px solid var(--line); background: var(--bg-soft);
   font-size: var(--fs-sm); font-weight: 700; color: var(--text-sub);
 }
@@ -1209,7 +1223,7 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
 .dt-champ-btn {
   padding:0 8px; cursor: pointer; color: var(--text-dim);
   background: var(--bg-soft); border: 1px solid var(--line); border-left: 0;
-  border-radius: 0 6px 6px 0; font-size: 12px;
+  --cut: var(--cut-sm); clip-path: var(--chamfer-br); font-size: 12px;
 }
 .dt-champ-btn:hover { color: var(--text); }
 
@@ -1237,7 +1251,7 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
    1fr 을 다 채우면 테두리가 열 끝까지 늘어나 대립 구도가 안 읽힌다. */
 .dt-step {
   display: flex; align-items: center; justify-content: center; gap:2px;
-  width: max-content; border: 1px solid var(--line); border-radius: 8px;
+  width: max-content; border: 1px solid var(--line); --cut: var(--cut-md); clip-path: var(--chamfer-br);
   background: var(--bg-soft); opacity:.55;
 }
 .dt-obj-row > .dt-step[data-side="a"] { justify-self: end; }
@@ -1333,12 +1347,12 @@ table.detail-table tbody tr:hover { background: color-mix(in srgb, var(--team-co
 .dt-face { display: flex; align-items: center; gap:3px; flex: 0 0 auto; }
 .dt-face .dd-nm { display: none; }
 .dt-face .dd-ic.champ {
-  width: 46px; height: 46px; margin:0; border-radius: 8px;
+  width: 46px; height: 46px; margin:0; --cut: var(--cut-sm); clip-path: var(--chamfer-br);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--team-color) 45%, var(--line));
 }
 /* 스펠 2개·룬 2개는 세로로 쌓아 초상화 옆에 붙인다 */
 .dt-mini { display: grid; gap:2px; }
-.dt-mini .dd-ic { width: 21px; height: 21px; margin:0; border-radius: 4px; display: block; }
+.dt-mini .dd-ic { width: 21px; height: 21px; margin:0; --cut: var(--cut-sm); clip-path: var(--chamfer-br); display: block; }
 .dt-mini .dd-ic.rune { border-radius: 50%; }
 .dt-id { display: grid; gap:1px; min-width: 0; }
 .dt-id a, .dt-id b { font-weight: 800; font-size: var(--fs-md); color: var(--text);
@@ -1364,10 +1378,10 @@ table.detail-table th.ta-r, .dt-num { text-align: right; }
 .dt-dmg-n { display: flex; align-items: baseline; justify-content: space-between; gap:7px; }
 .dt-dmg-n b { font-size: var(--fs-md); font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
 .dt-dmg-n small { font-size: var(--fs-xs); color: var(--text-dim); font-weight: 700; white-space: nowrap; }
-.dt-dmg > i { display: block; height: 6px; margin-top:6px; border-radius: 3px;
+.dt-dmg > i { display: block; height: 6px; margin-top:6px; --cut: var(--cut-sm); clip-path: var(--chamfer-br);
   background: var(--bg-soft); overflow: hidden; }
 .dt-dmg > i > b {
-  display: block; height: 100%; min-width: 0; border-radius: 3px;
+  display: block; height: 100%; min-width: 0; --cut: var(--cut-sm); clip-path: var(--chamfer-br);
   background: linear-gradient(90deg, color-mix(in srgb, var(--team-color) 70%, #fff), var(--team-color));
   transition: width .35s ease;
 }
@@ -1384,8 +1398,8 @@ table.detail-table th.ta-r, .dt-num { text-align: right; }
   gap:3px; align-items: center; }
 .dt-items .dd-chip { display: block; min-width: 0; }
 .dt-items .dd-ic { width: 100%; height: auto; aspect-ratio: 1; max-width: 30px;
-  margin:0; border-radius: 4px; display: block; }
-.dt-slot-empty { display: block; width: 100%; aspect-ratio: 1; max-width: 30px; border-radius: 4px;
+  margin:0; --cut: var(--cut-sm); clip-path: var(--chamfer-br); display: block; }
+.dt-slot-empty { display: block; width: 100%; aspect-ratio: 1; max-width: 30px; --cut: var(--cut-sm); clip-path: var(--chamfer-br);
   background: var(--bg-soft); border: 1px solid var(--line); opacity: .45; }
 /* ── 정보창(툴팁)이 화면 밖으로 나가 잘리지 않게 ──
    기본값은 아이콘 가운데 정렬이라, 표 **맨 왼쪽 칸**의 정보창은 왼쪽이 잘리고
@@ -1411,8 +1425,8 @@ table.detail-table td.dt-items .dd-tip::after { display: none; }
 .dd-ic.rune { border-radius: 50%; background: var(--bg-soft); }
 /* 챔피언 초상화 — 로딩 화면 타일(380x380). 인물 얼굴이 잘 보이게 살짝 위를 잡는다 */
 .fr-sub { font-size: 11px; font-weight: 700; color: var(--text-dim); border: 1px solid var(--line);
-  padding:1px 6px; border-radius: 2px; white-space: nowrap; }
-.dd-ic.champ { width: 26px; height: 26px; object-fit: cover; object-position: center 22%; border-radius: 3px; }
+  padding:1px 6px; --cut: var(--cut-md); clip-path: var(--chamfer-br); white-space: nowrap; }
+.dd-ic.champ { width: 26px; height: 26px; object-fit: cover; object-position: center 22%; --cut: var(--cut-sm); clip-path: var(--chamfer-br); }
 .dd-nm { vertical-align: middle; }
 .dd-miss { font-size: var(--fs-xs); color: var(--text-dim); margin-right:4px; }
 .dd-unknown-ic {
@@ -1569,7 +1583,7 @@ table.award-table td a:hover b { color: var(--accent); }
   margin-left:auto; min-width: 46px; text-align: center;
   font-weight: 900; font-size: 17px; padding:3px 10px; color: #fff;
   font-variant-numeric: tabular-nums;
-  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  --cut: var(--cut-sm); clip-path: var(--chamfer-tlbr);
 }
 .fr-badge.t9 { background: #f5b942; color: #221a06; }
 .fr-badge.t8 { background: #2fbf71; }
@@ -1580,7 +1594,7 @@ table.award-table td a:hover b { color: var(--accent); }
 .fr-pog {
   font-size: 11px; font-weight: 900; color: #221a06; background: #f5b942;
   padding:2px 9px; white-space: nowrap;
-  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  --cut: var(--cut-sm); clip-path: var(--chamfer-tlbr);
 }
 .fr-respect {
   font-size: 11px; font-weight: 800; color: #2fbf71;
@@ -1602,7 +1616,7 @@ table.award-table td a:hover b { color: var(--accent); }
   width: 24px; height: 24px;
   font-size: 12px; font-weight: 700; color: var(--text-dim);
   background: var(--bg-soft); border: 1px solid var(--line);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
+  --cut: var(--cut-md); clip-path: var(--chamfer-br);
 }
 .rr-btn:hover { border-color: var(--accent); color: var(--accent); }
 .rr-btn.filled { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
@@ -1617,7 +1631,7 @@ table.award-table td a:hover b { color: var(--accent); }
   color: var(--team-color, var(--accent));
   background: linear-gradient(150deg, color-mix(in srgb, var(--logo-tile) 82%, #b0888f), var(--logo-tile) 60%);
   border: 1px solid var(--logo-line);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
+  --cut: var(--cut-md); clip-path: var(--chamfer-br);
 }
 .player-avatar.big { width: 64px; height: 64px; font-size: 24px; }
 .player-avatar.photo {
@@ -1638,12 +1652,12 @@ table.award-table td a:hover b { color: var(--accent); }
   text-align: center; font-size: var(--fs-md); font-weight: 800; letter-spacing: -0.02em;
   padding:10px 7px; color: #fff !important;
   background: linear-gradient(100deg, #8f1622, var(--accent-solid) 60%, #e0414f);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+  --cut: var(--cut-md); clip-path: var(--chamfer-br);
 }
 .bracket-col-body { display: flex; flex-direction: column; gap:11px; flex: 1; justify-content: center; }
 .bracket-match {
   border: 1px solid var(--line); background: var(--card); display: block;
-  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 0 100%);
+  --cut: var(--cut-lg); clip-path: var(--chamfer-tr);
 }
 a.bracket-match:hover { border-color: var(--accent); }
 .bm-head {
@@ -1685,7 +1699,7 @@ a.bracket-match:hover { border-color: var(--accent); }
 
 /* 범례 — 색이 무슨 뜻인지 */
 .bl-key { display: inline-flex; align-items: center; gap:6px; margin:0 9px; }
-.bl-key i { width: 11px; height: 11px; display: inline-block; border-radius: 2px; }
+.bl-key i { width: 11px; height: 11px; display: inline-block; --cut: var(--cut-sm); clip-path: var(--chamfer-br); }
 .bl-key i.adv { background: color-mix(in srgb, var(--ok) 60%, transparent); }
 .bl-key i.fin { background: color-mix(in srgb, var(--blue) 60%, transparent); }
 .bracket-legend {
@@ -1702,7 +1716,7 @@ a.bracket-match:hover { border-color: var(--accent); }
   padding:10px 13px; margin:7px 0;
   background: var(--bg-soft); border: 1px solid var(--line);
   font-weight: 700; font-size: var(--fs-base);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+  --cut: var(--cut-md); clip-path: var(--chamfer-br);
 }
 .poll-choice:hover { border-color: var(--accent); transition: border-color .15s; }
 .poll-choice.picked { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
@@ -1714,7 +1728,7 @@ a.bracket-match:hover { border-color: var(--accent); }
 .por-my {
   font-size: 11px; font-weight: 800; color: #fff; background: var(--accent-solid);
   padding:1px 7px; margin-left:4px;
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%);
+  --cut: var(--cut-sm); clip-path: var(--chamfer-br);
 }
 .por-pct { font-variant-numeric: tabular-nums; }
 .por-bar { height: 8px; background: var(--bg-soft); margin-top:4px; overflow: hidden; transform: skewX(-14deg); }
@@ -1798,7 +1812,7 @@ a.bracket-match:hover { border-color: var(--accent); }
 .chip-row button {
   padding:6px 13px; font-size: var(--fs-xs); font-weight: 700;
   border: 1px solid var(--line); background: var(--bg-soft); color: var(--text-sub);
-  border-radius: 999px;
+  --cut: var(--cut-md); clip-path: var(--chamfer-br);
 }
 .chip-row button.active { background: var(--accent-solid); border-color: var(--accent-solid); color: #fff; }
 
@@ -1871,7 +1885,7 @@ a.bracket-match:hover { border-color: var(--accent); }
   display: inline-flex; align-items: baseline; gap:7px;
   padding:8px 14px 8px 13px; font-weight: 800; font-size: var(--fs-sm);
   border: 1px solid var(--line); background: var(--bg-soft); color: var(--text);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
+  --cut: var(--cut-md); clip-path: var(--chamfer-br);
 }
 .sl-btn em { font-style: normal; font-size: var(--fs-xs); font-weight: 600; color: var(--text-dim); }
 .sl-btn:hover { border-color: var(--accent); color: var(--accent); }
@@ -1886,7 +1900,7 @@ a.bracket-match:hover { border-color: var(--accent); }
   padding:11px 15px; background: var(--card); border: 1px solid var(--line);
   box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
   font-size: var(--fs-sm); font-weight: 600; max-width: calc(100vw - 24px);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+  --cut: var(--cut-md); clip-path: var(--chamfer-br);
 }
 .nx-toast button { color: var(--accent); font-weight: 800; white-space: nowrap; }
 
@@ -1958,7 +1972,7 @@ a.bracket-match:hover { border-color: var(--accent); }
   .filter-close { display: block; }
   .filter-panel {
     position: fixed; left: 0; right: 0; top: 56px; bottom: 0; z-index: 200;
-    margin:0; border-radius: 14px 14px 0 0; border-bottom: 0;
+    margin:0; --cut: var(--cut-lg); clip-path: var(--chamfer-t); border-bottom: 0;
     display: flex; flex-direction: column;
     transform: translateY(101%); visibility: hidden;
     transition: transform .22s ease, visibility .22s;
@@ -2331,7 +2345,7 @@ a.bracket-match:hover { border-color: var(--accent); }
 .pred-mark {
   flex-shrink: 0; width: 44px; text-align: center; padding:3px 0;
   font-size: 12px; font-weight: 800;
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
+  --cut: var(--cut-sm); clip-path: var(--chamfer-br);
 }
 .pred-mark.hit { background: color-mix(in srgb, var(--blue) 18%, transparent); color: var(--blue); }
 .pred-mark.miss { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
@@ -2364,11 +2378,11 @@ a.bracket-match:hover { border-color: var(--accent); }
 .sb-team.b .sb-team-txt small { justify-content: flex-end; }
 .sb-team b { font-size: var(--fs-lg); letter-spacing: -0.02em; }
 .sb-side {
-  font-size: 11px; font-weight: 800; padding:2px 6px; border-radius: 3px; color: #fff;
+  font-size: 11px; font-weight: 800; padding:2px 6px; --cut: var(--cut-sm); clip-path: var(--chamfer-br); color: #fff;
 }
 .sb-side.blue { background: #2f5fbf; }
 .sb-side.red { background: #b33a3a; }
-.sb-wl { font-size: 12px; font-weight: 800; padding:2px 7px; border-radius: 3px; color: #fff; }
+.sb-wl { font-size: 12px; font-weight: 800; padding:2px 7px; --cut: var(--cut-sm); clip-path: var(--chamfer-br); color: #fff; }
 .sb-wl.w { background: #14713f; }
 .sb-wl.l { background: #5a6270; }
 /* 큰 킬 점수 — 표를 안 봐도 승부가 한눈에 */
@@ -2391,9 +2405,9 @@ a.bracket-match:hover { border-color: var(--accent); }
 .sb-gold b { font-size: var(--fs-md); font-weight: 700; color: var(--text-sub); }
 .sb-gold b.hi { color: var(--text); font-weight: 800; }
 .sb-gold em { font-style: normal; font-size: var(--fs-xs); font-weight: 800; color: var(--text-dim); }
-.sb-gold-bar { display: flex; height: 7px; border-radius: 4px; background: var(--bg-soft); overflow: hidden; }
+.sb-gold-bar { display: flex; height: 7px; --cut: var(--cut-sm); clip-path: var(--chamfer-br); background: var(--bg-soft); overflow: hidden; }
 .sb-gold-bar.l { justify-content: flex-end; }
-.sb-gold-bar i { display: block; height: 100%; border-radius: 4px; }
+.sb-gold-bar i { display: block; height: 100%; --cut: var(--cut-sm); clip-path: var(--chamfer-br); }
 
 /* ── 목표물 — 좌우 대립 구도 ──
    같은 목표물이 가운데 선을 사이에 두고 서로 마주 본다.
@@ -2402,7 +2416,7 @@ a.bracket-match:hover { border-color: var(--accent); }
 .sb-obj { padding:11px 15px 13px; border-top: 1px solid var(--line); display: grid; gap:7px; justify-items: center; }
 .sb-obj-lb {
   font-size: 12px; font-weight: 800; color: var(--text-dim); white-space: nowrap;
-  padding:6px 13px; border-radius: 999px; background: var(--bg-soft);
+  padding:6px 13px; --cut: var(--cut-sm); clip-path: var(--chamfer-br); background: var(--bg-soft);
 }
 .sb-obj-line {
   display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -2516,14 +2530,14 @@ a.bracket-match:hover { border-color: var(--accent); }
 .act-n {
   font-size: var(--fs-sm); font-weight: 800; color: var(--text-dim);
   background: var(--bg-soft); border: 1px solid var(--line);
-  padding:1px 9px; border-radius: 999px; min-width: 26px; text-align: center;
+  padding:1px 9px; --cut: var(--cut-sm); clip-path: var(--chamfer-br); min-width: 26px; text-align: center;
 }
 .act-n.on { color: #fff; background: var(--accent-solid); border-color: var(--accent-solid); }
 .act-rows .post-row:first-of-type { border-top: 1px solid var(--line); }
 
 /* 창립 팬 번호 배지 */
 .pp-founding {
-  display: inline-block; margin-left:7px; padding:2px 8px; border-radius: 3px;
+  display: inline-block; margin-left:7px; padding:2px 8px; --cut: var(--cut-md); clip-path: var(--chamfer-br);
   font-size: 12px; font-weight: 800; color: #fff; background: var(--accent-solid);
 }
 
@@ -2531,7 +2545,7 @@ a.bracket-match:hover { border-color: var(--accent); }
 .fav-pick { display: flex; flex-wrap: wrap; gap:6px; margin-top:9px; }
 .fav-pick button {
   display: inline-flex; align-items: center; gap:4px;
-  padding:4px 9px; border-radius: 999px; cursor: pointer;
+  padding:4px 9px; --cut: var(--cut-md); clip-path: var(--chamfer-br); cursor: pointer;
   border: 1px solid var(--line); background: transparent;
   color: var(--text-sub); font-weight: 700; font-size: var(--fs-sm);
 }
@@ -2550,15 +2564,15 @@ a.bracket-match:hover { border-color: var(--accent); }
 /* ── 모의밴픽 (편집기 · 보기 공용 조각) ── */
 .dch { display: inline-flex; }
 .dch .dd-nm { display: none; }
-.dch .dd-ic { margin: 0; border-radius: 5px; }
+.dch .dd-ic { margin: 0; --cut: var(--cut-sm); clip-path: var(--chamfer-br); }
 .dch.ban .dd-ic { filter: grayscale(1); opacity: .5; }
-.dch.empty { width: 30px; height: 30px; border-radius: 5px; background: var(--bg-soft); border: 1px dashed var(--line); }
+.dch.empty { width: 30px; height: 30px; --cut: var(--cut-sm); clip-path: var(--chamfer-br); background: var(--bg-soft); border: 1px dashed var(--line); }
 
 /* 편집기 */
 #draft-editor { display: grid; gap: 11px; }
 .d-sets { display: flex; gap: 6px; flex-wrap: wrap; }
 .d-sets button {
-  padding: 6px 12px; border-radius: 8px; font-size: var(--fs-sm); font-weight: 800;
+  padding: 6px 12px; --cut: var(--cut-md); clip-path: var(--chamfer-br); font-size: var(--fs-sm); font-weight: 800;
   border: 1px solid var(--line); background: var(--card); color: var(--text-sub);
 }
 .d-sets button.active { background: var(--accent-solid); border-color: var(--accent-solid); color: #fff; }
@@ -2566,39 +2580,39 @@ a.bracket-match:hover { border-color: var(--accent); }
 .d-turn b.blue { color: #4a8cff; }
 .d-turn b.red { color: var(--accent); }
 .d-turn select { padding: 4px 8px; }
-.d-turn #d-undo { margin-left: auto; padding: 5px 11px; border: 1px solid var(--line); border-radius: 8px;
+.d-turn #d-undo { margin-left: auto; padding: 5px 11px; border: 1px solid var(--line); --cut: var(--cut-md); clip-path: var(--chamfer-br);
   background: var(--card); color: var(--text-sub); font-size: var(--fs-xs); font-weight: 800; }
 .d-board { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
-.d-side { border: 1px solid var(--line); border-radius: 9px; padding: 9px; background: var(--card); display: grid; gap: 8px; }
+.d-side { border: 1px solid var(--line); --cut: var(--cut-md); clip-path: var(--chamfer-br); padding: 9px; background: var(--card); display: grid; gap: 8px; }
 .d-side.blue { border-top: 3px solid #4a8cff; }
 .d-side.red { border-top: 3px solid var(--accent); }
 .d-side-lb { font-size: var(--fs-xs); font-weight: 800; color: var(--text-dim); }
 .d-bans { display: flex; gap: 4px; flex-wrap: wrap; }
-.d-slot { display: inline-flex; border-radius: 6px; }
+.d-slot { display: inline-flex; --cut: var(--cut-md); clip-path: var(--chamfer-br); }
 .d-slot.now { outline: 2px solid var(--accent); outline-offset: 2px; }
 .d-slot.over, .d-lane.over { outline: 2px dashed var(--accent); outline-offset: 2px; }
 .d-picks { display: grid; gap: 4px; }
-.d-lane { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 7px; cursor: pointer; }
+.d-lane { display: flex; align-items: center; gap: 8px; padding: 4px 6px; --cut: var(--cut-sm); clip-path: var(--chamfer-br); cursor: pointer; }
 .d-lane:hover { background: var(--bg-soft); }
 .d-lane.target { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .d-lane > b { font-size: var(--fs-xs); font-weight: 800; color: var(--text-dim); width: 30px; flex: 0 0 30px; }
 .d-lane > em { font-style: normal; font-size: 11px; color: var(--text-dim); margin-left: auto; }
 .d-fearless { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; padding: 8px 10px;
-  border-radius: 8px; background: var(--bg-soft); border: 1px solid var(--line); }
+  --cut: var(--cut-md); clip-path: var(--chamfer-br); background: var(--bg-soft); border: 1px solid var(--line); }
 .d-fearless b { font-size: var(--fs-xs); color: var(--text-dim); margin-right: 4px; }
 .d-pool-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .d-pool-head input { flex: 1 1 180px; min-height: 36px; }
 .d-pool { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 4px;
   max-height: 260px; overflow-y: auto; padding: 7px; border: 1px solid var(--line);
-  border-radius: 9px; background: var(--card); }
-.d-champ { padding: 0; border: 0; background: none; line-height: 0; cursor: grab; border-radius: 6px; }
+  --cut: var(--cut-md); clip-path: var(--chamfer-br); background: var(--card); }
+.d-champ { padding: 0; border: 0; background: none; line-height: 0; cursor: grab; --cut: var(--cut-md); clip-path: var(--chamfer-br); }
 .d-champ .dd-nm { display: none; }
-.d-champ .dd-ic { width: 100%; height: auto; aspect-ratio: 1; margin: 0; border-radius: 6px; }
+.d-champ .dd-ic { width: 100%; height: auto; aspect-ratio: 1; margin: 0; --cut: var(--cut-sm); clip-path: var(--chamfer-br); }
 .d-champ.off { opacity: .28; cursor: not-allowed; }
 .d-champ.off .dd-ic { filter: grayscale(1); }
 
 /* 글에 박힌 보기 전용 판 */
-.draft-view { margin: 15px 0 4px; border: 1px solid var(--line); border-radius: 10px;
+.draft-view { margin: 15px 0 4px; border: 1px solid var(--line); --cut: var(--cut-md); clip-path: var(--chamfer-br);
   background: var(--bg-soft); padding: 13px 15px; display: grid; gap: 12px; }
 .dv-title { font-size: var(--fs-md); font-weight: 800; }
 .dv-title span { font-size: var(--fs-xs); font-weight: 400; color: var(--text-dim); margin-left: 7px; }
@@ -2607,7 +2621,7 @@ a.bracket-match:hover { border-color: var(--accent); }
 .dv-set-head { display: flex; align-items: center; gap: 9px; font-size: var(--fs-sm); }
 .dv-fear { font-size: var(--fs-xs); color: var(--text-dim); font-weight: 700; }
 .dv-board { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
-.dv-side { border-radius: 9px; padding: 9px; background: var(--card); border: 1px solid var(--line); display: grid; gap: 7px; }
+.dv-side { --cut: var(--cut-md); clip-path: var(--chamfer-br); padding: 9px; background: var(--card); border: 1px solid var(--line); display: grid; gap: 7px; }
 .dv-side.blue { border-top: 3px solid #4a8cff; }
 .dv-side.red { border-top: 3px solid var(--accent); }
 .dv-lb { font-size: var(--fs-xs); font-weight: 800; color: var(--text-dim); }
@@ -2624,7 +2638,7 @@ a.bracket-match:hover { border-color: var(--accent); }
 
 /* ── 글에 붙은 참조 경기 카드 ── */
 .ref-match {
-  margin: 15px 0 4px; border: 1px solid var(--line); border-radius: 10px;
+  margin: 15px 0 4px; border: 1px solid var(--line); --cut: var(--cut-md); clip-path: var(--chamfer-br);
   background: var(--bg-soft); overflow: hidden;
 }
 .ref-match > summary {
@@ -2648,7 +2662,7 @@ a.bracket-match:hover { border-color: var(--accent); }
 .rm-line > em { font-style: normal; font-size: var(--fs-xs); font-weight: 800; color: var(--text-dim); flex: 0 0 auto; }
 .rm-line > i { font-style: normal; font-size: var(--fs-xs); color: var(--text-dim); }
 .rm-side { display: inline-flex; gap: 3px; }
-.rm-ch .dd-ic { width: 24px; height: 24px; margin: 0; border-radius: 4px; }
+.rm-ch .dd-ic { width: 24px; height: 24px; margin: 0; --cut: var(--cut-sm); clip-path: var(--chamfer-br); }
 .rm-ch .dd-nm { display: none; }
 .rm-ch.ban .dd-ic { filter: grayscale(1); opacity: .55; }
 .rm-empty, .rm-more { display: block; padding: 0 15px 13px; font-size: var(--fs-sm); color: var(--text-dim); }
@@ -2657,7 +2671,7 @@ a.bracket-match:hover { border-color: var(--accent); }
 /* 글 본문에 박히는 유튜브 영상 */
 .post-content .post-embed {
   display: block; margin: 12px 0; max-width: 680px;
-  aspect-ratio: 16 / 9; background: #000; border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+  aspect-ratio: 16 / 9; background: #000; border: 1px solid var(--line); --cut: var(--cut-md); clip-path: var(--chamfer-br); overflow: hidden;
 }
 .post-content .post-embed iframe { width: 100%; height: 100%; border: 0; display: block; }
 .post-content a { color: var(--accent); text-decoration: underline; word-break: break-all; }
@@ -2668,7 +2682,7 @@ a.bracket-match:hover { border-color: var(--accent); }
 .replay-full-lb.sets { margin-left:7px; }
 .replay-full-btn {
   display: inline-flex; align-items: center; gap:6px; min-height:35px; padding:0 14px;
-  border-radius: 8px; font-size: var(--fs-sm); font-weight: 800; text-decoration: none;
+  --cut: var(--cut-md); clip-path: var(--chamfer-br); font-size: var(--fs-sm); font-weight: 800; text-decoration: none;
   color: #fff; border: 1px solid transparent;
 }
 .replay-full-btn.chzzk { background: #00ffa3; color: #101010; }
@@ -2679,7 +2693,7 @@ a.bracket-match:hover { border-color: var(--accent); }
 /* 치지직은 세트별로 올라온다 — 2·3세트는 작은 버튼으로 */
 .replay-full-set {
   display: inline-flex; align-items: center; min-height:35px; padding:0 11px;
-  border-radius: 8px; font-size: var(--fs-xs); font-weight: 800; text-decoration: none;
+  --cut: var(--cut-md); clip-path: var(--chamfer-br); font-size: var(--fs-xs); font-weight: 800; text-decoration: none;
   color: var(--text-sub); background: var(--bg-soft); border: 1px solid var(--line);
 }
 .replay-full-set:hover { color: var(--text); border-color: var(--accent); }
@@ -2711,7 +2725,7 @@ a.bracket-match:hover { border-color: var(--accent); }
 .dd-tip {
   position: absolute; top: calc(100% + 7px); left: 50%; transform: translateX(-50%);
   z-index: 60; min-width: 120px; max-width: 230px; width: max-content;
-  padding:8px 11px; border: 1px solid var(--line); border-radius: 6px;
+  padding:8px 11px; border: 1px solid var(--line); --cut: var(--cut-sm); clip-path: var(--chamfer-br);
   background: var(--bg-soft); color: var(--text);
   box-shadow: 0 6px 20px rgba(0,0,0,.35);
   font-size: var(--fs-sm); line-height: 1.45; text-align: left;

@@ -87,6 +87,42 @@ node -e '
   process.exit(bad);
 ' && okk "CSS 중괄호 짝 맞음" || bad "CSS 중괄호가 어긋남 — 규칙이 엉뚱한 블록 안에 들어갔을 수 있다"
 
+# ── 각진 모서리 규칙 ──────────────────────────────────────────────
+# 이 사이트의 형태 언어는 "둥근 모서리가 아니라 잘라낸 모서리"다.
+# 그런데 규칙이 코드 어디에도 강제돼 있지 않아서, 새 부품을 만들 때마다 각자
+# 값을 발명했다 — 자르는 크기 7가지(4~10px), 둥근 모서리 14가지까지 벌어졌다.
+# (2026-08-14 사장님이 "일관성이 무너진다"고 지적) 그래서 여기서 막는다.
+node -e '
+  const fs = require("fs");
+  const s = fs.readFileSync("assets/styles.css", "utf8");
+  const body = s.slice(s.indexOf("}"));      // :root 토큰 정의부는 검사 대상이 아니다
+  let bad = 0;
+  const line = i => s.slice(0, i).split("\n").length;
+
+  // ① 둥근 모서리는 **원형(50%)과 0** 만 허용한다.
+  //    선수 얼굴·룬 아이콘은 원본 그림이 원형이라 각지게 자르면 오히려 어색하다.
+  for (const m of s.matchAll(/border-radius: *([^;]+);/g)) {
+    const v = m[1].trim();
+    if (v === "0" || v === "0px" || v.includes("50%")) continue;
+    console.error(`assets/styles.css:${line(m.index)} 둥근 모서리 ${v} — 각진 컨셉이다. var(--chamfer-*) 를 쓰세요`);
+    bad = 1;
+  }
+  // ② 모서리를 손으로 깎지 않는다 — 크기가 또 늘어난다
+  for (const m of body.matchAll(/clip-path: *polygon/g)) {
+    console.error(`assets/styles.css:${line(s.indexOf("}") + m.index)} 직접 polygon — var(--chamfer-br|tr|tlbr) 를 쓰세요`);
+    bad = 1;
+  }
+  // ③ --chamfer-* 를 쓰면 --cut 을 같이 적어야 한다.
+  //    커스텀 속성은 상속되므로, 빠뜨리면 부모(카드 10px)를 조용히 물려받는다.
+  for (const m of s.matchAll(/\{([^{}]*var\(--chamfer-[a-z]+\)[^{}]*)\}/g)) {
+    if (!/--cut: *var\(--cut-(lg|md|sm)\)/.test(m[1])) {
+      console.error(`assets/styles.css:${line(m.index)} --chamfer 를 쓰면서 --cut 을 안 적었다 (부모 크기를 물려받는다)`);
+      bad = 1;
+    }
+  }
+  process.exit(bad);
+' && okk "각진 모서리 규칙 (크기 3단계 · 모양 3가지)" || bad "각진 모서리 규칙 위반 — 위 줄 참고"
+
 node tests/invariants.test.js || bad "invariants.test 실패"
 node tests/leaguepedia-integrity.test.js || bad "leaguepedia-integrity.test 실패"
 node tests/leaguepedia-atomic-transport.test.js || bad "leaguepedia-atomic-transport.test 실패"
