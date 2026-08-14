@@ -80,7 +80,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260814o") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260814r") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -467,52 +467,45 @@ body.nav-open-lock { overflow: hidden; }
 
 .home-redesign-page { padding-top:24px; }
 /* ── 홈 히어로: 오늘의 서사 ────────────────────────────────────
-   기본은 **한 줄짜리 띠**다. 로고 두 개뿐인데 카드가 화면 3분의 1을 먹으면
-   정작 본문(게시판·순위)이 아래로 밀린다. (2026-08-15 사장님 지적)
-   운영자가 주인공 선수를 지정해 **얼굴이 들어갈 때만**(.has-face) 크게 자란다 —
-   자리를 차지하려면 보여 줄 그림이 있어야 한다. */
-.home-hero {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
-  grid-template-areas: "copy stage actions";
-  align-items: center; gap:10px 20px; margin-bottom:15px; padding:13px 18px;
-  border-left: 3px solid var(--accent-solid);
-}
-.hero-copy { grid-area: copy; min-width: 0; }
-.hero-stage { grid-area: stage; }
-.hero-actions { grid-area: actions; display: flex; align-items: center; gap:8px; }
+   사이드바(330px)에 산다. 예전엔 본문 맨 위 가로 띠였는데, 로고 두 개뿐인 홍보
+   덩어리가 본문 첫 자리를 차지하고 있었다 — 이제 본문은 게시판으로 시작한다.
+   (2026-08-15 사장님 지적) 좁은 화면에는 사이드바가 없으므로 맨 아래
+   display:contents + order 로 예전과 같은 자리(맨 위)를 지킨다.
 
+   폭이 좁으니 세로로 쌓는다. 크게 자라는 건 얼굴이 있을 때만(.has-face) — 자리를
+   차지하려면 보여 줄 그림이 있어야 한다는 규칙은 그대로다. */
+.home-hero { display: block; padding:13px 15px; border-left: 3px solid var(--accent-solid); }
 .hero-eyebrow { color: var(--accent); font-size: 12px; font-weight: 900; letter-spacing: .08em; }
 .hero-headline {
-  margin-top:3px; font-size: 21px; line-height: 1.2; letter-spacing: -.03em; text-wrap: balance;
+  margin-top:3px; font-size: 19px; line-height: 1.25; letter-spacing: -.03em; text-wrap: balance;
 }
 .hero-sub { margin-top:3px; color: var(--text-sub); font-size: var(--fs-sm); font-weight: 700; }
-.hero-desc { margin-top:3px; color: var(--text-dim); font-size: var(--fs-xs); line-height: 1.6; max-width: 52ch; }
+.hero-desc { margin-top:4px; color: var(--text-dim); font-size: var(--fs-xs); line-height: 1.6; }
 
-/* 무대 — 기본은 작은 로고 두 개. 얼굴이 있을 때만 커진다. */
-.hero-stage { display: flex; align-items: center; gap:9px; }
+.hero-stage { display: flex; align-items: center; justify-content: center; gap:12px; margin:11px 0 9px; }
 .hero-side { display: flex; flex-direction: column; align-items: center; gap:3px; }
 .hero-face {
-  width: 46px; height: 46px; display: block; overflow: hidden; border-radius: 50%;
+  width: 52px; height: 52px; display: block; overflow: hidden; border-radius: 50%;
   background: var(--bg-soft); border: 2px solid var(--team-color);
 }
 .hero-face img { width: 100%; height: 100%; object-fit: cover; object-position: center 18%; display: block; }
 .hero-crest {
-  width: 34px; height: 34px; display: grid; place-items: center;
+  width: 38px; height: 38px; display: grid; place-items: center;
   --cut: var(--cut-sm); clip-path: var(--chamfer-br);
   background: var(--logo-tile); border: 1px solid var(--logo-line);
 }
-.hero-crest .team-logo { width: 24px !important; height: 24px !important; }
+.hero-crest .team-logo { width: 26px !important; height: 26px !important; }
 .hero-who { font-size: var(--fs-xs); font-weight: 800; letter-spacing: -.02em; }
 .hero-team { display: flex; align-items: center; gap:3px; }
 .hero-team i { font-style: normal; font-size: 12px; font-weight: 800; color: var(--text-dim); letter-spacing: .04em; }
-.hero-team[data-solo] i { color: var(--text-sub); }
 .hero-vs { font-size: 12px; font-weight: 900; color: var(--text-dim); letter-spacing: .08em; }
 
+.hero-actions { display: flex; align-items: center; flex-wrap: wrap; gap:7px; }
 .hero-when { color: var(--text-sub); font-size: var(--fs-xs); font-weight: 800; white-space: nowrap; }
-.hero-cheer { display: flex; gap:6px; }
+.hero-cheer { display: flex; gap:6px; width: 100%; }
 .hero-cheer-btn {
-  min-height:34px; display: inline-flex; align-items: center; gap:5px;
-  padding:6px 11px; cursor: pointer;
+  flex: 1; min-height:32px; display: inline-flex; align-items: center; justify-content: center; gap:5px;
+  padding:6px 9px; cursor: pointer;
   --cut: var(--cut-sm); clip-path: var(--chamfer-br);
   background: var(--bg-soft); border: 1px solid var(--line);
   font-size: var(--fs-xs); font-weight: 800; color: var(--text-sub);
@@ -520,15 +513,13 @@ body.nav-open-lock { overflow: hidden; }
 .hero-cheer-btn:hover { color: var(--team-color); border-color: var(--team-color); }
 .hero-cheer-btn[disabled] { opacity:.5; cursor: default; }
 .hero-actions .btn-primary {
-  min-height:34px; display: inline-flex; align-items: center; padding:7px 14px; font-size: var(--fs-xs);
+  min-height:32px; display: inline-flex; align-items: center; padding:6px 12px; font-size: var(--fs-xs);
 }
 .hero-more { font-size: var(--fs-xs); font-weight: 700; color: var(--text-dim); white-space: nowrap; }
 .hero-more:hover { color: var(--text); }
 
-/* 얼굴이 있는 경기만 — 사진이 살 만큼만 키운다 */
-.home-hero.has-face { padding:16px 18px; }
-.home-hero.has-face .hero-headline { font-size: 24px; }
-.home-hero.has-face .hero-face { width: 68px; height: 68px; }
+.home-hero.has-face .hero-headline { font-size: 21px; }
+.home-hero.has-face .hero-face { width: 64px; height: 64px; }
 .home-hero.has-face .hero-who { font-size: var(--fs-sm); }
 
 /* ── 내 응원 한 줄 (최애팀 · 관심팀 · 오늘 뛰는 최애선수) ────────
@@ -2910,21 +2901,23 @@ a.bracket-match:hover { border-color: var(--accent); }
   }
   .home-match-game:last-child { border-bottom: 0; }
   .home-match-rate { grid-template-columns: 28px minmax(38px, 1fr) 28px; gap:4px; }
-  /* 모바일: 카피와 로고를 **한 줄에** 나란히, 버튼 줄만 아래로.
-     셋을 위아래로 쌓으면 히어로 하나가 첫 화면을 다 먹는다 (243px → 130px). */
-  .home-hero {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: "copy stage" "actions actions";
-    gap:10px 12px; padding:12px 14px;
-  }
-  .hero-headline { font-size: 19px; }
-  .hero-actions { width: 100%; flex-wrap: wrap; }
+  /* 좁은 화면에는 사이드바가 없다. 사이드바 상자를 없애(display:contents) 그 안의
+     카드들을 본문과 같은 줄에 세운 뒤, 순서를 예전 그대로 되돌린다:
+       서사 → 내 응원 → 게시판·뉴스 → 순위 → 일정
+     (display:contents 는 상자만 사라지고 자식은 그대로 남는다) */
+  .home-layout { display: flex; flex-direction: column; gap:15px; }
+  .home-sidebar { display: contents; }
+  #home-hero { order: 1; }
+  #home-myteam { order: 2; }
+  .home-main-column { order: 3; }
+  .home-sidebar > .card:not(#home-hero) { order: 4; }
+  /* .stack 의 margin-top 과 flex gap 이 겹쳐 간격이 두 배가 된다 — 여기선 gap 만 쓴다 */
+  .home-sidebar > * + *, .home-layout .card + .card { margin-top:0; }
+  .home-hero { padding:14px 15px; }
   .hero-actions .btn-primary { margin-left: auto; }
-  .home-hero.has-face .hero-headline { font-size: 20px; }
-  .home-hero.has-face .hero-face { width: 54px; height: 54px; }
-  .home-layout { grid-template-columns: 1fr; }
-  .home-sidebar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap:15px; }
-  .home-sidebar > * + * { margin-top:0; }
+  /* ⚠ 예전엔 여기서 사이드바를 2열 격자로 만들었다. 지금은 위에서 상자 자체를
+     없애(display:contents) 순서로 배치하므로, 그 규칙이 남아 있으면 덮어써서
+     서사가 게시판 아래로 밀린다. (실제로 그렇게 나왔다) */
 }
 
 @media (max-width: 560px) {
@@ -2955,6 +2948,4 @@ a.bracket-match:hover { border-color: var(--accent); }
   .home-pulse-card { grid-template-columns: minmax(0, 1fr) auto; padding:14px; }
   .home-pulse-votes { grid-column: 1; }
   .home-pulse-card > a { grid-column: 2; grid-row: 1 / 3; }
-  .home-sidebar { display: block; }
-  .home-sidebar > * + * { margin-top:15px; }
 }

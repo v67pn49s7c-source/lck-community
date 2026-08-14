@@ -124,13 +124,13 @@ ok(/STORY_TYPES\.map/.test(admin), "유형 목록은 story.js 한 곳에서");
 
 // ── 모바일 우선순위 ─────────────────────────────────────
 const narrow = css.slice(css.indexOf("@media (max-width: 720px)"));
-// 셋을 위아래로 쌓았더니 히어로 하나가 첫 화면을 다 먹었다 (243px). 한 줄로 붙인다.
-ok(/grid-template-areas: "copy stage" "actions actions"/.test(narrow),
-  "모바일에서 카피와 로고는 한 줄에, 버튼 줄만 아래로");
-const tiny = css.slice(css.indexOf("@media (max-width: 560px)"));
-ok(/\.hero-cheer, \.hero-links \{ display: grid; grid-template-columns: 1fr 1fr/.test(tiny),
-  "좁은 화면에서 버튼은 2칸씩 (가로로 밀리면 안 됨)");
-ok(/\.hero-face \{ width: 76px; height: 76px; \}/.test(tiny), "좁은 화면에서 얼굴 크기 조정");
+// 히어로는 사이드바로 갔다. 좁은 화면엔 사이드바가 없으므로 상자를 없애고(display:contents)
+// 순서로 예전 자리(맨 위)를 지킨다 — 안 그러면 서사가 게시판 아래로 밀린다.
+ok(/\.home-sidebar \{ display: contents; \}/.test(narrow), "좁은 화면에선 사이드바 상자를 없앤다");
+["#home-hero { order: 1; }", "#home-myteam { order: 2; }", ".home-main-column { order: 3; }"]
+  .forEach(rule => ok(narrow.includes(rule), `모바일 순서: ${rule}`));
+ok(/\.hero-cheer \{[^}]*width: 100%/.test(css),
+  "응원 버튼 두 개는 한 줄을 채운다 (좁은 칸에서 밀리지 않게)");
 
 // ── 다중 응원 (A안) ─────────────────────────────────────
 // ⚠ 이 파일들은 함수 정의가 통째로 사라져도 node --check 는 통과한다.

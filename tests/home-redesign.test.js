@@ -9,9 +9,14 @@ assert(html.includes('id="home-match-bar"') === false,
   "경기 바는 실제 데이터를 읽은 뒤 JS가 팀 메뉴 위에 만들어야 함");
 assert(html.includes("전체 게시판") && html.includes("최신 글 5개"),
   "홈 본문은 전체 게시판 최신 글 5개를 중심으로 구성해야 함");
-assert(html.includes('id="home-hero"') &&
-  html.indexOf('id="home-hero"') < html.indexOf('class="home-intro"'),
-  "오늘의 서사 히어로는 게시판 제목과 분리해 그 위에 둬야 함");
+// 히어로는 사이드바로 옮겼다 — 본문은 게시판으로 시작한다 (2026-08-15).
+// 좁은 화면에서는 사이드바 상자를 없애고 순서로 예전 자리(맨 위)를 지킨다.
+assert(html.indexOf('id="home-hero"') > html.indexOf('class="home-sidebar"'),
+  "히어로는 사이드바 안에 있어야 함");
+assert(html.indexOf('id="home-hero"') < html.indexOf('id="standings-body"'),
+  "사이드바에서는 히어로가 순위보다 먼저");
+assert(/\.home-sidebar \{ display: contents; \}/.test(css) && /#home-hero \{ order: 1; \}/.test(css),
+  "좁은 화면에서는 순서로 예전 자리를 지켜야 함");
 assert(html.includes('id="standings-body"') && html.includes('id="home-schedule-body"'),
   "사이드바에 순위와 이후 경기 일정이 있어야 함");
 assert(html.indexOf('id="standings-body"') < html.indexOf('id="home-schedule-body"'),
