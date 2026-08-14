@@ -348,9 +348,9 @@ function renderHeader(activeMenu, activeTeamId) {
           stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814m")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814m")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814m")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814n")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814n")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814n")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -389,7 +389,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814m");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814n");
 
   renderTabBar(groupName);
 }
@@ -1748,6 +1748,31 @@ function renderHomeUpcomingSchedule() {
   }).join("");
 }
 
+// ── LCK 뉴스 ────────────────────────────────────────────────────
+// 서버(/api/news)가 구글 뉴스 RSS 를 정리해 준다. 한 번만 받고, 실패하면
+// **카드 자체를 감춘다** — 빈 상자나 오류 문구가 홈에 남는 것보다 없는 편이 낫다.
+let newsLoaded = false;
+async function renderHomeNews() {
+  const card = document.getElementById("home-news-card");
+  if (!card || newsLoaded) return;
+  newsLoaded = true;
+  let items = [];
+  try {
+    const r = await fetch("/api/news?limit=6");
+    if (!r.ok) return;
+    const j = await r.json();
+    items = (j && j.data && j.data.items) || [];
+  } catch { return; }        // 로컬 개발 등 서버 함수가 없으면 조용히 넘어간다
+  if (!items.length) return;
+
+  card.style.display = "";
+  document.getElementById("home-news-body").innerHTML = items.map(n => `
+    <a class="news-row" href="${esc(n.url)}" target="_blank" rel="noopener noreferrer">
+      <span class="news-title">${esc(n.title)}</span>
+      <span class="news-meta">${n.source ? esc(n.source) : ""}${n.at ? ` · ${esc(fmtAgo(n.at))}` : ""}</span>
+    </a>`).join("");
+}
+
 function renderHomePulse() {
   const card = document.getElementById("home-pulse-card");
   if (!card) return;
@@ -1872,6 +1897,7 @@ async function initHome() {
     renderHotPosts();
     renderHomeUpcomingSchedule();
     renderHomePulse();
+    renderHomeNews();
     setupSidebarStandings();
   };
   draw();

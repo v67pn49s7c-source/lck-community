@@ -17,10 +17,10 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260814m">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260814m">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260814n">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260814n">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260814m">
+  <link rel="stylesheet" href="assets/styles.css?v=20260814n">
 </head>
 <body>
   <div class="team-hero" id="player-hero"></div>
@@ -72,13 +72,13 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260814m"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260814m"></script>
-  <script src="assets/store.js?v=20260814m"></script>
-  <script src="assets/app.js?v=20260814m"></script>
-  <script src="assets/story.js?v=20260814m"></script>
-  <script src="assets/ddragon.js?v=20260814m"></script>
-  <script src="assets/player-photos.js?v=20260814m"></script>
+  <script src="assets/data.js?v=20260814n"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260814n"></script>
+  <script src="assets/store.js?v=20260814n"></script>
+  <script src="assets/app.js?v=20260814n"></script>
+  <script src="assets/story.js?v=20260814n"></script>
+  <script src="assets/ddragon.js?v=20260814n"></script>
+  <script src="assets/player-photos.js?v=20260814n"></script>
   <script>
   storeReady.then(async () => {
     // ⚠ 없는 id 로 들어와도 "|| getPlayers()[0]" 로 엉뚱한 선수를 보여 주던 자리다.
@@ -115,8 +115,23 @@
               <b style="color:var(--blue)">POM ${pomPointsFor(player.id).toLocaleString()}pt</b>
               <span style="color:var(--text-dim)">· 경기 MVP ${pomPointsFor(player.id) / 100}회 · 시즌 ${pomRanking().find(x => x.pid === player.id)?.rank || "-"}위</span>
             </p>` : ""}
+            <div class="player-fav" id="player-fav"></div>
           </div>
         </div>`;
+
+      // 최애선수 담기 — 목록 카드의 별과 같은 동작이지만, 여기선 글자까지 붙여
+      // "무엇을 하는 버튼인지" 를 분명히 한다 (상세 화면은 공간이 넉넉하다).
+      function drawFavBtn() {
+        const on = isFavPlayer(player.id);
+        const box = document.getElementById("player-fav");
+        if (!box) return;
+        box.innerHTML = `<button type="button" class="fav-star wide${on ? " on" : ""}" data-star="${q(player.id)}"
+          aria-pressed="${on}">${on ? "★ 최애선수" : "☆ 최애선수로 담기"}</button>
+          <span class="player-fav-hint">${on ? "오늘 경기가 있으면 홈에 표시됩니다"
+            : `최대 ${FAV_PLAYER_MAX}명까지 담을 수 있어요`}</span>`;
+        bindFavStars(box, drawFavBtn);
+      }
+      drawFavBtn();
 
       function teamRecordSummary() {
         const r = cumulativeRankOf(team.id);

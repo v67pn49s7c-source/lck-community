@@ -80,7 +80,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260814m") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260814n") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -592,6 +592,20 @@ body.nav-open-lock { overflow: hidden; }
 .home-post-stats b { color: var(--accent); }
 .home-board-cta { display: flex; align-items: center; justify-content: space-between; gap:13px; padding:12px 15px; color: var(--text-sub); background: var(--bg-soft); font-size: var(--fs-xs); }
 .home-board-cta a { padding:7px 12px; color: #fff; background: var(--accent-solid); font-weight: 800; }
+
+/* ── LCK 뉴스 ─────────────────────────────────────────────────
+   썸네일 없이 제목 위주로. 이미지를 붙이면 카드가 커지는데, 구글 뉴스 RSS 에는
+   썸네일이 없어서 매체마다 긁어와야 한다 — 그건 무료·합법 범위를 벗어난다. */
+.news-row {
+  display: grid; gap:2px; padding:10px 15px; border-top: 1px solid var(--line);
+}
+.news-row:first-child { border-top: 0; }
+.news-row:hover { background: var(--card-hover); }
+.news-title {
+  font-size: var(--fs-sm); font-weight: 700; line-height: 1.45;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.news-meta { color: var(--text-dim); font-size: var(--fs-xs); }
 
 .home-pulse-card { display: grid; grid-template-columns: minmax(0, 1fr) 190px auto; align-items: center; gap:18px; padding:18px; }
 .home-pulse-copy { min-width: 0; display: flex; flex-direction: column; gap:3px; }
@@ -2639,6 +2653,27 @@ a.bracket-match:hover { border-color: var(--accent); }
 }
 .fav-player i { font-style: normal; color: var(--text-dim); font-size: var(--fs-xs); }
 .fav-player:hover i { color: var(--accent); }
+
+/* 최애선수 별 — 선수 카드 위에 얹힌다. 카드 전체가 링크라 클릭은 JS 가 가로챈다. */
+.fav-star {
+  position: absolute; top: 6px; right: 6px; z-index: 2;
+  width: 28px; height: 28px; display: grid; place-items: center; cursor: pointer;
+  --cut: var(--cut-sm); clip-path: var(--chamfer-br);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  border: 1px solid var(--line); color: var(--text-dim); font-size: var(--fs-md); line-height: 1;
+}
+.fav-star:hover { color: var(--warn); border-color: var(--warn); }
+.fav-star.on { color: var(--warn); border-color: var(--warn); background: color-mix(in srgb, var(--warn) 16%, transparent); }
+.fav-star[disabled] { opacity:.5; cursor: default; }
+/* 상세 화면은 공간이 넉넉하니 글자까지 붙여 무슨 버튼인지 분명히 한다 */
+.fav-star.wide {
+  position: static; width: auto; height: auto; padding:6px 13px;
+  font-size: var(--fs-sm); font-weight: 800;
+}
+.player-fav { display: flex; align-items: center; gap:9px; flex-wrap: wrap; margin-top:9px; }
+.player-fav-hint { color: var(--text-dim); font-size: var(--fs-xs); }
+/* 별을 얹으려면 카드가 기준점이어야 한다 */
+.roster-card { position: relative; }
 
 /* 원본에 아직 안 올라온 세트 안내 */
 .detail-missing {

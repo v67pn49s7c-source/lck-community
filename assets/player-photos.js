@@ -88,3 +88,29 @@ function playerAvatarHTML(p, color, big) {
       onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex'">` +
     `<span class="${cls}" style="display:none; --team-color:${color}">${initial}</span>`;
 }
+
+// ── 최애선수 별 ─────────────────────────────────────────────────
+// 카드 전체가 링크(a)인 곳에 놓이므로, 별을 누르면 **상세로 넘어가면 안 된다.**
+// 그래서 마크업은 여기서 만들고, 클릭 가로채기는 bindFavStars 가 한 번에 건다.
+function favStarHTML(p) {
+  if (typeof isFavPlayer !== "function") return "";
+  const on = isFavPlayer(p.id);
+  return `<button type="button" class="fav-star${on ? " on" : ""}" data-star="${esc(p.id)}"
+    aria-pressed="${on}" title="${on ? "최애선수에서 빼기" : "최애선수로 담기"}">${on ? "★" : "☆"}</button>`;
+}
+
+/** 별 클릭을 가로채 최애선수를 켜고 끈다. onDone 은 목록을 다시 그리는 함수. */
+function bindFavStars(root, onDone) {
+  (root || document).querySelectorAll("[data-star]").forEach(btn => {
+    btn.addEventListener("click", async e => {
+      e.preventDefault();          // 카드 링크로 넘어가지 않게
+      e.stopPropagation();
+      btn.disabled = true;
+      const r = await toggleFavPlayer(btn.dataset.star);
+      btn.disabled = false;
+      if (r && r.error) { alert(r.error); return; }
+      if (typeof onDone === "function") onDone();
+      if (typeof renderHomeMyTeam === "function") renderHomeMyTeam();
+    });
+  });
+}
