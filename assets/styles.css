@@ -80,7 +80,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260814k") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260814m") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -467,69 +467,70 @@ body.nav-open-lock { overflow: hidden; }
 
 .home-redesign-page { padding-top:24px; }
 /* ── 홈 히어로: 오늘의 서사 ────────────────────────────────────
-   예전 .home-feature-card 는 "팀 vs 팀 · 시간" 한 줄짜리였다. 이제 같은 자리에서
-   ① 왜 봐야 하는지(카피) ② 누가 붙는지(얼굴·로고) ③ 무엇을 할지(응원·예측)
-   세 덩어리를 보여 준다. 색은 기존 토큰 그대로 — 팀 색만 강조로 빌려 쓴다. */
+   기본은 **한 줄짜리 띠**다. 로고 두 개뿐인데 카드가 화면 3분의 1을 먹으면
+   정작 본문(게시판·순위)이 아래로 밀린다. (2026-08-15 사장님 지적)
+   운영자가 주인공 선수를 지정해 **얼굴이 들어갈 때만**(.has-face) 크게 자란다 —
+   자리를 차지하려면 보여 줄 그림이 있어야 한다. */
 .home-hero {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: "copy stage" "actions stage";
-  align-items: center; gap:14px 24px; margin-bottom:20px; padding:20px 22px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas: "copy stage actions";
+  align-items: center; gap:10px 20px; margin-bottom:15px; padding:13px 18px;
   border-left: 3px solid var(--accent-solid);
 }
 .hero-copy { grid-area: copy; min-width: 0; }
 .hero-stage { grid-area: stage; }
-.hero-actions { grid-area: actions; display: flex; flex-wrap: wrap; align-items: center; gap:8px 10px; }
+.hero-actions { grid-area: actions; display: flex; align-items: center; gap:8px; }
 
 .hero-eyebrow { color: var(--accent); font-size: 12px; font-weight: 900; letter-spacing: .08em; }
 .hero-headline {
-  margin-top:5px; font-size: 27px; line-height: 1.18; letter-spacing: -.035em;
-  text-wrap: balance;
+  margin-top:3px; font-size: 21px; line-height: 1.2; letter-spacing: -.03em; text-wrap: balance;
 }
-.hero-sub { margin-top:5px; color: var(--text); font-size: var(--fs-md); font-weight: 700; }
-.hero-when { display: flex; align-items: center; gap:8px; margin-top:8px; font-size: var(--fs-xs); }
-.hero-when b { color: var(--text-sub); font-weight: 800; }
-.hero-when time { color: var(--text-dim); font-weight: 700; }
-.hero-desc { margin-top:6px; color: var(--text-sub); font-size: var(--fs-sm); line-height: 1.65; max-width: 46ch; }
+.hero-sub { margin-top:3px; color: var(--text-sub); font-size: var(--fs-sm); font-weight: 700; }
+.hero-desc { margin-top:3px; color: var(--text-dim); font-size: var(--fs-xs); line-height: 1.6; max-width: 52ch; }
 
-/* 무대 — 얼굴이 지정된 경기만 커진다. 없으면 로고 두 개로 조용히 내려앉는다. */
-.hero-stage { display: flex; align-items: flex-end; gap:14px; }
-.hero-side { display: flex; flex-direction: column; align-items: center; gap:5px; min-width: 78px; }
+/* 무대 — 기본은 작은 로고 두 개. 얼굴이 있을 때만 커진다. */
+.hero-stage { display: flex; align-items: center; gap:9px; }
+.hero-side { display: flex; flex-direction: column; align-items: center; gap:3px; }
 .hero-face {
-  width: 96px; height: 96px; display: block; overflow: hidden; border-radius: 50%;
+  width: 46px; height: 46px; display: block; overflow: hidden; border-radius: 50%;
   background: var(--bg-soft); border: 2px solid var(--team-color);
 }
 .hero-face img { width: 100%; height: 100%; object-fit: cover; object-position: center 18%; display: block; }
 .hero-crest {
-  width: 68px; height: 68px; display: grid; place-items: center;
-  --cut: var(--cut-md); clip-path: var(--chamfer-br); background: var(--logo-tile); border: 1px solid var(--logo-line);
+  width: 34px; height: 34px; display: grid; place-items: center;
+  --cut: var(--cut-sm); clip-path: var(--chamfer-br);
+  background: var(--logo-tile); border: 1px solid var(--logo-line);
 }
-.hero-who { font-size: var(--fs-md); font-weight: 800; letter-spacing: -.02em; }
-.hero-team { display: flex; align-items: center; gap:4px; }
+.hero-crest .team-logo { width: 24px !important; height: 24px !important; }
+.hero-who { font-size: var(--fs-xs); font-weight: 800; letter-spacing: -.02em; }
+.hero-team { display: flex; align-items: center; gap:3px; }
 .hero-team i { font-style: normal; font-size: 12px; font-weight: 800; color: var(--text-dim); letter-spacing: .04em; }
-.hero-team[data-solo] i { font-size: var(--fs-md); color: var(--text); letter-spacing: -.02em; }
-.hero-vs {
-  align-self: center; font-size: 14px; font-weight: 900; color: var(--text-dim);
-  letter-spacing: .1em; padding-bottom:22px;
-}
+.hero-team[data-solo] i { color: var(--text-sub); }
+.hero-vs { font-size: 12px; font-weight: 900; color: var(--text-dim); letter-spacing: .08em; }
 
-/* 응원 버튼 — 팀 색은 테두리와 글자에만. 배경까지 칠하면 카드가 시끄러워진다. */
-.hero-cheer { display: flex; gap:7px; }
+.hero-when { color: var(--text-sub); font-size: var(--fs-xs); font-weight: 800; white-space: nowrap; }
+.hero-cheer { display: flex; gap:6px; }
 .hero-cheer-btn {
-  min-height:38px; display: inline-flex; align-items: center; gap:6px;
-  padding:7px 13px; cursor: pointer; --cut: var(--cut-md); clip-path: var(--chamfer-br);
+  min-height:34px; display: inline-flex; align-items: center; gap:5px;
+  padding:6px 11px; cursor: pointer;
+  --cut: var(--cut-sm); clip-path: var(--chamfer-br);
   background: var(--bg-soft); border: 1px solid var(--line);
   font-size: var(--fs-xs); font-weight: 800; color: var(--text-sub);
 }
 .hero-cheer-btn:hover { color: var(--team-color); border-color: var(--team-color); }
-.hero-cheer-btn.mine { color: var(--team-color); border-color: var(--team-color); background: transparent; }
 .hero-cheer-btn[disabled] { opacity:.5; cursor: default; }
-.hero-links { display: flex; gap:7px; }
-.hero-links a {
-  min-height:38px; display: inline-flex; align-items: center; justify-content: center;
-  padding:8px 13px; font-size: var(--fs-xs);
+.hero-actions .btn-primary {
+  min-height:34px; display: inline-flex; align-items: center; padding:7px 14px; font-size: var(--fs-xs);
 }
+.hero-more { font-size: var(--fs-xs); font-weight: 700; color: var(--text-dim); white-space: nowrap; }
+.hero-more:hover { color: var(--text); }
 
-/* ── 내 응원팀 한 줄 ──────────────────────────────────────────── */
+/* 얼굴이 있는 경기만 — 사진이 살 만큼만 키운다 */
+.home-hero.has-face { padding:16px 18px; }
+.home-hero.has-face .hero-headline { font-size: 24px; }
+.home-hero.has-face .hero-face { width: 68px; height: 68px; }
+.home-hero.has-face .hero-who { font-size: var(--fs-sm); }
+
 /* ── 내 응원 한 줄 (최애팀 · 관심팀 · 오늘 뛰는 최애선수) ────────
    카드가 아니라 '줄' 로 두는 이유: 홈 본문(게시판·순위)을 아래로 밀지 않기 위해서다.
    최애팀만 팀 색을 두르고, 관심팀·선수는 한 단계 조용하게 둔다 — 권리 차이가
@@ -2874,13 +2875,18 @@ a.bracket-match:hover { border-color: var(--accent); }
   }
   .home-match-game:last-child { border-bottom: 0; }
   .home-match-rate { grid-template-columns: 28px minmax(38px, 1fr) 28px; gap:4px; }
-  /* 모바일 우선순위: 서사 → 얼굴 → 응원. 세 덩어리를 위에서 아래로 쌓는다. */
+  /* 모바일: 카피와 로고를 **한 줄에** 나란히, 버튼 줄만 아래로.
+     셋을 위아래로 쌓으면 히어로 하나가 첫 화면을 다 먹는다 (243px → 130px). */
   .home-hero {
-    grid-template-columns: 1fr; grid-template-areas: "copy" "stage" "actions";
-    justify-items: start; gap:14px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "copy stage" "actions actions";
+    gap:10px 12px; padding:12px 14px;
   }
-  .hero-stage { align-self: center; justify-content: center; width: 100%; }
-  .hero-actions { width: 100%; }
+  .hero-headline { font-size: 19px; }
+  .hero-actions { width: 100%; flex-wrap: wrap; }
+  .hero-actions .btn-primary { margin-left: auto; }
+  .home-hero.has-face .hero-headline { font-size: 20px; }
+  .home-hero.has-face .hero-face { width: 54px; height: 54px; }
   .home-layout { grid-template-columns: 1fr; }
   .home-sidebar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap:15px; }
   .home-sidebar > * + * { margin-top:0; }

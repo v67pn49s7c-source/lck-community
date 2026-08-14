@@ -348,9 +348,9 @@ function renderHeader(activeMenu, activeTeamId) {
           stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814k")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814k")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814k")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814m")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814m")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814m")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -389,7 +389,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814k");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814m");
 
   renderTabBar(groupName);
 }
@@ -1411,32 +1411,38 @@ function renderHomeFeature() {
   const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
   const story = typeof storyFor === "function" ? storyFor(match) : null;
   const picked = typeof storyPlayers === "function" ? storyPlayers(story) : [];
-  // 지정 선수는 각자 자기 팀 쪽에 세운다 (순서를 믿지 않는다 — 운영자가 뒤집어 넣어도 맞게)
   const pA = picked.find(p => p.team === match.a) || null;
   const pB = picked.find(p => p.team === match.b) || null;
+  const hasFace = !!(pA || pB);
 
-  const when = match.status === "live" ? "LIVE" : `${homeDayLabel(match.at)} ${fmtHM(match.at)} KST`;
+  const when = match.status === "live" ? "LIVE" : `${homeDayLabel(match.at)} ${fmtHM(match.at)}`;
   const eyebrow = story ? story.eyebrow : "다음 경기";
   const headline = story ? story.headline : `${A.abbr} vs ${B.abbr}`;
-  const sub = story && story.subheadline ? story.subheadline : "";
+  // ⚠ 같은 말을 두 번 하지 않는다. 제목에 이미 팀 이름이 들어 있으면 부제를 접는다.
+  //   (예전엔 "3위 HLE vs 5위 KT" 아래 "한화생명 vs kt 롤스터" 아래 "HLE vs KT 17:00"
+  //    까지 세 줄이 같은 대진을 반복해서, 내용은 없는데 카드만 컸다.)
+  const subRaw = story && story.subheadline ? story.subheadline : "";
+  const sub = (subRaw && ![A.abbr, B.abbr].every(x => headline.includes(x))) ? subRaw : "";
   const desc = story && story.description ? story.description : "";
   const fav = typeof getFavTeam === "function" ? getFavTeam() : null;
+  const href = `/match/${q(match.id)}`;
 
-  const cheerBtn = t => {
-    const mine = fav === t.id;
-    return `<button type="button" class="hero-cheer-btn${mine ? " mine" : ""}" data-team="${esc(t.id)}"
-      style="--team-color:${esc(t.color)}">
-      ${teamLogoHTML(t, 18)}<span>${mine ? `내 팀 ${esc(t.abbr)}` : `${esc(t.abbr)} 응원하기`}</span></button>`;
-  };
+  // 응원 버튼은 **아직 팀을 안 고른 사람에게만**. 이미 고른 사람에겐 아무 일도 안 하는
+  // 버튼이 둘 늘어날 뿐이라, 그만큼 정작 눌러야 할 '예측하기'가 묻힌다.
+  const cheer = fav === null
+    ? `<div class="hero-cheer" role="group" aria-label="응원팀 고르기">
+        ${[A, B].map(t => `<button type="button" class="hero-cheer-btn" data-team="${esc(t.id)}"
+          style="--team-color:${esc(t.color)}">${teamLogoHTML(t, 18)}<span>${esc(t.abbr)} 응원</span></button>`).join("")}
+      </div>`
+    : "";
 
   card.style.display = "";
-  card.className = `card home-hero${(pA || pB) ? " has-face" : ""}`;
+  card.className = `card home-hero${hasFace ? " has-face" : ""}`;
   card.innerHTML = `
     <div class="hero-copy">
       <p class="hero-eyebrow">${esc(eyebrow)}</p>
       <h2 class="hero-headline">${esc(headline)}</h2>
       ${sub ? `<p class="hero-sub">${esc(sub)}</p>` : ""}
-      <p class="hero-when"><b>${esc(A.abbr)} vs ${esc(B.abbr)}</b><time>${esc(when)}</time></p>
       ${desc ? `<p class="hero-desc">${esc(desc)}</p>` : ""}
     </div>
     <div class="hero-stage">
@@ -1445,21 +1451,16 @@ function renderHomeFeature() {
       ${heroSideHTML(B, pB, "b")}
     </div>
     <div class="hero-actions">
-      <div class="hero-cheer" role="group" aria-label="응원팀 고르기">${cheerBtn(A)}${cheerBtn(B)}</div>
-      <div class="hero-links">
-        <a class="btn-primary" href="/match/${q(match.id)}#fanpulse-card">승부 예측하기</a>
-        <a class="btn-secondary" href="/match/${q(match.id)}#preview-card">관전 포인트</a>
-      </div>
+      <time class="hero-when">${esc(when)}</time>
+      ${cheer}
+      <a class="btn-primary" href="${href}#fanpulse-card">승부 예측하기</a>
+      <a class="hero-more" href="${href}#preview-card">관전 포인트 ›</a>
     </div>`;
 
-  // 응원하기 = 그 팀을 내 응원팀으로. 이미 고른 사람은 바로 경기 화면으로 보낸다
-  // (응원팀은 회원의 경우 30일 잠금이라, 누른다고 말없이 바꿔 버리면 안 된다).
+  // 응원하기 = 그 팀을 내 응원팀으로 (안 고른 사람에게만 뜨는 버튼이다)
   card.querySelectorAll(".hero-cheer-btn").forEach(btn => btn.addEventListener("click", async () => {
-    const id = btn.dataset.team;
-    const cur = typeof getFavTeam === "function" ? getFavTeam() : null;
-    if (cur !== null) { location.href = `/match/${q(match.id)}#fanpulse-card`; return; }
     card.querySelectorAll(".hero-cheer-btn").forEach(b => { b.disabled = true; });
-    const r = await setFavTeam(id);
+    const r = await setFavTeam(btn.dataset.team);
     if (r && r.error) {
       alert(r.error);
       card.querySelectorAll(".hero-cheer-btn").forEach(b => { b.disabled = false; });

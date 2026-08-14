@@ -49,6 +49,12 @@ ok(/const headline = story \? story\.headline : `\$\{A\.abbr\} vs \$\{B\.abbr\}`
   "서사 없으면 팀 이름으로 폴백");
 ok(/\$\{sub \? `<p class="hero-sub">/.test(hero) && /\$\{desc \? `<p class="hero-desc">/.test(hero),
   "빈 부제·설명은 빈 태그를 남기지 말아야 함");
+// 같은 대진을 세 번 적어 카드만 커졌던 것 (2026-08-15)
+ok(/!\[A\.abbr, B\.abbr\]\.every\(x => headline\.includes\(x\)\)/.test(hero),
+  "제목에 이미 두 팀 이름이 있으면 부제를 접어야 함");
+ok(!/hero-when">\$\{esc\(A\.abbr\)\} vs/.test(hero), "대진을 또 적는 줄이 남아 있으면 안 됨");
+ok(/\.home-hero\.has-face/.test(css),
+  "얼굴이 있을 때만 커져야 함 — 로고 두 개뿐인데 화면을 크게 먹으면 본문이 밀린다");
 ok(/hook \? `<span class="home-match-hook">/.test(app) && /hook \? `<em class="home-schedule-hook">/.test(app),
   "훅이 없는 경기는 줄 자체가 생기면 안 됨");
 ok(/\.home-match-game\.has-hook \{/.test(css) && /\.home-schedule-row\.has-hook \{/.test(css),
@@ -66,11 +72,11 @@ ok(/getPlayer\(id\)\)\.filter\(Boolean\)/.test(story),
   "로스터에서 사라진 선수는 조용히 빼야 함");
 
 // ── 응원하기 ────────────────────────────────────────────
-ok(/if \(cur !== null\) \{ location\.href = /.test(hero),
-  "이미 응원팀이 있으면 말없이 바꾸지 말고 경기 화면으로 (회원은 30일 잠금)");
-ok(/const r = await setFavTeam\(id\)/.test(hero), "안 고른 사람은 이 버튼으로 응원팀 등록");
-ok(/mine \? `내 팀 \$\{esc\(t\.abbr\)\}`/.test(hero), "내 팀은 상태로 보여 줘야 함");
-ok(/\.hero-cheer-btn\.mine \{[^}]*var\(--team-color\)/.test(css), "내 팀 버튼은 팀 색으로");
+// 응원 버튼은 **아직 안 고른 사람에게만** 뜬다. 이미 고른 사람에겐 아무 일도 안 하는
+// 버튼이 둘 늘어날 뿐이라 정작 눌러야 할 '예측하기' 가 묻힌다.
+ok(/const cheer = fav === null/.test(hero), "응원 버튼은 팀을 안 고른 사람에게만");
+ok(/const r = await setFavTeam\(btn\.dataset\.team\)/.test(hero), "그 버튼으로 응원팀 등록");
+ok(/\.hero-cheer-btn:hover \{[^}]*var\(--team-color\)/.test(css), "응원 버튼은 팀 색으로 반응");
 
 // ── 히어로가 고르는 경기 ────────────────────────────────
 ok(/const STORY_WEIGHT = \{ admin: 4, standings: 3, streak: 2, rematch: 1 \}/.test(app),
@@ -118,8 +124,9 @@ ok(/STORY_TYPES\.map/.test(admin), "유형 목록은 story.js 한 곳에서");
 
 // ── 모바일 우선순위 ─────────────────────────────────────
 const narrow = css.slice(css.indexOf("@media (max-width: 720px)"));
-ok(/grid-template-areas: "copy" "stage" "actions"/.test(narrow),
-  "모바일은 서사 → 얼굴 → 응원 순서로 쌓여야 함");
+// 셋을 위아래로 쌓았더니 히어로 하나가 첫 화면을 다 먹었다 (243px). 한 줄로 붙인다.
+ok(/grid-template-areas: "copy stage" "actions actions"/.test(narrow),
+  "모바일에서 카피와 로고는 한 줄에, 버튼 줄만 아래로");
 const tiny = css.slice(css.indexOf("@media (max-width: 560px)"));
 ok(/\.hero-cheer, \.hero-links \{ display: grid; grid-template-columns: 1fr 1fr/.test(tiny),
   "좁은 화면에서 버튼은 2칸씩 (가로로 밀리면 안 됨)");
