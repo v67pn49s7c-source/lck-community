@@ -81,7 +81,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260815l") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260815m") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -517,8 +517,15 @@ body.nav-open-lock { overflow: hidden; }
   display: flex; flex-direction: column; align-items: center; gap:2px; padding-bottom:2px;
 }
 .hero-name > * { flex: none; }
+/* 로고를 사진 **위 레이어로** 반쯤 걸친다 (사장님 2026-08-15).
+   ⚠ 이름 칸은 바닥에 붙어 있으므로(inset: auto 0 0) 블록이 커지면 **위로** 자란다.
+   그래서 로고에 아래 여백을 주면 닉네임은 그 자리에 두고 로고만 올라간다.
+   (로고에 top/translate 를 쓰면 자리는 그대로라 아래에 빈틈이 남는다) */
+.hero-name > .team-logo { margin-bottom:14px; }
+/* 반은 사진(유니폼) 위에 얹히니 밝은 옷에서도 뜨도록 윤곽을 준다 */
+.hero-name > .team-logo img { filter: drop-shadow(0 2px 5px rgba(0, 0, 0, .45)); }
 .hero-name b {
-  font-size: var(--fs-sm); font-weight: 800; letter-spacing: -.01em; color: var(--text-sub);
+  font-size: 12px; font-weight: 800; letter-spacing: -.01em; color: var(--text-sub);
   max-width: 100%; padding:0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 /* 사진이 없거나 깨진 팀 — 로고를 세워 자리를 지킨다 (빈 칸이 남지 않게) */

@@ -77,6 +77,17 @@ ok(/\.hero-name \{[\s\S]{0,160}position: absolute;[\s\S]{0,80}z-index: 1/.test(c
 ok(/margin:14px -15px 0/.test(css), "카드 여백까지 넘겨 시원하게 쓴다");
 ok(/\.hero-side\.no-photo \.hero-name \{ position: static/.test(css),
   "사진이 없는 팀도 빈 칸이 남지 않아야 함");
+// 로고는 사진 위 레이어로 반쯤 걸친다 (사장님 2026-08-15)
+// ⚠ transform/top 이 아니라 **아래 여백**이어야 한다 — 이름 칸이 바닥 기준이라
+//   블록이 위로 자라야 로고만 올라가고 닉네임은 제자리에 남는다.
+ok(/\.hero-name > \.team-logo \{ margin-bottom:14px/.test(css),
+  "팀 로고가 선수 사진 위로 반쯤 올라타야 함");
+ok(!/\.hero-name > \.team-logo \{[^}]*(transform|top:)/.test(css),
+  "로고를 transform·top 으로 올리면 원래 자리에 빈틈이 남는다");
+ok(/\.hero-name > \.team-logo img \{ filter: drop-shadow/.test(css),
+  "로고 절반이 유니폼 위에 얹히므로 밝은 옷에서도 뜨도록 윤곽이 필요함");
+ok(/\.hero-name b \{\s*font-size: 12px/.test(css),
+  "선수 닉네임은 사진을 방해하지 않게 작아야 함");
 ok(/hook \? `<span class="home-match-hook">/.test(app) && /hook \? `<em class="home-schedule-hook">/.test(app),
   "훅이 없는 경기는 줄 자체가 생기면 안 됨");
 ok(/\.home-match-game\.has-hook \{/.test(css) && /\.home-schedule-row\.has-hook \{/.test(css),
