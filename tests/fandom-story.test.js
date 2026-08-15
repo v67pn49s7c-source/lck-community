@@ -14,6 +14,8 @@ const store = read("assets/store.js");
 const html = read("index.html");
 const admin = read("admin.html");
 const css = read("assets/styles.css");
+const race = read("assets/race.js");
+const raceHtml = read("race.html");
 
 let n = 0;
 const ok = (c, m) => { assert.ok(c, m); n++; };
@@ -88,6 +90,26 @@ ok(/\.hero-name > \.team-logo img \{ filter: drop-shadow/.test(css),
   "로고 절반이 유니폼 위에 얹히므로 밝은 옷에서도 뜨도록 윤곽이 필요함");
 ok(/\.hero-name b \{\s*font-size: 12px/.test(css),
   "선수 닉네임은 사진을 방해하지 않게 작아야 함");
+// ── 월즈 진출 (2026-08-15) ──────────────────────────────────
+// 규정은 사람이 적고, "누가 확정됐나"는 엔진이 계산한다. 이 경계가 무너지면
+// 결과가 바뀌어도 화면이 옛말을 계속하게 된다.
+ok(/const WORLDS = \{[\s\S]{0,400}msiChampion: "hle"/.test(race),
+  "MSI 우승팀은 시즌 상수로 적어 둔다 (규정에서 온 사실)");
+ok(/seeds: 4/.test(race) && /cutRank: 4/.test(race),
+  "LCK 시드 4장 · 월즈행은 플레이오프 4위 안");
+ok(/function worldsLocked\(\)[\s\S]{0,700}stateNow\(t, ci\) !== "lock"[\s\S]{0,120}return \[\]/.test(race),
+  "월즈 확정은 경우의 수 엔진의 플레이오프 확정(lock)에서만 나와야 함");
+ok(/worldsLocked[\s\S]{0,500}c\.k === 4/.test(race),
+  "컷은 이름이 아니라 k 값(4위 안)으로 찾아야 함 — 라벨이 바뀌어도 안 깨진다");
+ok(/typeof worldsLocked === "function"/.test(story),
+  "story.js 는 race.js 가 없어도 조용히 넘어가야 함");
+ok(/eyebrow: `\$\{WORLDS\.year\} 월즈 확정`/.test(story),
+  "월즈 확정 팀의 경기는 그 사실이 서사 맨 앞에 와야 함");
+ok(/id="worlds-card"/.test(raceHtml) && /function renderWorlds\(\)/.test(raceHtml),
+  "경우의 수 페이지에 월즈 카드가 있어야 함");
+ok(/아직 월즈 진출이 확정된 팀은 없습니다/.test(raceHtml),
+  "확정 팀이 없으면 빈 자리를 밝혀야 함 (틀린 말보다 빈 자리가 낫다)");
+
 ok(/hook \? `<span class="home-match-hook">/.test(app) && /hook \? `<em class="home-schedule-hook">/.test(app),
   "훅이 없는 경기는 줄 자체가 생기면 안 됨");
 ok(/\.home-match-game\.has-hook \{/.test(css) && /\.home-schedule-row\.has-hook \{/.test(css),

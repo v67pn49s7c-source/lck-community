@@ -96,6 +96,26 @@ function storyAuto(match) {
   const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
   if (!A || !B) return null;
 
+  // 0-A) 월즈 진출을 이미 확정한 팀이 뛰는 경기 — 오늘 이 팀의 가장 큰 소식이다.
+  //   ⚠ "누가 확정됐나"를 여기서 판단하지 않는다. race.js 의 worldsLocked() 가
+  //     경우의 수 엔진에서 끌어낸다. 그 함수가 없거나 비면 조용히 다음으로 넘어간다.
+  if (typeof worldsLocked === "function") {
+    let lk = [];
+    try { lk = worldsLocked() || []; } catch { lk = []; }
+    const hit = lk.find(x => x.team === match.a || x.team === match.b);
+    if (hit) {
+      const me = TEAM_MAP[hit.team], you = TEAM_MAP[hit.team === match.a ? match.b : match.a];
+      return {
+        source: "auto", type: "playoff",
+        eyebrow: `${WORLDS.year} 월즈 확정`,
+        headline: `${me.abbr}, 이미 월즈行`,
+        subheadline: `${me.abbr} vs ${you.abbr}`,
+        description: `${me.name}는 ${hit.why}. 스위스 스테이지 직행이 확정된 상태로 남은 경기를 치릅니다.`,
+        players: [],
+      };
+    }
+  }
+
   // 0) 이 경기로 **무엇이 걸렸나** — 플레이오프 확정·무산이 오늘 가장 큰 소식이다.
   //    (2026-08-15 사장님: "이겨서 플레이오프 진출 확정, 이런 게 부각돼야 함")
   //    ⚠ 경우의 수 엔진(race.js)이 있는 화면에서만 쓴다. 없으면 조용히 다음으로 넘어간다.

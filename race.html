@@ -17,10 +17,10 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260815n">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260815n">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260815p">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260815p">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260815n">
+  <link rel="stylesheet" href="assets/styles.css?v=20260815p">
   <style>
     /* ── 우리 팀 카드 — 이 페이지에서 가장 먼저 읽혀야 하는 것 ── */
     .my-race { padding: 16px; }
@@ -117,6 +117,21 @@
         <div id="race-body"></div>
       </section>
 
+      <!-- 월즈 진출 — 정규 라운드 순위와 헷갈리기 쉬운 부분이라 따로 세운다 -->
+      <section class="card" id="worlds-card">
+        <div class="card-head"><h2 class="card-title">월즈는 어떻게 가나</h2></div>
+        <div id="worlds-body"></div>
+        <div class="admin-note" style="border-top:none">
+          <b>LCK 시드는 4장</b>입니다. 원래 3장인데 MSI 우승 지역 특전으로 1장이 더 붙었고, 네 팀 모두
+          플레이-인을 건너뛰고 <b>스위스 스테이지로 직행</b>합니다.<br><br>
+          그 4장은 <b>정규 라운드 순위가 아니라 플레이오프 최종 1~4위</b>에게 갑니다.
+          정규 라운드 순위는 플레이오프에서 <b>어디서 출발하느냐</b>만 정합니다 —
+          레전드 1·2위는 2라운드부터, 3·4위는 1라운드부터, 5위는 플레이-인부터.<br><br>
+          플레이오프는 6팀 더블 엘리미네이션이라 한 번 져도 패자조에서 살아남을 수 있습니다.
+          다만 <b>패자조 3라운드(9/6)를 이겨야 4위 안</b>에 듭니다. 그 경기에서 지면 5위로 시즌이 끝납니다.
+        </div>
+      </section>
+
       <!-- ③ 시즌 진행 방식 — 검색 로봇도 읽는 정적 설명 -->
       <section class="card">
         <div class="card-head"><h2 class="card-title">2026 LCK는 이렇게 진행됩니다</h2></div>
@@ -148,12 +163,12 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260815n"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260815n"></script>
-  <script src="assets/store.js?v=20260815n"></script>
-  <script src="assets/app.js?v=20260815n"></script>
-  <script src="assets/story.js?v=20260815n"></script>
-  <script src="assets/race.js?v=20260815n"></script>
+  <script src="assets/data.js?v=20260815p"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260815p"></script>
+  <script src="assets/store.js?v=20260815p"></script>
+  <script src="assets/app.js?v=20260815p"></script>
+  <script src="assets/story.js?v=20260815p"></script>
+  <script src="assets/race.js?v=20260815p"></script>
   <script>
   storeReady.then(() => {
     renderHeader("경우의 수", null);
@@ -296,6 +311,29 @@
         </div>`;
 
       renderNext(r);
+      renderWorlds();
+    }
+
+    // ── 월즈 확정 팀 ────────────────────────────────────────
+    // ⚠ 누가 확정됐는지는 여기서 판단하지 않는다. worldsLocked() 가 경우의 수 엔진의
+    //   "플레이오프 직행 확정"에서 끌어낸다. 확정 근거가 없으면 이 자리는 비운다 —
+    //   빈 자리가 틀린 말보다 낫다.
+    function renderWorlds() {
+      const body = document.getElementById("worlds-body");
+      if (!body) return;
+      const locked = typeof worldsLocked === "function" ? worldsLocked() : [];
+      body.innerHTML = locked.length
+        ? locked.map(x => {
+            const t = TEAM_MAP[x.team];
+            return `<div class="worlds-lock" style="--team-color:${esc(t.color)}">
+              ${teamLogoHTML(t, 34)}
+              <div class="worlds-lock-txt">
+                <b>${esc(t.name)} — ${WORLDS.year} 월즈 진출 확정</b>
+                <span>${esc(x.why)} · 스위스 스테이지 직행</span>
+              </div>
+            </div>`;
+          }).join("")
+        : `<div class="empty-note">아직 월즈 진출이 확정된 팀은 없습니다. 플레이오프 4위 안에 들어야 합니다.</div>`;
     }
 
     // ── ③ 다음 경기 하나로 무엇이 바뀌나 ─────────────────────

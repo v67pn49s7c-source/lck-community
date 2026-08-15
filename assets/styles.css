@@ -81,7 +81,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260815n") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260815p") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -533,6 +533,17 @@ body.nav-open-lock { overflow: hidden; }
 .hero-side.no-photo .hero-cut { display: none; }
 .hero-side.no-photo::after { display: none; }
 .hero-side.no-photo .hero-name { position: static; padding-bottom:6px; }
+
+/* 월즈 확정 배너 — 경우의 수 표와 같은 각진 언어를 쓴다 */
+.worlds-lock {
+  display: flex; align-items: flex-start; gap:11px; margin:12px 16px 0; padding:11px 13px;
+  --cut: var(--cut-md); clip-path: var(--chamfer-tlbr);
+  background: color-mix(in srgb, var(--team-color) 13%, var(--card));
+  border-left: 3px solid var(--team-color);
+}
+.worlds-lock-txt { display: flex; flex-direction: column; gap:2px; min-width: 0; }
+.worlds-lock-txt b { font-size: var(--fs-base); font-weight: 800; }
+.worlds-lock-txt span { font-size: var(--fs-xs); color: var(--text-sub); font-weight: 600; }
 
 .hero-vs {
   align-self: center; z-index: 1; margin-bottom:56px;
