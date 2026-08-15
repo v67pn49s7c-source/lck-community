@@ -81,7 +81,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260815q") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260815s") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -3035,6 +3035,35 @@ a.bracket-match:hover { border-color: var(--accent); }
   display: grid; grid-template-rows: repeat(var(--rows, 1), 1fr);
   gap:11px; flex: 1; align-content: center;
 }
+/* ── 압축 대진표 ────────────────────────────────────────────────
+   국제 대회는 마디가 14~20개다. 기본 크기(칸 248px·줄 53px)로 그리면 가로로도
+   세로로도 화면을 넘어가 "한눈에" 가 안 된다 (사장님 2026-08-15).
+   숫자를 대충 줄이지 않고, **한 화면에 들어가는 것**을 목표로 잡아 줄였다.
+   ⚠ 자리 라벨(bm-from)은 이미 끝난 대회에선 전부 "승자 ↘" 라 정보가 없다.
+     그래서 팀이 정해진 칸에서는 감추고, 아직 안 정해진 칸에서만 라벨을 보여 준다. */
+.bracket-parts { padding:10px 16px 0; }
+.bracket.compact { gap:10px; padding:10px; }
+.bracket.compact .bracket-col { min-width: 128px; gap:6px; }
+.bracket.compact .bracket-col-title { font-size: 12px; padding:4px; }
+.bracket.compact .bracket-col-body { gap:5px; }
+.bracket.compact .bm-head { font-size: 12px; padding:2px 7px; }
+/* 마디 하나 = 머리 20 + 자리 26×2 ≈ 72px. 승자조·패자조 6줄이 한 화면에 들어가는 크기다.
+   (89px 이던 것을 줄였다 — 6줄이면 그 차이가 100px 넘게 벌어진다) */
+.bracket.compact .bm-slot {
+  grid-template-columns: minmax(0, 1fr) auto; gap:6px;
+  padding:2px 7px; min-height:26px; font-size: 13px;
+}
+.bracket.compact .bm-slot .score { font-size: var(--fs-base); }
+.bracket.compact .bm-who { gap:5px; }
+.bracket.compact .team-logo { width: 16px !important; height: 16px !important; }
+.bracket.compact .bm-from { display: none; }
+.bracket.compact .bm-slot.tbd .bm-from {
+  display: block; font-size: 12px; font-weight: 700;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bracket.compact .bm-slot.tbd .bm-from .arrow { display: inline; margin-left:3px; }
+.bracket.compact .bm-slot.tbd .bm-who { display: none; }
+
 .tbd-logo {
   width: 22px; height: 22px; border: 1px dashed var(--line);
   background: var(--bg-soft); flex-shrink: 0;

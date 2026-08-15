@@ -14,7 +14,137 @@
 //        관리자가 손으로 만든 경기는 label 에 마디 이름(R1·PI-F 등)을 적으면 그것도 잡는다.
 // win/lose: 이기면·지면 어디로 가는가. kind 는 색 — adv(다음 라운드) · fin(최종 진출) · out(탈락)
 
+// ⚠ 국제 대회는 마디가 14~20개라 한 판에 다 그리면 화면 밖으로 넘어간다.
+//   그래서 **단계별로 나눠서**(parts) 그리고, 위에 단계 단추를 둔다.
+//   compact: true 를 주면 칸이 작아진다 — 8강·승자조처럼 마디가 많은 대진표용.
+//   (마디가 6개 이하인 LCK 대진표는 지금 크기가 오히려 읽기 좋다)
+
+// MSI·EWC 는 우리가 직접 넣은 경기라 id 가 정해져 있다 (msi2026-07 …).
+// 리그피디아에서 오는 대회처럼 짐작할 필요가 없어 **정확한 id 로** 짚는다.
+const exact = id => new RegExp("^" + id + "$");
+
 const BRACKETS = {
+
+  // ── 2026 MSI (6/28~7/12) ──────────────────────────────────────
+  // 플레이-인 4팀 더블 엘리미네이션에서 **딱 1팀**이 본선으로 올라간다.
+  // 본선은 8팀 더블 엘리미네이션 — 두 번 져야 탈락이라 패자조가 길다.
+  msi2026: {
+    parts: [
+      {
+        key: "playin", name: "플레이-인",
+        cols: ["1일차 (6/28)", "2일차 (6/29)", "3일차 (6/30)", "최종전 (7/1)"],
+        rows: 4, compact: true,
+        nodes: [
+          { id: "PI-UB1", col: 0, row: 1, title: "승자조", find: exact("msi2026-01"),
+            a: { from: "LCK 3시드" }, b: { from: "LTA 3시드" },
+            win: { to: "승자조 결승", kind: "adv" }, lose: { to: "패자조", kind: "out" } },
+          { id: "PI-UB2", col: 0, row: 2, title: "승자조", find: exact("msi2026-02"),
+            a: { from: "LCP 3시드" }, b: { from: "LEC 3시드" },
+            win: { to: "승자조 결승", kind: "adv" }, lose: { to: "패자조", kind: "out" } },
+          { id: "PI-UBF", col: 1, row: 1, title: "승자조 결승", find: exact("msi2026-03"),
+            a: { from: "승자", arrow: "↘", winOf: "PI-UB1" }, b: { from: "승자", arrow: "↗", winOf: "PI-UB2" },
+            win: { to: "최종전 직행", kind: "adv" }, lose: { to: "패자조 결승", kind: "out" } },
+          { id: "PI-LB1", col: 1, row: 3, title: "패자조", find: exact("msi2026-04"),
+            a: { from: "패자", arrow: "↘", loseOf: "PI-UB1" }, b: { from: "패자", arrow: "↗", loseOf: "PI-UB2" },
+            win: { to: "패자조 결승", kind: "adv" }, lose: { to: "탈락", kind: "out" } },
+          { id: "PI-LBF", col: 2, row: 3, title: "패자조 결승", find: exact("msi2026-05"),
+            a: { from: "패자", arrow: "↘", loseOf: "PI-UBF" }, b: { from: "승자", arrow: "↗", winOf: "PI-LB1" },
+            win: { to: "최종전", kind: "adv" }, lose: { to: "탈락", kind: "out" } },
+          { id: "PI-F", col: 3, row: 2, title: "최종전", find: exact("msi2026-06"),
+            a: { from: "승자", arrow: "↘", winOf: "PI-UBF" }, b: { from: "승자", arrow: "↗", winOf: "PI-LBF" },
+            win: { to: "본선 진출", kind: "fin" }, lose: { to: "탈락", kind: "out" } },
+        ],
+        legend: [["adv", "다음 경기 진출"], ["fin", "본선(토너먼트 스테이지) 진출"]],
+      },
+      {
+        key: "main", name: "토너먼트 스테이지",
+        cols: ["1라운드", "2라운드", "3라운드", "4라운드", "결승 (7/12)"],
+        rows: 6, compact: true,
+        nodes: [
+          { id: "UB1", col: 0, row: 1, title: "승자조 1R", find: exact("msi2026-07"),
+            a: {}, b: {}, win: { to: "승자조 2R", kind: "adv" }, lose: { to: "패자조", kind: "out" } },
+          { id: "UB2", col: 0, row: 2, title: "승자조 1R", find: exact("msi2026-08"),
+            a: {}, b: {}, win: { to: "승자조 2R", kind: "adv" }, lose: { to: "패자조", kind: "out" } },
+          { id: "UB3", col: 0, row: 3, title: "승자조 1R", find: exact("msi2026-09"),
+            a: {}, b: {}, win: { to: "승자조 2R", kind: "adv" }, lose: { to: "패자조", kind: "out" } },
+          { id: "UB4", col: 0, row: 4, title: "승자조 1R", find: exact("msi2026-10"),
+            a: {}, b: {}, win: { to: "승자조 2R", kind: "adv" }, lose: { to: "패자조", kind: "out" } },
+          { id: "LB1", col: 0, row: 5, title: "패자조 1R", find: exact("msi2026-11"),
+            a: { from: "패자", arrow: "↘", loseOf: "UB1" }, b: { from: "패자", arrow: "↗", loseOf: "UB2" },
+            win: { to: "패자조 2R", kind: "adv" }, lose: { to: "탈락", kind: "out" } },
+          { id: "LB2", col: 0, row: 6, title: "패자조 1R", find: exact("msi2026-14"),
+            a: { from: "패자", arrow: "↘", loseOf: "UB4" }, b: { from: "패자", arrow: "↗", loseOf: "UB3" },
+            win: { to: "패자조 2R", kind: "adv" }, lose: { to: "탈락", kind: "out" } },
+
+          { id: "UB5", col: 1, row: 1, title: "승자조 2R", find: exact("msi2026-12"),
+            a: { from: "승자", arrow: "↘", winOf: "UB1" }, b: { from: "승자", arrow: "↗", winOf: "UB2" },
+            win: { to: "승자조 결승", kind: "adv" }, lose: { to: "패자조 2R", kind: "out" } },
+          { id: "UB6", col: 1, row: 2, title: "승자조 2R", find: exact("msi2026-13"),
+            a: { from: "승자", arrow: "↘", winOf: "UB4" }, b: { from: "승자", arrow: "↗", winOf: "UB3" },
+            win: { to: "승자조 결승", kind: "adv" }, lose: { to: "패자조 2R", kind: "out" } },
+          { id: "LB3", col: 1, row: 5, title: "패자조 2R", find: exact("msi2026-15"),
+            a: { from: "패자", arrow: "↘", loseOf: "UB6" }, b: { from: "승자", arrow: "↗", winOf: "LB1" },
+            win: { to: "패자조 3R", kind: "adv" }, lose: { to: "탈락", kind: "out" } },
+          { id: "LB4", col: 1, row: 6, title: "패자조 2R", find: exact("msi2026-16"),
+            a: { from: "패자", arrow: "↘", loseOf: "UB5" }, b: { from: "승자", arrow: "↗", winOf: "LB2" },
+            win: { to: "패자조 3R", kind: "adv" }, lose: { to: "탈락", kind: "out" } },
+
+          { id: "UBF", col: 2, row: 1, title: "승자조 결승", find: exact("msi2026-17"),
+            a: { from: "승자", arrow: "↘", winOf: "UB6" }, b: { from: "승자", arrow: "↗", winOf: "UB5" },
+            win: { to: "결승 직행", kind: "fin" }, lose: { to: "패자조 결승", kind: "out" } },
+          { id: "LB5", col: 2, row: 5, title: "패자조 3R", find: exact("msi2026-18"),
+            a: { from: "승자", arrow: "↘", winOf: "LB4" }, b: { from: "승자", arrow: "↗", winOf: "LB3" },
+            win: { to: "패자조 결승", kind: "adv" }, lose: { to: "탈락", kind: "out" } },
+          { id: "LBF", col: 3, row: 5, title: "패자조 결승", find: exact("msi2026-19"),
+            a: { from: "승자", arrow: "↘", winOf: "LB5" }, b: { from: "패자", arrow: "↗", loseOf: "UBF" },
+            win: { to: "결승 진출", kind: "adv" }, lose: { to: "3위", kind: "out" } },
+
+          { id: "GF", col: 4, row: 3, title: "결승", find: exact("msi2026-20"),
+            a: { from: "승자", arrow: "↘", winOf: "UBF" }, b: { from: "승자", arrow: "↗", winOf: "LBF" },
+            win: { to: "2026 MSI 우승", kind: "fin" }, lose: { to: "준우승", kind: "out" } },
+        ],
+        legend: [["adv", "다음 라운드 진출"], ["fin", "결승 직행 · 우승"]],
+      },
+    ],
+  },
+
+  // ── 2026 Esports World Cup (7/15~7/19) ────────────────────────
+  // 앞의 그룹 스테이지(20경기)는 대진표로 그릴 모양이 아니라 경기 일정에서 본다.
+  // 여기서는 그룹을 통과한 8팀의 녹아웃만 그린다.
+  ewc2026: {
+    compact: true,
+    cols: ["8강 (7/17)", "4강 (7/18)", "결승 (7/19)"],
+    rows: 4,
+    nodes: [
+      { id: "QF1", col: 0, row: 1, title: "8강", find: exact("ewc2026-21"),
+        a: { from: "그룹 통과" }, b: { from: "그룹 통과" },
+        win: { to: "4강", kind: "adv" }, lose: { to: "탈락", kind: "out" } },
+      { id: "QF2", col: 0, row: 2, title: "8강", find: exact("ewc2026-22"),
+        a: { from: "그룹 통과" }, b: { from: "그룹 통과" },
+        win: { to: "4강", kind: "adv" }, lose: { to: "탈락", kind: "out" } },
+      { id: "QF3", col: 0, row: 3, title: "8강", find: exact("ewc2026-23"),
+        a: { from: "그룹 통과" }, b: { from: "그룹 통과" },
+        win: { to: "4강", kind: "adv" }, lose: { to: "탈락", kind: "out" } },
+      { id: "QF4", col: 0, row: 4, title: "8강", find: exact("ewc2026-24"),
+        a: { from: "그룹 통과" }, b: { from: "그룹 통과" },
+        win: { to: "4강", kind: "adv" }, lose: { to: "탈락", kind: "out" } },
+
+      { id: "SF1", col: 1, row: 1, title: "4강", find: exact("ewc2026-25"),
+        a: { from: "승자", arrow: "↘", winOf: "QF3" }, b: { from: "승자", arrow: "↗", winOf: "QF1" },
+        win: { to: "결승", kind: "adv" }, lose: { to: "3·4위전", kind: "out" } },
+      { id: "SF2", col: 1, row: 3, title: "4강", find: exact("ewc2026-26"),
+        a: { from: "승자", arrow: "↘", winOf: "QF2" }, b: { from: "승자", arrow: "↗", winOf: "QF4" },
+        win: { to: "결승", kind: "adv" }, lose: { to: "3·4위전", kind: "out" } },
+
+      { id: "GF", col: 2, row: 1, title: "결승", find: exact("ewc2026-28"),
+        a: { from: "승자", arrow: "↘", winOf: "SF1" }, b: { from: "승자", arrow: "↗", winOf: "SF2" },
+        win: { to: "2026 EWC 우승", kind: "fin" }, lose: { to: "준우승", kind: "out" } },
+      { id: "TP", col: 2, row: 3, title: "3·4위전", find: exact("ewc2026-27"),
+        a: { from: "패자", arrow: "↘", loseOf: "SF2" }, b: { from: "패자", arrow: "↗", loseOf: "SF1" },
+        win: { to: "3위", kind: "adv" }, lose: { to: "4위", kind: "out" } },
+    ],
+    legend: [["adv", "다음 라운드 진출"], ["fin", "우승"]],
+  },
   // ── 2026 LCK Road to MSI (6팀 · 5경기) ──────────────────────
   // 1-2라운드 순위 상위 6팀. 1·2위는 한 경기로 MSI 1시드를 가리고,
   // 3~6위는 아래에서부터 올라온다.
@@ -132,11 +262,17 @@ const BRACKETS = {
  *  ⚠ 예전에는 label 로도 찾았는데 그건 죽은 코드였다 —
  *    api/schedule-sync.js 가 갱신할 때마다 label 을 빈 문자열로 덮어쓴다. (2026-08-07)
  */
-function bracketOf(tid) {
+function bracketOf(tid, partKey) {
   const t = (Cache.tournaments || []).find(x => x.id === tid);
   const cfg = (t && t.bracket) || {};
-  const spec = BRACKETS[cfg.format] || BRACKETS[tid];
+  let spec = BRACKETS[cfg.format] || BRACKETS[tid];
   if (!spec) return null;
+  // 단계가 나뉜 대회(MSI 등)는 고른 단계 하나만 그린다. 고르지 않았으면 첫 단계.
+  if (spec.parts) {
+    const parts = spec.parts;
+    const one = parts.find(p => p.key === partKey) || parts[0];
+    spec = { ...one, parts: parts.map(p => ({ key: p.key, name: p.name })), partKey: one.key };
+  }
 
   const ms = (Cache.matches || []).filter(m => m.tid === tid);
   const nodes = spec.nodes.map(n => ({ ...n, match: null, linkBroken: false }));
