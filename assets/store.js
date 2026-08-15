@@ -215,9 +215,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260815p"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260815p"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260815p"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260815q"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260815q"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260815q"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -624,6 +624,18 @@ function saveStageRecords(list) {
 }
 // 이 스테이지가 종합(누적) 순위에 합산되는가 (기본: Road To MSI만 제외)
 function stageInTotal(s) { return s.in_total ?? (s.id !== "rtm"); }
+
+/** 이 경기가 **LCK 정규 라운드** 경기인가.
+ *  MSI·EWC·월즈 같은 국제 대회를 표에 넣은 뒤로 필요해졌다. 그냥 두면 한화생명의
+ *  MSI 우승 4연승이 LCK "연승 행진"으로 둔갑하고, EWC 의 T1 vs HLE 가 "지난 맞대결"로
+ *  올라온다 — 사실이 아닌 건 아니지만 **다른 대회 얘기**라 팬이 읽으면 틀린 말이 된다.
+ *  판단 기준은 순위표와 똑같이 **순위에 반영되는 스테이지인가**로 잡는다. 기준이 하나여야
+ *  둘이 어긋나지 않는다. */
+function isSeasonMatch(m) {
+  if (!m || !m.stage) return false;
+  const key = x => String(x || "").trim().toLowerCase();
+  return Cache.records.some(s => stageInTotal(s) && key(s.name) === key(m.stage));
+}
 
 // 종료된 경기 결과를 순위 전적에 반영 (경기당 1회 — counted 플래그로 이중 반영 방지)
 // 순위 반영. 예전에는 '전적 저장'과 '반영됨 표시'가 서로 기다리지 않고 따로 날아가서,

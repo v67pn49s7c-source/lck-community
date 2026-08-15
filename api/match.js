@@ -131,7 +131,7 @@ function page(m, details, players, tournamentName) {
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="${esc(`${AN} ${m.score_a ?? ""} : ${m.score_b ?? ""} ${BN}`)}">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" type="image/png" href="/assets/brand/nexus-icon.png?v=20260815p">
+<link rel="icon" type="image/png" href="/assets/brand/nexus-icon.png?v=20260815q">
 ${jsonLd(m, `${AN} vs ${BN}`, url)}
 <style>
 /* 검색 로봇과 자바스크립트가 꺼진 사람을 위한 최소 화면.

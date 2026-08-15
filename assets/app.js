@@ -17,8 +17,10 @@ function teamLogoHTML(team, size) {
   const s = size || 24;
   const light = TEAM_LOGO_LIGHT[team.id]
     ? `<img class="lg-light" src="assets/logos/${encodeURIComponent(team.id + " light")}.svg" alt="">` : "";
+  // 해외 팀은 로고 파일을 받아 두지 않고 공식 CDN 주소를 그대로 쓴다 (team.logo)
+  const src = team.logo || `assets/logos/${team.id}.svg`;
   return `<span class="team-logo${light ? " has-light" : ""}" style="width:${s}px;height:${s}px">
-    <img class="lg-dark" src="assets/logos/${team.id}.svg" alt="${team.abbr} 로고">${light}</span>`;
+    <img class="lg-dark" src="${src}" alt="${team.abbr} 로고">${light}</span>`;
 }
 
 // 팀 슬롯: 실제 팀이면 로고, 아니면 "미정 자리" 표시 (토너먼트 대진용)
@@ -356,9 +358,9 @@ function renderHeader(activeMenu, activeTeamId) {
           stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260815p")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260815p")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260815p")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260815q")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260815q")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260815q")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -393,7 +395,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260815p");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260815q");
 
   renderTabBar(groupName);
 }

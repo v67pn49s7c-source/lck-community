@@ -29,6 +29,12 @@ STORY_TYPES.forEach(t => { STORY_TYPE_MAP[t.k] = t; });
 
 const STORY_KEY = "match_stories";
 
+/** 연승·리매치는 **LCK 정규 라운드만** 센다.
+ *  isSeasonMatch 가 없던 시절(국제 대회 추가 전)에도 돌아가도록 없으면 통과시킨다. */
+function seasonOnly(m) {
+  return typeof isSeasonMatch === "function" ? isSeasonMatch(m) : true;
+}
+
 /** 저장된 서사 전부 (경기 id → 서사). 깨진 값은 조용히 빈 객체로 본다. */
 function storyAll() {
   try {
@@ -60,6 +66,7 @@ function storyPrevMeeting(match) {
   if (typeof sortedMatches !== "function") return null;
   const at = new Date(match.at).getTime();
   return sortedMatches().filter(m => m.id !== match.id && m.status === "done" &&
+    seasonOnly(m) &&
     new Date(m.at).getTime() < at &&
     ((m.a === match.a && m.b === match.b) || (m.a === match.b && m.b === match.a)))
     .sort((x, y) => new Date(y.at) - new Date(x.at))[0] || null;
@@ -69,7 +76,7 @@ function storyPrevMeeting(match) {
 function storyStreak(teamId, beforeAt) {
   if (typeof sortedMatches !== "function") return null;
   const at = new Date(beforeAt).getTime();
-  const played = sortedMatches().filter(m => m.status === "done" &&
+  const played = sortedMatches().filter(m => m.status === "done" && seasonOnly(m) &&
     (m.a === teamId || m.b === teamId) && new Date(m.at).getTime() < at &&
     m.scoreA != null && m.scoreB != null && m.scoreA !== m.scoreB)
     .sort((x, y) => new Date(y.at) - new Date(x.at));
