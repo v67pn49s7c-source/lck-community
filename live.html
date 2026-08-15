@@ -17,11 +17,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260815t">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260815t">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260815u">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260815u">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260815t">
+  <link rel="stylesheet" href="assets/styles.css?v=20260815u">
 </head>
 <body>
   <main class="page">
@@ -100,14 +100,14 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260815t"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260815t"></script>
-  <script src="assets/invariants.js?v=20260815t"></script>
-  <script src="assets/store.js?v=20260815t"></script>
-  <script src="assets/app.js?v=20260815t"></script>
-  <script src="assets/story.js?v=20260815t"></script>
-  <script src="assets/ddragon.js?v=20260815t"></script>
-  <script src="assets/race.js?v=20260815t"></script>
+  <script src="assets/data.js?v=20260815u"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260815u"></script>
+  <script src="assets/invariants.js?v=20260815u"></script>
+  <script src="assets/store.js?v=20260815u"></script>
+  <script src="assets/app.js?v=20260815u"></script>
+  <script src="assets/story.js?v=20260815u"></script>
+  <script src="assets/ddragon.js?v=20260815u"></script>
+  <script src="assets/race.js?v=20260815u"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -205,6 +205,38 @@
           ${btn("soop", "SOOP 전체보기", sp[0], data?.soop?.channelUrl || "https://www.sooplive.co.kr")}
         </div>`;
       };
+      // ── 국제 대회(MSI·EWC)는 찾는 곳이 다르다 ────────────────────
+      // LCK 정규 시즌은 공식 채널의 **최근 영상 목록**을 훑어 찾는데, 한 달 전 대회는
+      // 그 목록 저 뒤로 밀려 있어 절대 안 걸린다. 그래서 검색으로 찾는 API 를 따로 쓴다.
+      // MSI 는 치지직 LCK 공식, EWC 는 치지직 EWC 공식 채널에 있다.
+      const INTL_TOURS = { msi2026: 1, ewc2026: 1 };
+      if (INTL_TOURS[match.tid]) {
+        body.innerHTML = `<div class="replay-pending"><b>다시보기를 찾고 있습니다</b><span>치지직 공식 채널을 확인하는 중…</span></div>`;
+        try {
+          const r = await fetch(`/api/intl-vod?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`
+            + `&at=${encodeURIComponent(match.at)}&tour=${encodeURIComponent(match.tid)}`);
+          const d = r.ok ? await r.json() : null;
+          const ch = document.getElementById("replay-channel");
+          if (ch && d?.channelUrl) ch.href = d.channelUrl;
+          const sets = (d?.sets || []).filter(Boolean);
+          if (d?.full || sets.length) {
+            body.innerHTML = `<div class="replay-full" id="replay-full">
+              <span class="replay-full-lb">${esc(d.source)}</span>
+              ${d.full ? btn("chzzk", "전체 보기", d.full.url, d.channelUrl) : ""}
+              ${sets.map((v, i) => `<a class="replay-btn chzzk" target="_blank" rel="noopener noreferrer"
+                 href="${esc(v.url)}" title="${esc(v.title)}">${i + 1}세트</a>`).join("")}
+            </div>`;
+          } else {
+            body.innerHTML = `<div class="replay-pending"><b>다시보기를 찾지 못했습니다</b>
+              <span>${esc(d?.source || "치지직 공식 채널")}에서 직접 찾아보실 수 있습니다.</span></div>
+              <div class="replay-full">${btn("chzzk", "공식 채널 열기", null, d?.channelUrl || "https://chzzk.naver.com")}</div>`;
+          }
+        } catch {
+          body.innerHTML = `<div class="replay-pending"><b>다시보기 준비 중</b><span>잠시 후 다시 확인해 주세요.</span></div>`;
+        }
+        return;
+      }
+
       fullVodBtns = `<div class="replay-full" id="replay-full"><span class="replay-full-lb">풀 영상 찾는 중…</span></div>`;
       fetch(`/api/full-vod?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}&at=${encodeURIComponent(match.at)}`)
         .then(r => (r.ok ? r.json() : null))
