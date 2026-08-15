@@ -81,7 +81,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260815e") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260815l") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -1484,6 +1484,10 @@ table.detail-table th.ta-r, .dt-num { text-align: right; }
 .dt-gold { font-size: var(--fs-md); font-weight: 800; color: var(--text); }
 
 .dt-dmg { min-width: 96px; }
+/* ⚠ 이름 충돌: 스코어보드의 `.dt-vs`(팀 대치 블록)와 표의 시야 칸 `.dt-num.dt-vs` 가
+   같은 클래스명을 쓴다. 그래서 시야 칸이 display:grid 와 margin:14px 0 8px 를 조용히
+   물려받아, 같은 줄에 있으면서도 혼자 아래로 내려가 보였다. 표 안에서는 되돌린다. */
+table.detail-table td.dt-vs { display: table-cell; margin: 0; gap: 0; }
 .dt-dmg-n { display: flex; align-items: baseline; justify-content: space-between; gap:7px; }
 .dt-dmg-n b { font-size: var(--fs-md); font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
 .dt-dmg-n small { font-size: var(--fs-xs); color: var(--text-dim); font-weight: 700; white-space: nowrap; }
@@ -2220,40 +2224,65 @@ a.bracket-match:hover { border-color: var(--accent); }
   table.detail-table { min-width: 0; }
   /* ⚠ 자리를 안 정해 준 칸은 격자 맨 뒤로 밀린다 — 딜량·CS·골드가 아이템 **아래**로
      떨어져 있었다. 네 칸 전부 자리를 못 박는다. */
+  /* ⚠ 한 선수가 네 줄(이름/숫자/딜량/아이템)을 쓰다 보니 한 행이 223px, 표 전체가
+     2381px 이 됐다 — 열 명을 보려면 화면 세 개를 넘겨야 했다. (2026-08-16 사장님 지적)
+     아이템을 4열 격자로 접어 **선수 정보 옆에** 세우면 두 줄로 줄어든다. */
+  /* 1줄: 선수 | 아이템(4열 2줄)   2줄부터: 숫자들이 **전체 폭**으로 흐른다.
+     ⚠ 아이템을 오른쪽에 고정(absolute)해 봤더니 왼쪽 폭이 179px 로 줄어
+        숫자가 오히려 3줄로 접혔다 — 흐름에 두는 편이 낫다. */
+  table.detail-table tr.dt-team-row { display: block; padding:0; }
+  table.detail-table tr.dt-team-row td { display: block; width: 100%; }
   table.detail-table tr {
-    display: grid; gap:9px 11px;
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    grid-template-areas:
-      "who   who  who"
-      "kda   cs   gold"
-      "dmg   dmg  vs"
-      "items items items";
-    padding:13px 14px; border-bottom: 1px solid var(--line);
+    display: flex; flex-wrap: wrap; align-items: flex-start;
+    gap:5px 7px; padding:8px 12px; border-bottom: 1px solid var(--line);
   }
+  /* 선수 줄은 아이템(2줄, 63px) 높이에 맞춰 가운데로 */
+  .dt-player { align-self: center; }
   table.detail-table td { border: none; padding:0; white-space: normal; }
 
-  .dt-player { grid-area: who; align-self: center; }
-  .dt-kda    { grid-area: kda; }
-  .dt-dmg    { grid-area: dmg; width: 100%; min-width: 0; }
-  .dt-vs     { grid-area: vs; justify-self: end; }
-  .dt-cs     { grid-area: cs; }
-  .dt-gold   { grid-area: gold; justify-self: end; }
-  /* ⚠ 위의 `table.detail-table td { display: block }` 은 요소+클래스라 `.dt-items`
-     하나보다 세다. 같은 모양으로 받아쳐야 아이템 격자가 살아난다.
-     (이걸 놓쳐서 모바일에서만 아이콘이 세로로 한 줄씩 쌓였다) */
-  table.detail-table td.dt-items { grid-area: items; display: grid; }
+  .dt-player { order: 1; flex: 1 1 150px; min-width: 0; }
+  table.detail-table td.dt-items {
+    order: 2; flex: 0 0 126px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap:3px;
+  }
+  /* ⚠ 숫자를 그냥 흘려 두면 줄마다 접히는 자리가 달라져 **들쭉날쭉해 보인다** —
+     어떤 줄은 '시야'가 끝에 매달리고 어떤 줄은 CS·골드가 붙어 버렸다.
+     (2026-08-16 사장님 "정리가 안 된 느낌") 폭을 못 박아 **칸을 맞춘다.**
+       2줄:  KDA(55%)  딜량(45%)
+             CS(1/3)  골드(1/3)  시야(1/3)  */
+  /* ⚠ `flex: N 1 0` 은 쓰면 안 된다. 줄바꿈은 **기준 폭(basis)** 으로 정해지는데
+     basis 가 0 이면 7칸이 전부 한 줄에 들어간다고 계산돼 줄이 아예 안 나뉜다.
+     퍼센트 기준이라야 "두 칸 / 세 칸" 이 유지된다. (gap 만큼 빼 주는 게 핵심) */
+  .dt-kda  { order: 3; flex: 0 0 calc(55% - 4px); }
+  .dt-dmg  { order: 4; flex: 0 0 calc(45% - 4px); min-width: 0; }
+  .dt-cs   { order: 5; flex: 0 0 calc(33.34% - 5px); }
+  .dt-gold { order: 6; flex: 0 0 calc(33.33% - 5px); }
+  .dt-vs   { order: 7; flex: 0 0 calc(33.33% - 5px); }
+  table.detail-table td.dt-vs { display: block; }
+  /* 딜량만 .dt-num 이 아니라 이름표가 안 붙어 숫자만 덩그러니 떠 있었다 */
+  .dt-dmg::before { content: "딜량 "; font-size: 12px; font-weight: 700; color: var(--text-dim); }
+  .dt-dmg-n { display: inline-flex; }
+  /* 오른쪽 정렬(.dt-num)은 표에서나 맞다 — 칸으로 세운 지금은 왼쪽으로 나란히 */
+  table.detail-table td.dt-num { text-align: left; }
+  /* 딜량 막대는 감춘다 — 좁은 화면에서 한 줄을 통째로 먹는데 숫자로 충분하다 */
+  .dt-dmg > i { display: none; }
   /* 숫자에는 무엇인지 이름표를 단다 (표 머리를 감췄으므로).
      좁은 화면에서는 두 줄로 쌓지 않고 '이름표 값 (보조값)' 한 줄로 눕힌다. */
-  .dt-kda, .dt-num { font-size: var(--fs-md); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .dt-kda, .dt-num, .dt-dmg { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .dt-num::before, .dt-kda::before {
     content: attr(data-k) " "; font-size: 12px; font-weight: 700; color: var(--text-dim);
   }
   .dt-num b, .dt-kda .dt-kda-n { display: inline; }
-  .dt-num small, .dt-kda small { display: inline; margin-left:4px; }
-  .dt-num small::before, .dt-kda small::before { content: "("; }
-  .dt-num small::after, .dt-kda small::after { content: ")"; }
+  /* ⚠ 보조값(DPM·분당 CS)이 줄 폭의 절반을 먹어 숫자가 세 줄로 접혔다.
+     좁은 화면에서는 **주 숫자만** 남긴다 — 보조값은 넓은 화면에서 본다.
+     KDA 비율만 예외로 남긴다 (그 한 숫자가 가장 많이 읽힌다). */
+  .dt-num small { display: none; }
+  .dt-kda small { display: inline; margin-left:4px; }
+  .dt-kda small::before { content: "("; }
+  .dt-kda small::after { content: ")"; }
+  .dt-dmg small { display: none; }
   .dt-dmg > i { height: 7px; }
-  .dt-face .dd-ic.champ { width: 42px; height: 42px; }
+  .dt-face .dd-ic.champ { width: 38px; height: 38px; }
   .dt-mini .dd-ic { width: 19px; height: 19px; }
 
   /* 정보창이 화면 밖으로 나가지 않게 — 아이콘이 아니라 **칸**에 맞춰 편다.
@@ -2261,7 +2290,8 @@ a.bracket-match:hover { border-color: var(--accent); }
   table.detail-table td.dt-items .dd-tip, table.detail-table td.dt-player .dd-tip {
     left: 0; right: auto; transform: none; width: 100%; max-width: none; min-width: 0;
   }
-  .dt-items .dd-ic, .dt-slot-empty { max-width: 36px; }
+  .dt-items .dd-ic, .dt-slot-empty { max-width: 30px; }
+  .dt-items .dd-ic { width: 30px; height: 30px; }
 
   /* 팀 게시판은 표 머리를 접고 분류·제목·추천만 카드 한 줄로 다시 배치한다.
      고정 폭 열이 화면을 밀어 제목과 글쓰기 버튼이 잘리던 문제를 막는다. */
