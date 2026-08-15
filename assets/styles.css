@@ -81,7 +81,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260815b") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260815d") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -494,7 +494,7 @@ body.nav-open-lock { overflow: hidden; }
 /* ⚠ 공식 컷아웃은 가슴 위까지만 잘려 있다 (400×317). 그래서 이름·로고를 사진 위에
    그냥 얹으면 **턱과 가슴에 올라탄다** (실제로 그랬다). 아래에 제 자리를 만들어 주고,
    그라데이션이 사진 밑자락과 그 자리를 함께 덮게 한다. */
-.hero-side { position: relative; min-width: 0; display: block; padding-bottom:62px; }
+.hero-side { position: relative; min-width: 0; display: block; padding-bottom:56px; }
 .hero-cut {
   display: block; width: 100%; max-width: 178px; margin:0 auto;
   /* 컷아웃이라 그림자가 사람 윤곽을 그대로 따라간다 — 바닥에서 살짝 떠 보인다 */
@@ -503,10 +503,12 @@ body.nav-open-lock { overflow: hidden; }
 /* 바닥 그라데이션 — 사진 **아랫자락만** 지워 이름·로고 자리를 만든다.
    ⚠ 너무 높이 올리면 얼굴까지 먹어 버린다 (처음에 58% 로 잡았다가 턱까지 잠겼다).
    ::after 가 img 뒤에 칠해지므로 사진을 덮고, 이름은 z-index 로 그 위에 올린다. */
+/* ⚠ 검정을 섞으면 라이트 모드에서 흰 카드 위에 **회색 띠**가 생긴다 (사장님 지적).
+   카드색 자체로만 잠기게 하면 다크는 검정, 라이트는 흰색으로 알아서 맞는다. */
 .hero-side::after {
   content: ""; position: absolute; inset: auto 0 0; height: 98px; pointer-events: none;
   background: linear-gradient(180deg, transparent,
-    color-mix(in srgb, var(--card) 78%, #000) 46%, var(--card) 84%);
+    color-mix(in srgb, var(--card) 62%, transparent) 42%, var(--card) 82%);
 }
 /* ⚠ 높이를 고정하면 안 된다. 로고+이름+팀 세 줄이 안 들어가면 flex 가 가운데
    <b>(닉네임)를 높이 0 으로 눌러 버려 **이름이 통째로 사라진다** (실제로 그랬다). */
@@ -516,12 +518,8 @@ body.nav-open-lock { overflow: hidden; }
 }
 .hero-name > * { flex: none; }
 .hero-name b {
-  font-size: var(--fs-md); font-weight: 800; letter-spacing: -.02em;
+  font-size: var(--fs-sm); font-weight: 800; letter-spacing: -.01em; color: var(--text-sub);
   max-width: 100%; padding:0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.hero-name i {
-  font-style: normal; font-size: 12px; font-weight: 900;
-  color: var(--team-color); letter-spacing: .1em;
 }
 /* 사진이 없거나 깨진 팀 — 로고를 세워 자리를 지킨다 (빈 칸이 남지 않게) */
 .hero-side.no-photo { display: grid; place-items: end center; min-height: 176px; }
@@ -530,7 +528,7 @@ body.nav-open-lock { overflow: hidden; }
 .hero-side.no-photo .hero-name { position: static; padding-bottom:6px; }
 
 .hero-vs {
-  align-self: center; z-index: 1; margin-bottom:96px;
+  align-self: center; z-index: 1; margin-bottom:56px;
   font-size: 15px; font-weight: 900; color: var(--text-dim); letter-spacing: .06em;
 }
 

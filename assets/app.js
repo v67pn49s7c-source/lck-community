@@ -356,9 +356,9 @@ function renderHeader(activeMenu, activeTeamId) {
           stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260815b")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260815b")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260815b")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260815d")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260815d")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260815d")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -393,7 +393,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260815b");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260815d");
 
   renderTabBar(groupName);
 }
@@ -1390,40 +1390,45 @@ function homeFeaturedMatch(games) {
 //   ① 운영자가 넣은 서사 (선수 얼굴까지)  ② 기록에서 뽑은 사실 서사  ③ 팀·시간만
 // 지어낸 라이벌 서사는 ②에 절대 들어가지 않는다 (story.js 참고).
 
-/** 이 팀의 '대표 선수' — **근거 있는 순서**로 고른다.
+/** 두 팀의 대표 선수를 **같은 포지션으로 짝지어** 고른다.
  *
- *  ① 내가 찜한 최애선수 중 이 팀 소속 — 내 화면이니 내 선수가 먼저 나오는 게 맞다
- *  ② 팬들이 경기 MVP 로 가장 많이 뽑은 선수 (POM 누적)
- *  ③ 팬 평점이 가장 높은 선수 (2경기 이상 — 한 번 10점 받은 선수가 대표가 되면 안 된다)
- *  셋 다 근거가 없으면 null 을 돌려주고 **팀 로고로 내려앉는다.**
+ *  ⚠ 예전엔 팀마다 따로 골라서 정글 vs 미드처럼 엉뚱하게 붙었다 (사장님 지적).
+ *    대결 구도인데 라인이 다르면 "왜 저 둘이 붙지?" 가 된다.
  *
- *  ⚠ 포지션(미드 등)이나 로스터 순서로 고르지 않는다. 그건 근거가 아니라 편애다.
- *    사진이 크게 걸리는 자리라, 왜 저 선수냐는 질문에 답할 수 있어야 한다.
+ *  포지션을 먼저 고르고, 그 라인의 두 선수를 세운다. 포지션은 **근거 점수 합**이
+ *  가장 큰 라인 — 근거는 이 순서다:
+ *    ① 내가 찜한 최애선수  ② 팬들이 MVP 로 많이 뽑은 선수(POM)  ③ 팬 평점
+ *  어느 라인에도 근거가 없으면 null 두 개 → 팀 로고로 내려앉는다.
+ *  (포지션을 '미드니까' 로 고정하지 않는다 — 그건 근거가 아니라 편애다)
  */
-function heroFaceOf(teamId) {
-  const roster = teamPlayers(teamId);
-  if (!roster.length) return null;
-
-  const mine = (typeof getFavPlayers === "function" ? getFavPlayers() : [])
-    .map(id => roster.find(p => p.id === id)).filter(Boolean)[0];
-  if (mine) return mine;
-
+const HERO_POS = ["탑", "정글", "미드", "원딜", "서폿"];
+function heroPlayerScore(p) {
+  if (!p) return -1;
+  const mine = typeof getFavPlayers === "function" ? getFavPlayers() : [];
+  if (mine.includes(p.id)) return 1e9;
   if (typeof pomPointsFor === "function") {
-    const best = roster.map(p => ({ p, pts: pomPointsFor(p.id) }))
-      .filter(x => x.pts > 0).sort((a, b) => b.pts - a.pts)[0];
-    if (best) return best.p;
+    const pts = pomPointsFor(p.id);
+    if (pts > 0) return 1e6 + pts;
   }
-
   if (typeof matchRatingsForPlayer === "function") {
-    const rated = roster.map(p => {
-      const rows = matchRatingsForPlayer(p.id);
-      if (rows.length < 2) return null;
+    const rows = matchRatingsForPlayer(p.id);
+    if (rows.length >= 2) {
       const n = rows.reduce((s, r) => s + r.n, 0);
-      return n ? { p, avg: rows.reduce((s, r) => s + r.avg * r.n, 0) / n } : null;
-    }).filter(Boolean).sort((a, b) => b.avg - a.avg)[0];
-    if (rated) return rated.p;
+      if (n) return rows.reduce((s, r) => s + r.avg * r.n, 0) / n;   // 0~10
+    }
   }
-  return null;
+  return 0;
+}
+function heroDuo(teamA, teamB) {
+  const at = {}, bt = {};
+  teamPlayers(teamA).forEach(p => { if (!at[p.pos]) at[p.pos] = p; });
+  teamPlayers(teamB).forEach(p => { if (!bt[p.pos]) bt[p.pos] = p; });
+  const best = HERO_POS
+    .filter(pos => at[pos] && bt[pos])
+    .map(pos => ({ pos, score: heroPlayerScore(at[pos]) + heroPlayerScore(bt[pos]) }))
+    .sort((x, y) => y.score - x.score)[0];
+  if (!best || best.score <= 0) return [null, null];
+  return [at[best.pos], bt[best.pos]];
 }
 
 /** 히어로 한쪽 — 선수 상반신을 **박스 없이 그대로** 세운다.
@@ -1441,9 +1446,8 @@ function heroSideHTML(team, player, side) {
              onerror="this.closest('.hero-side').classList.add('no-photo')">`
         : ""}
       <span class="hero-name">
-        ${teamLogoHTML(team, photo ? 22 : 34)}
-        ${player ? `<b>${esc(player.nick)}</b>` : ""}
-        <i>${esc(team.abbr)}</i>
+        ${teamLogoHTML(team, photo ? 34 : 44)}
+        ${player ? `<b>${esc(player.nick)}</b>` : `<b>${esc(team.abbr)}</b>`}
       </span>
     </div>`;
 }
@@ -1457,9 +1461,10 @@ function renderHomeFeature() {
   const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
   const story = typeof storyFor === "function" ? storyFor(match) : null;
   const picked = typeof storyPlayers === "function" ? storyPlayers(story) : [];
-  // 운영자가 주인공을 지정했으면 그 선수, 아니면 기록에서 대표 선수를 찾는다.
-  const pA = picked.find(p => p.team === match.a) || heroFaceOf(match.a);
-  const pB = picked.find(p => p.team === match.b) || heroFaceOf(match.b);
+  // 운영자가 주인공을 지정했으면 그 선수, 아니면 **같은 포지션 짝**을 찾는다.
+  const duo = heroDuo(match.a, match.b);
+  const pA = picked.find(p => p.team === match.a) || duo[0];
+  const pB = picked.find(p => p.team === match.b) || duo[1];
   const hasFace = !!(pA || pB);
 
   const when = match.status === "live" ? "LIVE" : `${homeDayLabel(match.at)} ${fmtHM(match.at)}`;

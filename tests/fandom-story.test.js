@@ -54,15 +54,17 @@ ok(/!\[A\.abbr, B\.abbr\]\.every\(x => headline\.includes\(x\)\)/.test(hero),
   "제목에 이미 두 팀 이름이 있으면 부제를 접어야 함");
 ok(!/hero-when">\$\{esc\(A\.abbr\)\} vs/.test(hero), "대진을 또 적는 줄이 남아 있으면 안 됨");
 // 대표 선수 사진이 기본이 됐다 (2026-08-15). 근거 없는 선택이 되지 않게 규칙을 못 박는다.
-const face = app.slice(app.indexOf("function heroFaceOf"), app.indexOf("function heroSideHTML"));
-ok(/getFavPlayers\(\)/.test(face), "① 내가 찜한 선수가 이 팀에 있으면 그 선수부터");
+const face = app.slice(app.indexOf("const HERO_POS"), app.indexOf("/** 히어로 한쪽"));
+// 정글 vs 미드처럼 엉뚱하게 붙던 것 (2026-08-15 사장님 지적) — 라인을 맞춘다
+ok(/function heroDuo\(teamA, teamB\)/.test(face), "두 팀을 **같은 포지션으로 짝지어** 골라야 함");
+ok(/\.filter\(pos => at\[pos\] && bt\[pos\]\)/.test(face), "양 팀 모두 그 라인에 선수가 있어야 함");
+ok(/mine\.includes\(p\.id\)\) return 1e9/.test(face), "① 내가 찜한 선수가 가장 앞");
 ok(/pomPointsFor\(p\.id\)/.test(face), "② 팬들이 MVP 로 가장 많이 뽑은 선수");
-ok(/rows\.length < 2/.test(face),
+ok(/rows\.length >= 2/.test(face),
   "③ 팬 평점은 2경기 이상만 — 한 번 10점 받은 선수가 대표가 되면 안 된다");
-ok(/return null;\s*\}$/m.test(face.trimEnd()) || /\n  return null;\n\}/.test(face),
-  "근거가 없으면 null → 팀 로고로 내려앉아야 함");
-ok(!/pos === "미드"|roster\[0\]/.test(face),
-  "포지션·로스터 순서로 고르면 근거가 아니라 편애다");
+ok(/if \(!best \|\| best\.score <= 0\) return \[null, null\]/.test(face),
+  "근거가 없으면 둘 다 null → 팀 로고로 내려앉아야 함");
+ok(!/pos === "미드"/.test(face), "특정 라인으로 고정하면 근거가 아니라 편애다");
 // 공식 선수 사진은 **투명 컷아웃**이라 틀에 가두지 않는다 (박스면 증명사진처럼 답답하다)
 ok(/playerPhotoURL\(player, 320\)/.test(app), "컷아웃을 크게 받아 틀 없이 세운다");
 ok(!/hero-face|hero-badge/.test(app), "사진을 감싸던 상자·배지 마크업이 남아 있으면 안 됨");
@@ -82,8 +84,11 @@ ok(/\.home-match-game\.has-hook \{/.test(css) && /\.home-schedule-row\.has-hook 
 
 // ── 선수 얼굴 ───────────────────────────────────────────
 ok(/function heroSideHTML\(team, player, side\)/.test(app), "히어로 한쪽을 그리는 함수");
-ok(/teamLogoHTML\(team, photo \? 22 : 34\)/.test(app),
-  "사진이 없으면 로고를 키워 그 자리를 대신한다");
+ok(/teamLogoHTML\(team, photo \? 34 : 44\)/.test(app),
+  "팀 약자 대신 로고로 읽히게 — 사진이 없으면 더 키운다");
+ok(!/<i>\$\{esc\(team\.abbr\)\}<\/i>/.test(app), "로고 밑에 약자를 또 적지 않는다");
+ok(/color-mix\(in srgb, var\(--card\) 62%, transparent\)/.test(css),
+  "그라데이션에 검정을 섞으면 라이트 모드에서 회색 띠가 생긴다 — 카드색으로만 잠근다");
 ok(/picked\.find\(p => p\.team === match\.a\)/.test(app),
   "지정 선수는 자기 팀 쪽에 세워야 함 (입력 순서를 믿지 않는다)");
 ok(/player-photos\.js/.test(html), "홈이 선수 사진 표를 실어야 얼굴이 나온다");
