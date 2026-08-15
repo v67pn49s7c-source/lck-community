@@ -215,9 +215,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814r"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814r"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814r"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814t"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814t"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814t"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -279,7 +279,10 @@ async function fetchAll() {
     sb.from("site_settings").select("key,value").not("key", "like", "logo_%").not("key", "like", "lp_%"),
     sb.from("polls").select("*").order("created_at"),
     sb.from("founding_fans").select("*").order("no"),
-    sb.from("profiles").select("id,nick,fav_team"),
+    // ⚠ 공개 목록은 **뷰**로 읽는다 (schema30). 원본 표에서는 fav_team 칸 권한을
+    //    거둬, 운영자의 응원팀이 남에게 안 보이게 서버가 막는다.
+    //    뷰가 아직 없는 DB 에서도 돌아가도록 아래에서 원본으로 한 번 더 시도한다.
+    sb.from("v_public_profiles").select("id,nick,fav_team"),
     sb.from("pom_awards").select("*"),
     sb.from("awards").select("*").order("ord"),
   ]);
@@ -315,7 +318,12 @@ async function fetchAll() {
   Cache.awards = aw.data || [];
   Cache.polls = pq.data || [];
   Cache.founding = ff.data || [];
+  // schema30 을 아직 안 돌린 DB 에서는 뷰가 없다 — 그때만 원본 표로 되돌아간다.
   Cache.profiles = pf.data || [];
+  if (pf.error && /v_public_profiles/.test(pf.error.message || "")) {
+    const back = await sb.from("profiles").select("id,nick,fav_team");
+    if (!back.error) Cache.profiles = back.data || [];
+  }
 
   Cache.tournaments = (t.data || []).map(x => ({
     id: x.id, name: x.name, type: x.type, stages: x.stages || [], note: x.note || "",

@@ -80,7 +80,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260814r") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260814t") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -2905,7 +2905,9 @@ a.bracket-match:hover { border-color: var(--accent); }
      카드들을 본문과 같은 줄에 세운 뒤, 순서를 예전 그대로 되돌린다:
        서사 → 내 응원 → 게시판·뉴스 → 순위 → 일정
      (display:contents 는 상자만 사라지고 자식은 그대로 남는다) */
-  .home-layout { display: flex; flex-direction: column; gap:15px; }
+  /* align-items:start 를 지우지 않으면 flex 세로 배치에서 카드가 내용 폭으로
+     쪼그라든다 (375px 화면에서 298px 로 나왔다). stretch 로 되돌린다. */
+  .home-layout { display: flex; flex-direction: column; gap:15px; align-items: stretch; }
   .home-sidebar { display: contents; }
   #home-hero { order: 1; }
   #home-myteam { order: 2; }
@@ -2929,17 +2931,10 @@ a.bracket-match:hover { border-color: var(--accent); }
   .home-match-team .team-logo { width: 22px !important; height: 22px !important; }
   .home-match-game { grid-template-columns: 34px 52px minmax(68px, 1fr) 52px 58px; gap:4px; padding-left:9px; padding-right:9px; }
   .home-match-cta { min-width: 0; padding:7px 6px; font-size: 12px; }
-  .home-hero { margin-bottom:14px; padding:16px 15px; }
-  .hero-headline { font-size: 21px; }
-  .hero-sub { font-size: var(--fs-sm); }
-  .hero-desc { font-size: var(--fs-xs); }
-  .hero-face { width: 76px; height: 76px; }
-  .hero-crest { width: 56px; height: 56px; }
-  .hero-vs { padding-bottom:18px; }
-  /* 응원 두 칸이 먼저, 링크 두 칸이 그 아래 — 손가락이 닿는 순서대로 */
-  .hero-cheer, .hero-links { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
-  .hero-cheer-btn { justify-content: center; }
-  .home-myteam { margin-bottom:13px; padding:10px 12px; }
+  /* ⚠ 여기 있던 히어로 규칙들은 **가로 띠 시절**의 것이었다 (얼굴 76px·타일 56px·
+     .hero-links 등). 히어로를 사이드바 세로 카드로 바꾼 뒤에도 남아서 새 크기를
+     전부 덮어썼다 — 모바일에서만 카드가 커 보이던 원인. (2026-08-15) */
+  .home-myteam { padding:10px 12px; }
   .myteam-go { margin-left:0; }
   .home-post-row { min-height:68px; grid-template-columns: 40px minmax(0, 1fr); gap:9px; padding:10px 12px; }
   .home-post-stats { grid-column: 2; gap:9px; margin-top:-2px; }

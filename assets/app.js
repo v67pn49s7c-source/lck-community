@@ -229,10 +229,18 @@ function noIndex() {
  *     스냅샷으로 먼저 그린 뒤 서버 답을 나중에 받는 구조라 "아직 모르는" 순간이
  *     늘 있다. 그래서 멀쩡한 운영자 계정이 한 번씩 '프로필 설정 필요' 로 보였다.
  *     (2026-08-14 제보) 모를 때는 아무 단정도 하지 않고 조용히 기다린다. */
-function authSlotHTML() {
-  if (!Auth.session) return `<a class="btn-login" href="login.html">로그인</a>`;
+function authSlotHTML(activeMenu) {
+  // ⚠ '내 기록' 과 닉네임 칩은 **둘 다 my.html 로 가던 같은 버튼**이었다.
+  //    로그인하면 나란히 두 개가 떠서 무슨 차이인지 알 수 없었다 (사장님 지적 2026-08-15).
+  //    이제 하나만 나온다 — 로그인 전엔 '내 기록', 로그인 후엔 내 닉네임.
+  //    (비로그인도 예측·평점이 이 브라우저에 쌓이므로 볼 것이 있다. 2026-08-07)
+  if (!Auth.session) {
+    const on = activeMenu === "MY" ? " on" : "";
+    return `<a class="btn-login my-link${on}" href="my.html" title="내 기록 · 팬 여권">내 기록</a>`
+      + `<a class="btn-login" href="login.html">로그인</a>`;
+  }
   const out = Auth.profile
-    ? `<a class="user-chip" href="my.html" title="팬 여권 보기">${esc(Auth.profile.nick)}</a>`
+    ? `<a class="user-chip" href="my.html" title="내 기록 · 팬 여권">${esc(Auth.profile.nick)}</a>`
     : (Auth.profileKnown
       ? `<a class="user-chip" href="login.html" title="닉네임·응원팀을 설정해 주세요">프로필 설정 필요</a>`
       : `<a class="user-chip is-loading" href="my.html" title="불러오는 중">내 계정</a>`);
@@ -243,7 +251,7 @@ function authSlotHTML() {
 function refreshAuthSlot() {
   const slot = document.getElementById("auth-slot");
   if (!slot) return;
-  const next = authSlotHTML();
+  const next = authSlotHTML(document.querySelector(".main-nav a.active")?.textContent === "MY" ? "MY" : null);
   if (slot.innerHTML === next) return;
   slot.innerHTML = next;
   slot.querySelector("#btn-signout")?.addEventListener("click", async () => {
@@ -348,20 +356,16 @@ function renderHeader(activeMenu, activeTeamId) {
           stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814r")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814r")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814r")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814t")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814t")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814t")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
       </nav>
       <div class="header-actions">
         <button class="btn-icon" id="theme-toggle"></button>
-        <!-- 내 기록으로 가는 길. 예전에는 로그인한 사람의 닉네임 칩뿐이라,
-             데스크톱에서 비로그인 방문자는 마이페이지에 갈 방법이 아예 없었다.
-             비로그인도 예측·평점 기록이 이 브라우저에 쌓이므로 볼 것이 있다. (2026-08-07) -->
-        <a class="btn-login my-link ${activeMenu === "MY" ? "on" : ""}" href="my.html" title="내 기록 · 팬 여권">내 기록</a>
-        <span id="auth-slot">${authSlotHTML()}</span>
+        <span id="auth-slot">${authSlotHTML(activeMenu)}</span>
       </div>
     </div>
   </header>
@@ -389,7 +393,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814r");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814t");
 
   renderTabBar(groupName);
 }
@@ -1811,10 +1815,16 @@ function renderFoundingRace() {
   const fav = myFanTeam();
   const myNo = fav && Auth.session ? myFoundingNo(fav) : null;
   const favT = fav ? TEAM_MAP[fav] : null;
+  // 운영자는 창립 팬 자리를 차지하지 않는다 (서버도 막는다 — schema30).
+  // 100인은 "먼저 온 진짜 팬" 이라는 가치가 전부라, 운영자가 한 칸을 쓰면
+  // 그 자리 하나가 팬에게서 사라진다.
+  const isAdmin = !!(Auth.profile && Auth.profile.is_admin);
 
   // 참여 동선: 회원+응원팀 → 바로 등록 버튼 / 회원인데 팀 미설정 → 홈에서 팀 고르기 /
   // 비회원 → 가입 안내. "어디서 하는 건지 모르겠다"가 없도록 버튼 하나로.
-  const cta = myNo
+  const cta = isAdmin
+    ? `<span class="fh-note">운영자 계정은 창립 팬에 등록하지 않습니다 — 자리는 팬들 몫입니다.</span>`
+    : myNo
     ? `<a class="btn-secondary" href="team.html?team=${q(fav)}">내 번호 <b>#${myNo}</b> · ${esc(favT.abbr)} 명단 보기 ›</a>`
     : (Auth.session && fav)
     ? `<button type="button" class="btn-primary" id="founding-claim">${esc(favT.abbr)} 창립 팬 번호 받기</button>`

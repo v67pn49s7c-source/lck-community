@@ -71,11 +71,19 @@ ok(/\} else if \(r\.error\) \{[\s\S]{0,400}sbErr\(r\.error, "my_profile"\);/.tes
   "my_profile 이 실패하면 기존 프로필을 지우면 안 됨 (지우면 스냅샷에 저장돼 계속 남는다)");
 ok(/Auth\.profile = r\.data \|\| null;\s*\n\s*Auth\.profileKnown = true;/.test(store),
   "성공했을 때만 확정으로 표시");
-ok(/function authSlotHTML\(\)/.test(app) && /Auth\.profileKnown/.test(app),
+ok(/function authSlotHTML\(activeMenu\)/.test(app) && /Auth\.profileKnown/.test(app),
   "확인된 뒤에만 '프로필 설정 필요' 라고 말해야 함");
 ok(/is-loading" href="my\.html"/.test(app), "모르는 동안은 중립 표시");
 ok(/function refreshAuthSlot\(\)/.test(app) && /refreshAuthSlot\(\)/.test(store),
   "서버 답이 오면 계정 칸을 고쳐 그려야 함");
 ok(/\.user-chip\.is-loading \{/.test(css), "그 중립 상태 스타일");
+// '내 기록' 과 닉네임 칩이 **둘 다 my.html 로 가던 같은 버튼**이었다 (2026-08-15)
+ok(/function authSlotHTML\(activeMenu\)/.test(app), "계정 칸이 두 버튼을 함께 관리해야 함");
+ok(!/my-link \$\{activeMenu === "MY"/.test(app), "헤더에 '내 기록' 을 따로 두면 안 됨");
+const slot = app.slice(app.indexOf("function authSlotHTML"), app.indexOf("function refreshAuthSlot"));
+ok(/if \(!Auth\.session\) \{[\s\S]{0,300}my-link/.test(slot),
+  "'내 기록' 은 로그인 전에만 (로그인하면 닉네임 칩이 같은 일을 한다)");
+ok(!/my-link/.test(slot.slice(slot.indexOf("const out = Auth.profile"))),
+  "로그인 뒤에는 같은 곳으로 가는 버튼이 둘이면 안 됨");
 
 console.log(`\nnav-drawer.test: ${n} 통과, 0 실패`);

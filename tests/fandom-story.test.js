@@ -158,4 +158,23 @@ ok(/Auth\.profile\?\.fav_team === teamId/.test(canPost) && !/sub_teams/.test(can
 ok(/isMissingFunction\(r\.error\)/.test(store.slice(store.indexOf("async function setSubTeams"))),
   "SQL 을 아직 안 돌린 DB 에서도 화면은 살아야 함");
 
+// ── 운영자는 창립 팬에서 뺀다 (2026-08-15) ──────────────
+// 100인은 "먼저 온 진짜 팬" 이 가치의 전부라, 운영자가 한 칸을 쓰면 그 자리가
+// 팬에게서 사라진다. 그리고 운영자가 특정 팀 팬으로 보이면 운영이 편파적으로 읽힌다.
+const sql30 = read("supabase/schema30_admin_not_founding.sql");
+ok(/운영자 계정은 창립 팬에 등록하지 않습니다/.test(sql30), "등록 자체를 서버가 막아야 함");
+ok(/delete from public\.founding_fans f[\s\S]{0,200}coalesce\(p\.is_admin, false\)/.test(sql30),
+  "이미 등록된 운영자는 빼야 함");
+ok(/create or replace view public\.v_public_profiles/.test(sql30) &&
+   /case when coalesce\(is_admin, false\) then null else fav_team end/.test(sql30),
+  "공개 목록에서 운영자의 응원팀은 가려야 함");
+ok(/revoke select \(fav_team\) on public\.profiles from anon, authenticated/.test(sql30),
+  "화면에서 숨기는 것만으론 부족하다 — 원본 칸 권한을 거둬야 진짜로 못 본다");
+ok(/from\("v_public_profiles"\)/.test(store), "브라우저는 뷰로 읽어야 함");
+ok(/v_public_profiles/.test(store.slice(store.indexOf("Cache.profiles ="))),
+  "뷰가 없는 DB 에서는 원본으로 되돌아가야 함");
+const fr = app.slice(app.indexOf("function renderFoundingRace"), app.indexOf("function renderPredictRanking"));
+ok(/const isAdmin = !!\(Auth\.profile && Auth\.profile\.is_admin\)/.test(fr) && /const cta = isAdmin/.test(fr),
+  "운영자에겐 등록 버튼 대신 이유를 보여 줘야 함");
+
 console.log(`\nfandom-story.test: ${n} 통과, 0 실패`);
