@@ -103,8 +103,16 @@ ok(/const r = await setFavTeam\(btn\.dataset\.team\)/.test(hero), "그 버튼으
 ok(/\.hero-cheer-btn:hover \{[^}]*var\(--team-color\)/.test(css), "응원 버튼은 팀 색으로 반응");
 
 // ── 히어로가 고르는 경기 ────────────────────────────────
-ok(/const STORY_WEIGHT = \{ admin: 4, standings: 3, streak: 2, rematch: 1 \}/.test(app),
-  "서사가 강한 경기가 히어로로 올라와야 함");
+ok(/const STORY_WEIGHT = \{ admin: 5, playoff: 4, standings: 3, streak: 2, rematch: 1 \}/.test(app),
+  "서사가 강한 경기가 히어로로 올라와야 함 — 플레이오프 확정·무산이 순위 경쟁보다 위");
+// "이겨서 플레이오프 진출 확정" 같은 큰 소식이 묻히면 안 된다 (2026-08-15 사장님)
+const plo = story.slice(story.indexOf("function storyAuto"), story.indexOf("// 1) 순위 경쟁"));
+ok(/typeof matchStakes === "function"/.test(plo),
+  "경우의 수 엔진이 없는 화면에서는 조용히 넘어가야 함");
+ok(/l\.tone === "lock" \|\| l\.tone === "dead"/.test(plo), "확정·무산만 최상위 서사로");
+ok(/big\.text\.replace/.test(plo),
+  "문구를 새로 짓지 않고 matchStakes 가 만든 말을 쓴다 (두 곳에서 지으면 어긋난다)");
+ok(/race\.js/.test(html), "홈이 경우의 수 엔진을 실어야 히어로가 확정을 말할 수 있다");
 ok(/const storyGap = homeStoryWeight\(b\) - homeStoryWeight\(a\)/.test(app),
   "팬 참여 수보다 서사 강도가 먼저");
 

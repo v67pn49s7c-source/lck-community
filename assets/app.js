@@ -356,9 +356,9 @@ function renderHeader(activeMenu, activeTeamId) {
           stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260815d")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260815d")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260815d")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260815e")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260815e")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260815e")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -393,7 +393,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260815d");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260815e");
 
   renderTabBar(groupName);
 }
@@ -1367,7 +1367,7 @@ function homePreviousMeeting(match) {
 // 같은 날 "1위 vs 2위"와 "그냥 재대결"이 같이 있으면 앞의 것이 오늘의 이야기다.
 // 그 다음이 팬 참여 수, 마지막이 늦게 열리는 경기(황금 시간대) 순.
 // 특정 팀을 하드코딩하지 않아 10개 팀을 같은 기준으로 다룬다.
-const STORY_WEIGHT = { admin: 4, standings: 3, streak: 2, rematch: 1 };
+const STORY_WEIGHT = { admin: 5, playoff: 4, standings: 3, streak: 2, rematch: 1 };
 function homeStoryWeight(m) {
   const s = typeof storyFor === "function" ? storyFor(m) : null;
   if (!s) return 0;

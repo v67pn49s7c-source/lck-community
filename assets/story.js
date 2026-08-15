@@ -96,6 +96,29 @@ function storyAuto(match) {
   const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
   if (!A || !B) return null;
 
+  // 0) 이 경기로 **무엇이 걸렸나** — 플레이오프 확정·무산이 오늘 가장 큰 소식이다.
+  //    (2026-08-15 사장님: "이겨서 플레이오프 진출 확정, 이런 게 부각돼야 함")
+  //    ⚠ 경우의 수 엔진(race.js)이 있는 화면에서만 쓴다. 없으면 조용히 다음으로 넘어간다.
+  //    ⚠ 문구를 여기서 새로 짓지 않는다 — matchStakes 가 이미 정직성 규칙(확정은 엄격,
+  //      무산은 관대)을 지켜 만든 말이다. 두 곳에서 따로 지으면 서로 어긋난다.
+  if (typeof matchStakes === "function") {
+    let st = null;
+    try { st = matchStakes(match.id, { max: 2 }); } catch { st = null; }
+    const big = st && st.lines.find(l => l.tone === "lock" || l.tone === "dead");
+    if (big) {
+      const winner = TEAM_MAP[big.winner] || {};
+      const lock = big.tone === "lock";
+      return {
+        source: "auto", type: "playoff",
+        eyebrow: lock ? "여기서 갈린다" : "벼랑 끝",
+        headline: lock ? `${winner.abbr} 이기면 확정` : `${winner.abbr} 이기면 갈린다`,
+        subheadline: `${A.abbr} vs ${B.abbr}`,
+        description: big.text.replace(/^.*?—\s*/, ""),
+        players: [],
+      };
+    }
+  }
+
   // 1) 순위 경쟁 — 실제 순위표에서 두 팀이 가깝고 둘 다 상위권일 때만
   if (typeof cumulativeRankOf === "function") {
     const ra = cumulativeRankOf(match.a), rb = cumulativeRankOf(match.b);

@@ -204,7 +204,10 @@ assert.strictEqual(vodApi.pickKoreanVod([searchRows[0]], "DK", "KT", searchAt).v
 // BFX vs KRX 는 8/9 에도 있었고 8/13 에도 있다. 검색 결과에는 정확한 날짜가 없어서
 // 시간 검사를 건너뛰다가 8/9 하이라이트가 오늘 경기 화면에 걸렸다.
 {
-  const today = "2026-08-13T08:00:00Z";
+  // ⚠ publishedAgo("3시간 전")는 **지금 시각 기준**으로 풀린다. 그래서 경기 시각을
+  //   날짜로 박아 두면 시간이 흐를수록 둘이 멀어져 어느 날 저절로 깨진다.
+  //   (실제로 2026-08-13 로 박아 뒀다가 이틀 뒤 붉게 떴다.) 경기 시각도 지금 기준으로.
+  const today = new Date(Date.now() - 4 * 3600e3).toISOString();
   const old = { videoId: "old11111111", title: "BFX vs KRX | 매치 110 하이라이트 | 2026 LCK", published: "", publishedAgo: "4일 전" };
   const fresh = { videoId: "new11111111", title: "KRX vs BFX | 매치 118 하이라이트 | 2026 LCK", published: "", publishedAgo: "3시간 전" };
   const undated = { videoId: "nodate11111", title: "KRX vs BFX | 매치 118 하이라이트 | 2026 LCK", published: "", publishedAgo: "" };
