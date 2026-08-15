@@ -356,9 +356,9 @@ function renderHeader(activeMenu, activeTeamId) {
           stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814x")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814x")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814x")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260815b")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260815b")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260815b")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -393,7 +393,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814x");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260815b");
 
   renderTabBar(groupName);
 }
@@ -1426,21 +1426,24 @@ function heroFaceOf(teamId) {
   return null;
 }
 
-/** 히어로 한쪽 — 선수 상반신 + 팀 로고를 대결 구도로 세운다.
- *  잘린 모서리를 서로 마주 보게(좌: 우하단 / 우: 좌하단) 두어 '맞붙는' 느낌을 만든다. */
+/** 히어로 한쪽 — 선수 상반신을 **박스 없이 그대로** 세운다.
+ *
+ *  ⚠ 라이엇 공식 선수 사진은 배경이 **투명한 컷아웃**이다 (모서리 알파 0 확인).
+ *    그래서 틀에 가두지 않고 그냥 세워 두면 선수가 카드 안에 서 있는 것처럼 보인다.
+ *    바닥은 검정 그라데이션으로 잠기게 하고, 그 위에 팀 로고와 이름을 얹는다.
+ *    (박스에 넣으면 증명사진처럼 답답해진다 — 2026-08-15 사장님 지적) */
 function heroSideHTML(team, player, side) {
-  const photo = player && typeof playerPhotoURL === "function" ? playerPhotoURL(player, 200) : null;
+  const photo = player && typeof playerPhotoURL === "function" ? playerPhotoURL(player, 320) : null;
   return `
-    <div class="hero-side ${side}" style="--team-color:${esc(team.color)}">
+    <div class="hero-side ${side}${photo ? "" : " no-photo"}" style="--team-color:${esc(team.color)}">
       ${photo
-        ? `<span class="hero-face">
-             <img src="${esc(photo)}" alt="${esc(player.nick)}" loading="eager" decoding="async"
-               onerror="this.closest('.hero-side').classList.add('no-photo')">
-             <b class="hero-badge">${teamLogoHTML(team, 18)}</b>
-           </span>`
-        : `<span class="hero-crest">${teamLogoHTML(team, 30)}</span>`}
+        ? `<img class="hero-cut" src="${esc(photo)}" alt="${esc(player.nick)}" loading="eager" decoding="async"
+             onerror="this.closest('.hero-side').classList.add('no-photo')">`
+        : ""}
       <span class="hero-name">
-        ${player ? `<b>${esc(player.nick)}</b>` : ""}<i>${esc(team.abbr)}</i>
+        ${teamLogoHTML(team, photo ? 22 : 34)}
+        ${player ? `<b>${esc(player.nick)}</b>` : ""}
+        <i>${esc(team.abbr)}</i>
       </span>
     </div>`;
 }

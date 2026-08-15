@@ -63,10 +63,18 @@ ok(/return null;\s*\}$/m.test(face.trimEnd()) || /\n  return null;\n\}/.test(fac
   "근거가 없으면 null → 팀 로고로 내려앉아야 함");
 ok(!/pos === "미드"|roster\[0\]/.test(face),
   "포지션·로스터 순서로 고르면 근거가 아니라 편애다");
-ok(/\.hero-side\.b \.hero-face \{[^}]*--chamfer-bl/.test(css),
-  "잘린 모서리가 서로 마주 봐야 대결 구도로 읽힌다");
-ok(/\.hero-side\.no-photo \.hero-badge \{/.test(css),
-  "사진이 깨져도 빈 판이 남지 않아야 함");
+// 공식 선수 사진은 **투명 컷아웃**이라 틀에 가두지 않는다 (박스면 증명사진처럼 답답하다)
+ok(/playerPhotoURL\(player, 320\)/.test(app), "컷아웃을 크게 받아 틀 없이 세운다");
+ok(!/hero-face|hero-badge/.test(app), "사진을 감싸던 상자·배지 마크업이 남아 있으면 안 됨");
+ok(/\.hero-cut \{[\s\S]{0,220}drop-shadow/.test(css),
+  "컷아웃은 윤곽을 따라가는 그림자로 띄운다 (box-shadow 면 네모가 생긴다)");
+ok(/\.hero-side::after \{[\s\S]{0,260}linear-gradient\(180deg, transparent/.test(css),
+  "바닥은 검정 그라데이션으로 잠기게 — 그 위에 로고·이름이 얹힌다");
+ok(/\.hero-name \{[\s\S]{0,160}position: absolute;[\s\S]{0,80}z-index: 1/.test(css),
+  "이름·로고는 그라데이션 위로 올라와야 함");
+ok(/margin:14px -15px 0/.test(css), "카드 여백까지 넘겨 시원하게 쓴다");
+ok(/\.hero-side\.no-photo \.hero-name \{ position: static/.test(css),
+  "사진이 없는 팀도 빈 칸이 남지 않아야 함");
 ok(/hook \? `<span class="home-match-hook">/.test(app) && /hook \? `<em class="home-schedule-hook">/.test(app),
   "훅이 없는 경기는 줄 자체가 생기면 안 됨");
 ok(/\.home-match-game\.has-hook \{/.test(css) && /\.home-schedule-row\.has-hook \{/.test(css),
@@ -74,9 +82,8 @@ ok(/\.home-match-game\.has-hook \{/.test(css) && /\.home-schedule-row\.has-hook 
 
 // ── 선수 얼굴 ───────────────────────────────────────────
 ok(/function heroSideHTML\(team, player, side\)/.test(app), "히어로 한쪽을 그리는 함수");
-ok(/playerPhotoURL\(player, 200\)/.test(app), "대표 선수는 공식 사진으로");
-ok(/: `<span class="hero-crest">\$\{teamLogoHTML\(team, 30\)\}<\/span>`/.test(app),
-  "사진이 없으면 팀 로고로 조용히 폴백");
+ok(/teamLogoHTML\(team, photo \? 22 : 34\)/.test(app),
+  "사진이 없으면 로고를 키워 그 자리를 대신한다");
 ok(/picked\.find\(p => p\.team === match\.a\)/.test(app),
   "지정 선수는 자기 팀 쪽에 세워야 함 (입력 순서를 믿지 않는다)");
 ok(/player-photos\.js/.test(html), "홈이 선수 사진 표를 실어야 얼굴이 나온다");
