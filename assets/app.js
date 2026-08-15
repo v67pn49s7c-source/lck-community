@@ -356,9 +356,9 @@ function renderHeader(activeMenu, activeTeamId) {
           stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814w")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814w")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814w")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814x")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814x")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814x")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -393,7 +393,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814w");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814x");
 
   renderTabBar(groupName);
 }
@@ -1390,18 +1390,57 @@ function homeFeaturedMatch(games) {
 //   ① 운영자가 넣은 서사 (선수 얼굴까지)  ② 기록에서 뽑은 사실 서사  ③ 팀·시간만
 // 지어낸 라이벌 서사는 ②에 절대 들어가지 않는다 (story.js 참고).
 
-/** 히어로 한쪽 — 지정 선수가 있으면 얼굴, 없으면 팀 로고. */
+/** 이 팀의 '대표 선수' — **근거 있는 순서**로 고른다.
+ *
+ *  ① 내가 찜한 최애선수 중 이 팀 소속 — 내 화면이니 내 선수가 먼저 나오는 게 맞다
+ *  ② 팬들이 경기 MVP 로 가장 많이 뽑은 선수 (POM 누적)
+ *  ③ 팬 평점이 가장 높은 선수 (2경기 이상 — 한 번 10점 받은 선수가 대표가 되면 안 된다)
+ *  셋 다 근거가 없으면 null 을 돌려주고 **팀 로고로 내려앉는다.**
+ *
+ *  ⚠ 포지션(미드 등)이나 로스터 순서로 고르지 않는다. 그건 근거가 아니라 편애다.
+ *    사진이 크게 걸리는 자리라, 왜 저 선수냐는 질문에 답할 수 있어야 한다.
+ */
+function heroFaceOf(teamId) {
+  const roster = teamPlayers(teamId);
+  if (!roster.length) return null;
+
+  const mine = (typeof getFavPlayers === "function" ? getFavPlayers() : [])
+    .map(id => roster.find(p => p.id === id)).filter(Boolean)[0];
+  if (mine) return mine;
+
+  if (typeof pomPointsFor === "function") {
+    const best = roster.map(p => ({ p, pts: pomPointsFor(p.id) }))
+      .filter(x => x.pts > 0).sort((a, b) => b.pts - a.pts)[0];
+    if (best) return best.p;
+  }
+
+  if (typeof matchRatingsForPlayer === "function") {
+    const rated = roster.map(p => {
+      const rows = matchRatingsForPlayer(p.id);
+      if (rows.length < 2) return null;
+      const n = rows.reduce((s, r) => s + r.n, 0);
+      return n ? { p, avg: rows.reduce((s, r) => s + r.avg * r.n, 0) / n } : null;
+    }).filter(Boolean).sort((a, b) => b.avg - a.avg)[0];
+    if (rated) return rated.p;
+  }
+  return null;
+}
+
+/** 히어로 한쪽 — 선수 상반신 + 팀 로고를 대결 구도로 세운다.
+ *  잘린 모서리를 서로 마주 보게(좌: 우하단 / 우: 좌하단) 두어 '맞붙는' 느낌을 만든다. */
 function heroSideHTML(team, player, side) {
-  const photo = player && typeof playerPhotoURL === "function" ? playerPhotoURL(player, 160) : null;
-  const face = photo
-    ? `<span class="hero-face"><img src="${esc(photo)}" alt="" loading="eager" decoding="async"></span>`
-    : `<span class="hero-crest">${teamLogoHTML(team, 54)}</span>`;
+  const photo = player && typeof playerPhotoURL === "function" ? playerPhotoURL(player, 200) : null;
   return `
     <div class="hero-side ${side}" style="--team-color:${esc(team.color)}">
-      ${face}
-      ${player ? `<b class="hero-who">${esc(player.nick)}</b>` : ""}
-      <span class="hero-team"${player ? "" : ` data-solo="1"`}>
-        ${player ? teamLogoHTML(team, 16) : ""}<i>${esc(team.abbr)}</i>
+      ${photo
+        ? `<span class="hero-face">
+             <img src="${esc(photo)}" alt="${esc(player.nick)}" loading="eager" decoding="async"
+               onerror="this.closest('.hero-side').classList.add('no-photo')">
+             <b class="hero-badge">${teamLogoHTML(team, 18)}</b>
+           </span>`
+        : `<span class="hero-crest">${teamLogoHTML(team, 30)}</span>`}
+      <span class="hero-name">
+        ${player ? `<b>${esc(player.nick)}</b>` : ""}<i>${esc(team.abbr)}</i>
       </span>
     </div>`;
 }
@@ -1415,8 +1454,9 @@ function renderHomeFeature() {
   const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
   const story = typeof storyFor === "function" ? storyFor(match) : null;
   const picked = typeof storyPlayers === "function" ? storyPlayers(story) : [];
-  const pA = picked.find(p => p.team === match.a) || null;
-  const pB = picked.find(p => p.team === match.b) || null;
+  // 운영자가 주인공을 지정했으면 그 선수, 아니면 기록에서 대표 선수를 찾는다.
+  const pA = picked.find(p => p.team === match.a) || heroFaceOf(match.a);
+  const pB = picked.find(p => p.team === match.b) || heroFaceOf(match.b);
   const hasFace = !!(pA || pB);
 
   const when = match.status === "live" ? "LIVE" : `${homeDayLabel(match.at)} ${fmtHM(match.at)}`;

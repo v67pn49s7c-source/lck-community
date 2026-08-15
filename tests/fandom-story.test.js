@@ -53,8 +53,20 @@ ok(/\$\{sub \? `<p class="hero-sub">/.test(hero) && /\$\{desc \? `<p class="hero
 ok(/!\[A\.abbr, B\.abbr\]\.every\(x => headline\.includes\(x\)\)/.test(hero),
   "제목에 이미 두 팀 이름이 있으면 부제를 접어야 함");
 ok(!/hero-when">\$\{esc\(A\.abbr\)\} vs/.test(hero), "대진을 또 적는 줄이 남아 있으면 안 됨");
-ok(/\.home-hero\.has-face/.test(css),
-  "얼굴이 있을 때만 커져야 함 — 로고 두 개뿐인데 화면을 크게 먹으면 본문이 밀린다");
+// 대표 선수 사진이 기본이 됐다 (2026-08-15). 근거 없는 선택이 되지 않게 규칙을 못 박는다.
+const face = app.slice(app.indexOf("function heroFaceOf"), app.indexOf("function heroSideHTML"));
+ok(/getFavPlayers\(\)/.test(face), "① 내가 찜한 선수가 이 팀에 있으면 그 선수부터");
+ok(/pomPointsFor\(p\.id\)/.test(face), "② 팬들이 MVP 로 가장 많이 뽑은 선수");
+ok(/rows\.length < 2/.test(face),
+  "③ 팬 평점은 2경기 이상만 — 한 번 10점 받은 선수가 대표가 되면 안 된다");
+ok(/return null;\s*\}$/m.test(face.trimEnd()) || /\n  return null;\n\}/.test(face),
+  "근거가 없으면 null → 팀 로고로 내려앉아야 함");
+ok(!/pos === "미드"|roster\[0\]/.test(face),
+  "포지션·로스터 순서로 고르면 근거가 아니라 편애다");
+ok(/\.hero-side\.b \.hero-face \{[^}]*--chamfer-bl/.test(css),
+  "잘린 모서리가 서로 마주 봐야 대결 구도로 읽힌다");
+ok(/\.hero-side\.no-photo \.hero-badge \{/.test(css),
+  "사진이 깨져도 빈 판이 남지 않아야 함");
 ok(/hook \? `<span class="home-match-hook">/.test(app) && /hook \? `<em class="home-schedule-hook">/.test(app),
   "훅이 없는 경기는 줄 자체가 생기면 안 됨");
 ok(/\.home-match-game\.has-hook \{/.test(css) && /\.home-schedule-row\.has-hook \{/.test(css),
@@ -62,8 +74,8 @@ ok(/\.home-match-game\.has-hook \{/.test(css) && /\.home-schedule-row\.has-hook 
 
 // ── 선수 얼굴 ───────────────────────────────────────────
 ok(/function heroSideHTML\(team, player, side\)/.test(app), "히어로 한쪽을 그리는 함수");
-ok(/playerPhotoURL\(player, 160\)/.test(app), "지정 선수는 공식 사진으로");
-ok(/: `<span class="hero-crest">\$\{teamLogoHTML\(team, 54\)\}<\/span>`/.test(app),
+ok(/playerPhotoURL\(player, 200\)/.test(app), "대표 선수는 공식 사진으로");
+ok(/: `<span class="hero-crest">\$\{teamLogoHTML\(team, 30\)\}<\/span>`/.test(app),
   "사진이 없으면 팀 로고로 조용히 폴백");
 ok(/picked\.find\(p => p\.team === match\.a\)/.test(app),
   "지정 선수는 자기 팀 쪽에 세워야 함 (입력 순서를 믿지 않는다)");
