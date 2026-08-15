@@ -215,9 +215,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814t"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814t"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814t"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260814w"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260814w"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260814w"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).

@@ -13,21 +13,27 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260814t">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260814t">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260814w">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260814w">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260814t">
+  <link rel="stylesheet" href="assets/styles.css?v=20260814w">
 </head>
 <body>
   <main class="page">
     <div class="container layout">
       <div class="stack">
-        <section class="card" id="passport-card">
-          <div class="card-head">
-            <h1 class="card-title">팬 여권 <span class="sub">내 시즌 기록</span></h1>
-            <button class="card-more" id="pp-share" style="font-weight:700">📷 여권 카드 저장</button>
-          </div>
+        <!-- 팬 여권 — 카드 자체가 신분증이다. 제목줄 없이 여권 본문으로 바로 시작한다.
+             (제목·부제를 얹으면 '설정 화면' 처럼 읽혀서 애착이 안 생긴다) -->
+        <section class="card pp-card" id="passport-card">
           <div id="passport-body"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">내 팬덤 <span class="sub">최애팀 · 관심팀 · 최애선수</span></h2>
+            <button class="card-more" id="fandom-edit" style="font-weight:700">바꾸기</button>
+          </div>
+          <div id="fandom-body"></div>
         </section>
 
         <section class="card">
@@ -87,120 +93,203 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260814t"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260814t"></script>
-  <script src="assets/store.js?v=20260814t"></script>
-  <script src="assets/app.js?v=20260814t"></script>
-  <script src="assets/story.js?v=20260814t"></script>
+  <script src="assets/data.js?v=20260814w"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260814w"></script>
+  <script src="assets/store.js?v=20260814w"></script>
+  <script src="assets/app.js?v=20260814w"></script>
+  <!-- 여권의 최애선수 얼굴에 필요하다 (없으면 이니셜로 조용히 내려앉는다) -->
+  <script src="assets/player-photos.js?v=20260814w"></script>
+  <script src="assets/story.js?v=20260814w"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("MY", null);
 
-    function render() {
+    // editing = 팬덤 설정 칸을 펼친 상태인가 (평소엔 고른 것만 보여 준다)
+    function render(editing) {
       const rec = myFanRecord();
       const t = rec.fav ? TEAM_MAP[rec.fav] : null;
       const nick = Auth.profile ? Auth.profile.nick : "익명 팬";
 
-      // ── 여권 본문 ──
-      const lock = favTeamLock();
+      // ── 팬 여권 ────────────────────────────────────────────
+      // 진짜 여권의 인적사항 면을 본떴다: 발급처 띠 · 사진 · 이름 · 번호 · 발급일.
+      // 예전엔 이 카드 하나에 신분·기록·설정이 다 들어 있어서 '설정 화면' 으로 읽혔다.
+      // 애착이 생기려면 **내 것** 처럼 보여야 하고, 그러려면 신분이 먼저 와야 한다.
       const founding = myFoundingNos();
       const joined = Auth.session && Auth.session.user && Auth.session.user.created_at;
-      document.getElementById("passport-body").innerHTML = `
-        <div class="pp-hero" style="--team-color:${t ? t.color : "var(--accent)"}">
-          <div class="pp-id">
-            ${t ? teamLogoHTML(t, 44) : `<span class="player-avatar" style="--team-color:var(--accent)">?</span>`}
-            <div>
-              <b>${esc(nick)}</b>
-              ${founding.map(f => `<span class="pp-founding" title="창립 팬 100인">${esc((TEAM_MAP[f.team] || {}).abbr || f.team)} 창립 팬 #${f.no}</span>`).join("")}
-              <span>${t ? esc(t.name) + " 팬" : "응원팀 미설정"}${rec.bias ? ` · ${esc(rec.bias)}` : ""}
-                ${joined ? ` · ${esc(fmtMD(joined))} 가입` : Auth.session ? "" : " · 이 브라우저 기록"}</span>
-            </div>
-          </div>
-          <span class="pp-season">2026 LCK 정규 시즌</span>
-        </div>
-        <div class="stat-cards pp-stats">
-          <div class="stat-card"><span class="k">참여 경기</span><span class="v">${rec.matches}<em></em></span>
-            <span class="k">전체 ${rec.doneTotal + "경기 종료"}</span></div>
-          <div class="stat-card"><span class="k">예측 적중률</span>
-            <span class="v">${rec.accuracy == null ? "-" : rec.accuracy}<em>${rec.accuracy == null ? "" : "%"}</em></span>
-            <span class="k">${rec.predHits}/${rec.predDone} 적중</span></div>
-          <div class="stat-card"><span class="k">스코어 적중</span><span class="v">${rec.scoreHits}<em>회</em></span>
-            <span class="k">${rec.scoreTried}회 도전</span></div>
-          <div class="stat-card"><span class="k">MVP 투표</span><span class="v">${rec.pogVotes}<em>회</em></span>
-            <span class="k">평점 ${rec.ratedPlayers}명</span></div>
-          <div class="stat-card"><span class="k">연속 참여</span><span class="v">${rec.streak}<em>경기</em></span>
-            <span class="k">${rec.streak >= 3 ? "🔥 이어지는 중" : "다음 경기도 함께!"}</span></div>
-        </div>
-        <div class="admin-note" style="padding-bottom:6px">
-          <b>응원팀</b> ${t ? "" : "— 고르면 여권이 팀 색으로 바뀌고 홈도 우리 팀 중심이 됩니다"}
-          <div class="fav-pick">${TEAMS.map(x =>
-            `<button data-fav="${esc(x.id)}" class="${t && t.id === x.id ? "active" : ""}" style="--pick-color:${x.color}"
-              ${lock.ok ? "" : "disabled"} title="${esc(x.name)}">${teamLogoHTML(x, 18)} ${esc(x.abbr)}</button>`).join("")}</div>
-          ${lock.ok
-            ? (Auth.session
-                ? `<span style="color:var(--text-dim)">한 번 바꾸면 ${FAV_COOLDOWN_DAYS}일간 다시 바꿀 수 없습니다 — 팀 게시판이 그 팀 팬 전용이기 때문입니다</span>`
-                : `<span style="color:var(--text-dim)">비회원 선택은 이 브라우저에만 남습니다</span>`)
-            : `<b style="color:var(--accent)">응원팀은 ${FAV_COOLDOWN_DAYS}일에 한 번만 바꿀 수 있습니다</b>
-               <span style="color:var(--text-dim)"> · 다음 변경 가능일 ${esc(fmtMD(lock.at))} (${lock.days}일 남음)</span>`}
-        </div>
-        <div id="fandom-extra"></div>`;
-      // ── 관심팀 · 최애선수 (A안) ──────────────────────────
-      // 관심팀은 열람·홈 노출만. 글쓰기·평점 집계는 최애팀만 — 그래서 잠금도 없다.
-      const subs = getSubTeams();
       const favPl = getFavPlayers();
-      const rosterAll = [...TEAMS].flatMap(x => teamPlayers(x.id));
-      document.getElementById("fandom-extra").innerHTML = `
-        <div class="admin-note" style="padding-bottom:6px">
-          <b>관심팀</b> <span style="color:var(--text-dim)">최대 ${SUB_TEAM_MAX}개 · 언제든 바꿀 수 있어요
-            · 홈에 경기가 함께 보입니다 (글쓰기·평점 집계는 최애팀만)</span>
-          <div class="fav-pick">${TEAMS.filter(x => x.id !== (rec.fav || "")).map(x =>
-            `<button data-sub="${esc(x.id)}" class="${subs.includes(x.id) ? "active" : ""}" style="--pick-color:${x.color}"
-              title="${esc(x.name)}">${teamLogoHTML(x, 18)} ${esc(x.abbr)}</button>`).join("")}</div>
+      // 여권 번호는 창립 팬 번호를 쓴다 — 실제로 우리가 발급한 유일한 번호다.
+      const no = founding[0]
+        ? `${(TEAM_MAP[founding[0].team] || {}).abbr || founding[0].team}-${String(founding[0].no).padStart(3, "0")}`
+        : null;
+      const field = (k, v) => v ? `<span class="pp-field"><i>${esc(k)}</i><b>${v}</b></span>` : "";
+
+      document.getElementById("passport-body").innerHTML = `
+        <div class="pp" style="--team-color:${t ? t.color : "var(--accent)"}">
+          <div class="pp-band">
+            <span class="pp-issuer">THE NEXUS · FAN PASSPORT</span>
+            <span class="pp-season">2026 LCK</span>
+          </div>
+          <div class="pp-main">
+            <span class="pp-photo">${t ? teamLogoHTML(t, 52) : `<em>?</em>`}</span>
+            <div class="pp-id">
+              <b class="pp-name">${esc(nick)}</b>
+              <div class="pp-fields">
+                ${field("소속", t ? esc(t.name) + " 팬" : "응원팀 미설정")}
+                ${field("번호", no ? `<span class="pp-no">${esc(no)}</span>` : "")}
+                ${field("발급", joined ? esc(fmtMD(joined)) : (Auth.session ? "" : "이 브라우저"))}
+                ${field("성향", rec.bias ? esc(rec.bias) : "")}
+              </div>
+            </div>
+            <button class="pp-save" id="pp-share" title="여권 카드 이미지로 저장">📷 저장</button>
+          </div>
+          ${favPl.length ? `
+          <div class="pp-stars">
+            <i>최애선수</i>
+            <div class="pp-stars-row">
+              ${favPl.map(id => {
+                const p = getPlayer(id); if (!p) return "";
+                const pt = TEAM_MAP[p.team] || {};
+                const src = typeof playerPhotoURL === "function" ? playerPhotoURL(p, 128) : null;
+                const initial = esc(p.nick.slice(0, 2));
+                // 여권에서 가장 먼저 보이는 자리라 미루지 않는다(eager). 사진이 실패하면
+                // 빈 동그라미가 남지 않게 이니셜로 바꿔 준다.
+                return `<a class="pp-star" href="player.html?id=${q(p.id)}" style="--team-color:${esc(pt.color || "var(--accent)")}">
+                  ${src ? `<img src="${esc(src)}" alt="${esc(p.nick)}" loading="eager" decoding="async"
+                       onerror="this.replaceWith(Object.assign(document.createElement('em'),{textContent:'${initial}'}))">`
+                        : `<em>${initial}</em>`}
+                  <span>${esc(p.nick)}</span></a>`;
+              }).join("")}
+            </div>
+          </div>` : ""}
         </div>
-        <div class="admin-note" style="padding-bottom:6px">
-          <b>최애선수</b> <span style="color:var(--text-dim)">최대 ${FAV_PLAYER_MAX}명 · 안 골라도 됩니다
-            · 고른 선수가 오늘 뛰면 홈에 표시됩니다</span>
-          <div class="fav-players">${favPl.map(id => {
-            const p = getPlayer(id); if (!p) return "";
-            const t = TEAM_MAP[p.team];
-            return `<button class="fav-player on" data-pl="${esc(p.id)}" style="--pick-color:${t ? t.color : "var(--accent)"}">
-              ${teamLogoHTML(t, 16)}<b>${esc(p.nick)}</b><i>✕</i></button>`;
-          }).join("") || `<span style="color:var(--text-dim);font-size:var(--fs-xs)">아직 고른 선수가 없습니다</span>`}</div>
-          <div class="row" style="margin-top:7px">
-            <select id="pl-add" style="max-width:260px">
-              <option value="">선수 추가…</option>
-              ${TEAMS.map(x => `<optgroup label="${esc(x.abbr)}">${teamPlayers(x.id)
-                .filter(p => !favPl.includes(p.id))
-                .map(p => `<option value="${esc(p.id)}">${esc(p.nick)} (${esc(p.pos || "")})</option>`).join("")}</optgroup>`).join("")}
-            </select>
+
+        <div class="pp-record">
+          <div class="ppr-hero">
+            <i>예측 적중률</i>
+            <b>${rec.accuracy == null ? "–" : rec.accuracy}${rec.accuracy == null ? "" : "<em>%</em>"}</b>
+            <span class="ppr-bar" role="img" aria-label="적중 ${rec.predHits} / ${rec.predDone}">
+              <s style="width:${rec.accuracy == null ? 0 : rec.accuracy}%"></s></span>
+            <small>${rec.predDone ? `${rec.predHits} / ${rec.predDone} 적중` : "아직 채점된 예측이 없어요"}</small>
+          </div>
+          <div class="ppr-side">
+            <span><b>${rec.matches}</b><i>참여 경기</i></span>
+            <span><b>${rec.scoreHits}</b><i>스코어 적중</i></span>
+            <span><b>${rec.pogVotes}</b><i>MVP 투표</i></span>
+            <span class="${rec.streak >= 3 ? "hot" : ""}"><b>${rec.streak}</b><i>연속 참여</i></span>
           </div>
         </div>`;
 
-      document.querySelectorAll("[data-fav]").forEach(b => b.addEventListener("click", async () => {
-        const r = await setFavTeam(b.dataset.fav === (rec.fav || "") ? "" : b.dataset.fav);
-        if (r && r.error) { alert(r.error); return; }
-        render();
-      }));
-      document.querySelectorAll("[data-sub]").forEach(b => b.addEventListener("click", async () => {
-        const id = b.dataset.sub;
-        const cur = getSubTeams();
-        const next = cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id];
-        if (next.length > SUB_TEAM_MAX) { alert(`관심팀은 ${SUB_TEAM_MAX}개까지 고를 수 있습니다.`); return; }
-        const r = await setSubTeams(next);
-        if (r && r.error) { alert(r.error); return; }
-        render();
-      }));
-      document.querySelectorAll("[data-pl]").forEach(b => b.addEventListener("click", async () => {
-        const r = await toggleFavPlayer(b.dataset.pl);
-        if (r && r.error) { alert(r.error); return; }
-        render();
-      }));
-      document.getElementById("pl-add")?.addEventListener("change", async e => {
-        if (!e.target.value) return;
-        const r = await toggleFavPlayer(e.target.value);
-        if (r && r.error) { alert(r.error); e.target.value = ""; return; }
-        render();
-      });
+      // ── 내 팬덤 (최애팀 · 관심팀 · 최애선수) ────────────────
+      // 평소엔 **고른 것만** 보여 주고, '바꾸기' 를 눌러야 고르는 칸이 열린다.
+      // 팀 버튼 19개가 늘 펼쳐져 있으면 내 페이지가 아니라 관리자 폼처럼 보인다.
+      const subs = getSubTeams();
+      const lock = favTeamLock();
+      const teamChip = (x, extra) => `<span class="fd-team" style="--team-color:${esc(x.color)}" ${extra || ""}>
+        ${teamLogoHTML(x, 20)}<b>${esc(x.abbr)}</b></span>`;
+
+      function fandomView() {
+        document.getElementById("fandom-body").innerHTML = `
+          <div class="fd-row">
+            <i class="fd-k">최애팀</i>
+            <div class="fd-v">${t ? teamChip(t) : `<span class="fd-empty">아직 안 골랐어요</span>`}
+              <em class="fd-note">글쓰기 · 평점 집계 · 창립 팬 자격</em></div>
+          </div>
+          <div class="fd-row">
+            <i class="fd-k">관심팀</i>
+            <div class="fd-v">${subs.length
+              ? subs.map(id => TEAM_MAP[id]).filter(Boolean).map(x => teamChip(x)).join("")
+              : `<span class="fd-empty">없음</span>`}
+              <em class="fd-note">홈에 경기만 함께 보임 · 최대 ${SUB_TEAM_MAX}개</em></div>
+          </div>
+          <div class="fd-row">
+            <i class="fd-k">최애선수</i>
+            <div class="fd-v">${favPl.length
+              ? favPl.map(id => { const p = getPlayer(id); if (!p) return "";
+                  const pt = TEAM_MAP[p.team] || {};
+                  return `<a class="fd-player" href="player.html?id=${q(p.id)}" style="--team-color:${esc(pt.color || "var(--accent)")}">
+                    ${teamLogoHTML(pt, 16)}<b>${esc(p.nick)}</b></a>`; }).join("")
+              : `<span class="fd-empty">없음</span>`}
+              <em class="fd-note">오늘 뛰면 홈에 표시 · 최대 ${FAV_PLAYER_MAX}명</em></div>
+          </div>`;
+      }
+
+      function fandomEdit() {
+        document.getElementById("fandom-body").innerHTML = `
+          <div class="fd-edit">
+            <div class="fd-sec">
+              <b>최애팀</b>
+              <span class="fd-hint">${lock.ok
+                ? (Auth.session
+                  ? `한 번 바꾸면 ${FAV_COOLDOWN_DAYS}일간 다시 못 바꿉니다 — 팀 게시판이 그 팀 팬 전용이라서요`
+                  : "비회원 선택은 이 브라우저에만 남습니다")
+                : `<b style="color:var(--accent)">${lock.days}일 뒤에 바꿀 수 있어요</b> · ${esc(fmtMD(lock.at))}`}</span>
+              <div class="fav-pick">${TEAMS.map(x =>
+                `<button data-fav="${esc(x.id)}" class="${t && t.id === x.id ? "active" : ""}" style="--pick-color:${x.color}"
+                  ${lock.ok ? "" : "disabled"} title="${esc(x.name)}">${teamLogoHTML(x, 18)} ${esc(x.abbr)}</button>`).join("")}</div>
+            </div>
+            <div class="fd-sec">
+              <b>관심팀</b>
+              <span class="fd-hint">최대 ${SUB_TEAM_MAX}개 · 언제든 바꿀 수 있어요 (글쓰기·평점 집계는 최애팀만)</span>
+              <div class="fav-pick">${TEAMS.filter(x => x.id !== (rec.fav || "")).map(x =>
+                `<button data-sub="${esc(x.id)}" class="${subs.includes(x.id) ? "active" : ""}" style="--pick-color:${x.color}"
+                  title="${esc(x.name)}">${teamLogoHTML(x, 18)} ${esc(x.abbr)}</button>`).join("")}</div>
+            </div>
+            <div class="fd-sec">
+              <b>최애선수</b>
+              <span class="fd-hint">최대 ${FAV_PLAYER_MAX}명 · 안 골라도 됩니다</span>
+              <div class="fav-players">${favPl.map(id => {
+                const p = getPlayer(id); if (!p) return "";
+                const pt = TEAM_MAP[p.team];
+                return `<button class="fav-player on" data-pl="${esc(p.id)}" style="--pick-color:${pt ? pt.color : "var(--accent)"}">
+                  ${teamLogoHTML(pt, 16)}<b>${esc(p.nick)}</b><i>✕</i></button>`;
+              }).join("") || `<span class="fd-empty">아직 고른 선수가 없습니다</span>`}</div>
+              <select id="pl-add" style="max-width:280px;margin-top:8px">
+                <option value="">선수 추가…</option>
+                ${TEAMS.map(x => `<optgroup label="${esc(x.abbr)}">${teamPlayers(x.id)
+                  .filter(p => !favPl.includes(p.id))
+                  .map(p => `<option value="${esc(p.id)}">${esc(p.nick)} (${esc(p.pos || "")})</option>`).join("")}</optgroup>`).join("")}
+              </select>
+            </div>
+            <div class="fd-done"><button type="button" class="btn-primary" id="fandom-done">다 골랐어요</button></div>
+          </div>`;
+        bindFandomEdit();
+      }
+
+      function bindFandomEdit() {
+        document.querySelectorAll("[data-fav]").forEach(b => b.addEventListener("click", async () => {
+          const r = await setFavTeam(b.dataset.fav === (rec.fav || "") ? "" : b.dataset.fav);
+          if (r && r.error) { alert(r.error); return; }
+          render(true);
+        }));
+        document.querySelectorAll("[data-sub]").forEach(b => b.addEventListener("click", async () => {
+          const id = b.dataset.sub;
+          const cur = getSubTeams();
+          const next = cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id];
+          if (next.length > SUB_TEAM_MAX) { alert(`관심팀은 ${SUB_TEAM_MAX}개까지 고를 수 있습니다.`); return; }
+          const r = await setSubTeams(next);
+          if (r && r.error) { alert(r.error); return; }
+          render(true);
+        }));
+        document.querySelectorAll("[data-pl]").forEach(b => b.addEventListener("click", async () => {
+          const r = await toggleFavPlayer(b.dataset.pl);
+          if (r && r.error) { alert(r.error); return; }
+          render(true);
+        }));
+        document.getElementById("pl-add")?.addEventListener("change", async e => {
+          if (!e.target.value) return;
+          const r = await toggleFavPlayer(e.target.value);
+          if (r && r.error) { alert(r.error); e.target.value = ""; return; }
+          render(true);
+        });
+        document.getElementById("fandom-done")?.addEventListener("click", () => render(false));
+      }
+
+      if (editing) fandomEdit(); else fandomView();
+      const editBtn = document.getElementById("fandom-edit");
+      if (editBtn) {
+        editBtn.textContent = editing ? "닫기" : "바꾸기";
+        editBtn.onclick = () => render(!editing);
+      }
 
       // ── 배지 ──
       const next = []; // 다음 목표 안내
@@ -322,7 +411,11 @@
     storeFresh.then(() => render()).catch(() => {});
 
     // ── 여권 공유 카드 ──
-    document.getElementById("pp-share").addEventListener("click", () => {
+    // ⚠ 저장 버튼은 이제 여권 안에서 매번 다시 그려진다. 한 번만 붙이면 다시 그린 뒤
+    //    동작이 사라지므로, 문서에 위임해서 붙인다.
+    document.addEventListener("click", e => {
+      if (!e.target.closest("#pp-share")) return;
+      (() => {
       const rec = myFanRecord();
       const t = rec.fav ? TEAM_MAP[rec.fav] : null;
       const nick = Auth.profile ? Auth.profile.nick : "익명 팬";
@@ -379,6 +472,7 @@
         a.download = "nexus-passport.png";
         a.click();
       });
+      })();
     });
 
     initSidebar();

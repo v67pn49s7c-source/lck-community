@@ -80,7 +80,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260814t") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260814w") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -2398,20 +2398,152 @@ a.bracket-match:hover { border-color: var(--accent); }
 .fh-record b { color: var(--text); }
 .fh-record em { font-style: normal; margin-left:auto; font-weight: 800; color: var(--accent); }
 
-/* ── 팬 여권 ── */
-.pp-hero {
+/* ── 팬 여권 ─────────────────────────────────────────────────────
+   진짜 여권의 인적사항 면을 본떴다: 발급처 띠 → 사진 → 이름 → 항목 → 소지자.
+   예전엔 신분·기록·설정이 카드 하나에 섞여 '설정 화면' 으로 읽혔다. 애착이 생기려면
+   내 것처럼 보여야 하고, 그러려면 신분이 먼저 와야 한다. (2026-08-15 사장님 지적)
+
+   색은 **응원팀 색 하나만** 빌려 쓴다. 여기저기 칠하면 여권이 아니라 광고가 된다 —
+   띠와 사진 테두리, 소지자 강조에만 쓰고 나머지는 기존 중립색 그대로. */
+.pp-card { overflow: hidden; }
+
+.pp { border-left: 3px solid var(--team-color); }
+.pp-band {
   display: flex; align-items: center; justify-content: space-between; gap:11px;
-  padding:18px 15px; border-bottom: 1px solid var(--line); flex-wrap: wrap;
-  background: linear-gradient(100deg, color-mix(in srgb, var(--team-color) 14%, transparent), transparent 65%);
-  border-left: 3px solid var(--team-color);
+  padding:9px 15px; border-bottom: 1px solid var(--line);
+  background: linear-gradient(100deg,
+    color-mix(in srgb, var(--team-color) 22%, transparent), transparent 70%);
 }
-.pp-id { display: flex; align-items: center; gap:13px; }
-.pp-id b { display: block; font-size: 21px; }
-.pp-id span { font-size: var(--fs-sm); color: var(--text-sub); }
-.pp-season { font-size: var(--fs-xs); font-weight: 800; color: var(--text-dim); letter-spacing: .04em; }
-.pp-stats { padding:13px 15px; grid-template-columns: repeat(5, 1fr); }
-@media (max-width: 960px) { .pp-stats { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 560px) { .pp-stats { grid-template-columns: repeat(2, 1fr); } }
+.pp-issuer {
+  font-size: 12px; font-weight: 900; letter-spacing: .16em; color: var(--team-color);
+}
+.pp-season { font-size: 12px; font-weight: 800; letter-spacing: .1em; color: var(--text-dim); }
+
+.pp-main { display: flex; align-items: flex-start; gap:15px; padding:16px 15px; }
+/* 사진 자리 — 여권 사진처럼 테두리를 두른 네모. 팀 로고가 그 자리를 대신한다. */
+.pp-photo {
+  flex: none; width: 74px; height: 84px; display: grid; place-items: center;
+  --cut: var(--cut-md); clip-path: var(--chamfer-br);
+  background: var(--logo-tile); border: 1px solid var(--team-color);
+}
+.pp-photo em { font-style: normal; font-size: 26px; font-weight: 800; color: var(--text-dim); }
+.pp-id { min-width: 0; flex: 1; }
+.pp-name { display: block; font-size: 26px; font-weight: 800; letter-spacing: -.03em; line-height: 1.15; }
+.pp-fields {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap:8px 15px; margin-top:11px;
+}
+.pp-field i {
+  display: block; font-style: normal; font-size: 12px; font-weight: 800;
+  letter-spacing: .1em; color: var(--text-dim);
+}
+.pp-field b { display: block; margin-top:2px; font-size: var(--fs-sm); font-weight: 700; }
+/* 여권 번호 — 숫자 폭을 고정해 '발급된 번호' 처럼 읽히게 한다 */
+.pp-no {
+  font-variant-numeric: tabular-nums; letter-spacing: .08em;
+  color: var(--team-color); font-weight: 800;
+}
+.pp-save {
+  flex: none; align-self: flex-start; padding:6px 11px; cursor: pointer;
+  --cut: var(--cut-sm); clip-path: var(--chamfer-br);
+  background: var(--bg-soft); border: 1px solid var(--line);
+  color: var(--text-sub); font-size: var(--fs-xs); font-weight: 700;
+}
+.pp-save:hover { color: var(--text); border-color: var(--text-dim); }
+
+/* 소지자란 — 최애선수 얼굴. 이 페이지에서 가장 '내 것' 인 부분이라 사진을 쓴다. */
+.pp-stars { padding:0 15px 15px; }
+.pp-stars > i {
+  display: block; font-style: normal; font-size: 12px; font-weight: 800;
+  letter-spacing: .1em; color: var(--text-dim); margin-bottom:8px;
+}
+.pp-stars-row { display: flex; flex-wrap: wrap; gap:11px; }
+.pp-star { display: flex; flex-direction: column; align-items: center; gap:5px; width: 58px; }
+.pp-star img, .pp-star em {
+  width: 52px; height: 52px; border-radius: 50%; object-fit: cover; object-position: center 18%;
+  background: var(--bg-soft); border: 2px solid var(--team-color);
+}
+.pp-star em { display: grid; place-items: center; font-style: normal; font-weight: 800; color: var(--text-sub); }
+.pp-star span {
+  font-size: 12px; font-weight: 700; color: var(--text-sub);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pp-star:hover span { color: var(--text); }
+.pp-star:hover img { filter: brightness(1.08); }
+
+/* ── 기록 — 적중률이 주인공, 나머지는 받침 ─────────────────────
+   예전엔 5칸이 전부 같은 크기라 무엇이 중요한지 안 읽혔다. */
+.pp-record {
+  display: grid; grid-template-columns: minmax(0, 210px) minmax(0, 1fr);
+  gap:15px; padding:15px; border-top: 1px solid var(--line);
+}
+.ppr-hero > i {
+  display: block; font-style: normal; font-size: 12px; font-weight: 800;
+  letter-spacing: .1em; color: var(--text-dim);
+}
+.ppr-hero > b {
+  display: block; margin-top:2px; font-size: 46px; font-weight: 800;
+  line-height: 1; letter-spacing: -.04em; font-variant-numeric: tabular-nums;
+}
+.ppr-hero > b em { font-style: normal; font-size: 22px; color: var(--accent); margin-left:2px; }
+.ppr-bar { display: block; height: 5px; margin-top:10px; background: var(--line); overflow: hidden; }
+.ppr-bar s { display: block; height: 100%; background: var(--accent-solid); text-decoration: none; }
+.ppr-hero small { display: block; margin-top:7px; font-size: var(--fs-xs); color: var(--text-dim); }
+
+.ppr-side {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(94px, 1fr));
+  gap:1px; background: var(--line); border: 1px solid var(--line);
+}
+.ppr-side span { display: block; padding:11px 12px; background: var(--card); }
+.ppr-side b { display: block; font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.ppr-side i { display: block; margin-top:2px; font-style: normal; font-size: 12px; color: var(--text-dim); }
+.ppr-side .hot b { color: var(--accent); }
+
+/* ── 내 팬덤 — 평소엔 고른 것만, 바꿀 때만 펼친다 ───────────── */
+.fd-row {
+  display: grid; grid-template-columns: 74px minmax(0, 1fr);
+  gap:11px; padding:12px 15px; border-bottom: 1px solid var(--line);
+}
+.fd-row:last-child { border-bottom: 0; }
+.fd-k {
+  font-style: normal; font-size: 12px; font-weight: 800;
+  letter-spacing: .08em; color: var(--text-dim); padding-top:5px;
+}
+.fd-v { display: flex; align-items: center; flex-wrap: wrap; gap:7px; }
+.fd-team, .fd-player {
+  display: inline-flex; align-items: center; gap:6px; padding:5px 10px;
+  --cut: var(--cut-sm); clip-path: var(--chamfer-br);
+  background: color-mix(in srgb, var(--team-color) 12%, transparent);
+  border: 1px solid var(--team-color);
+  font-size: var(--fs-sm); font-weight: 800;
+}
+.fd-player:hover { background: color-mix(in srgb, var(--team-color) 22%, transparent); }
+.fd-empty { color: var(--text-dim); font-size: var(--fs-sm); }
+.fd-note { flex-basis: 100%; font-style: normal; font-size: 12px; color: var(--text-dim); }
+
+.fd-edit { padding:4px 0 0; }
+.fd-sec { padding:13px 15px; border-bottom: 1px solid var(--line); }
+.fd-sec > b { font-size: var(--fs-sm); font-weight: 800; }
+.fd-hint { display: block; margin-top:3px; font-size: 12px; color: var(--text-dim); line-height: 1.6; }
+.fd-done { padding:13px 15px; display: flex; justify-content: flex-end; }
+
+@media (max-width: 720px) {
+  .pp-record { grid-template-columns: 1fr; }
+  .pp-main { gap:12px; padding:14px; }
+  .pp-photo { width: 62px; height: 72px; }
+  .pp-name { font-size: 22px; }
+  .ppr-hero > b { font-size: 40px; }
+  .fd-row { grid-template-columns: 1fr; gap:6px; }
+  .fd-k { padding-top:0; }
+  /* 발급처 줄이 두 줄로 접히면 여권이 아니라 사고처럼 보인다 — 자간을 줄여 한 줄로 */
+  .pp-issuer { letter-spacing: .08em; }
+  .pp-season { white-space: nowrap; }
+  /* 항목이 1열로 늘어지면 카드가 세로로만 길어진다 */
+  .pp-fields { grid-template-columns: 1fr 1fr; gap:9px 12px; }
+  .pp-star { width: 52px; }
+  .pp-star img, .pp-star em { width: 46px; height: 46px; }
+}
+
 .badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:9px; padding:13px 15px; }
 .badge-chip {
   display: flex; align-items: center; gap:11px; padding:11px 13px;
