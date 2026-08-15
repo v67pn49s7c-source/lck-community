@@ -17,10 +17,10 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260815s">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260815s">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260815t">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260815t">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260815s">
+  <link rel="stylesheet" href="assets/styles.css?v=20260815t">
 </head>
 <body>
   <main class="page">
@@ -43,12 +43,12 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260815s"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260815s"></script>
-  <script src="assets/store.js?v=20260815s"></script>
-  <script src="assets/app.js?v=20260815s"></script>
-  <script src="assets/story.js?v=20260815s"></script>
-  <script src="assets/brackets.js?v=20260815s"></script>
+  <script src="assets/data.js?v=20260815t"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260815t"></script>
+  <script src="assets/store.js?v=20260815t"></script>
+  <script src="assets/app.js?v=20260815t"></script>
+  <script src="assets/story.js?v=20260815t"></script>
+  <script src="assets/brackets.js?v=20260815t"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("경기", null);
@@ -65,11 +65,28 @@
       { id: "lck2026-playin",    name: "2026 LCK 플레이-인 (8/26~28)" },
       { id: "lck2026-playoffs",  name: "2026 LCK 플레이오프 (8/29~9/13)" },
     ];
+    // 아직 경기가 하나도 없는 대회는 시작일을 알 길이 없다 (월즈처럼 참가팀 확정 전).
+    // 그런 대회만 여기에 적어 둔다 — 경기가 들어오면 이 값은 쓰이지 않는다.
+    const START_FALLBACK = {
+      worlds2026: "2026-10-16", "lck2026-playin": "2026-08-26", "lck2026-playoffs": "2026-08-29",
+    };
+    /** 대회 시작일 = 그 대회 **첫 경기 날짜**. 표에 date 칸이 따로 없어 경기에서 끌어온다. */
+    function tournamentStart(t) {
+      let min = null;
+      (Cache.matches || []).forEach(m => {
+        if (m.tid !== t.id || !m.at) return;
+        if (!min || m.at < min) min = m.at;
+      });
+      return min || START_FALLBACK[t.id] || "9999";
+    }
     function allTournaments() {
       const ts = getTournaments();
       const have = new Set(ts.map(t => t.id));
+      // 목록 순서는 **날짜순**이어야 한다 (사장님 2026-08-15).
+      // 예전에는 DB 가 돌려준 순서 그대로여서 3-4라운드가 1-2라운드보다 위에 왔다.
       return ts.concat(PLANNED.filter(p => !have.has(p.id) && BRACKETS[p.id])
-        .map(p => ({ ...p, type: "토너먼트", stages: [], planned: true })));
+        .map(p => ({ ...p, type: "토너먼트", stages: [], planned: true })))
+        .sort((a, b) => tournamentStart(a).localeCompare(tournamentStart(b)));
     }
 
     function renderSelect() {

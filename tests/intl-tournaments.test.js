@@ -80,5 +80,21 @@ ok(/\.bracket\.compact \.bm-from \{ display: none; \}/.test(css) &&
    /\.bracket\.compact \.bm-slot\.tbd \.bm-from \{/.test(css),
   "끝난 대회에선 자리 라벨을 감추고, 미정 칸에서만 보여야 함");
 
+// ── ⑥ 디자인·정렬 (2026-08-15 사장님: 촌스럽다 · 순서가 뒤죽박죽) ──
+// 라운드 이름이 붉은 그라데이션 머리띠면 눈이 거기 먼저 간다 — 봐야 할 건 팀·점수다
+ok(/\.bracket\.compact \.bracket-col-title \{[\s\S]{0,200}background: none/.test(css) &&
+   /\.bracket\.compact \.bm-head \{[\s\S]{0,120}background: none/.test(css),
+  "압축 대진표에서는 붉은 머리띠를 쓰지 않아야 함");
+// 열을 flex:1 로 늘리면 좁아진 상자가 열 한가운데 떠서 머리글과 어긋난다
+ok(/\.bracket\.compact \.bracket-col \{ flex: 0 0 152px/.test(css),
+  "압축 대진표의 열 너비는 고정이어야 함");
+ok(/\.bracket\.compact \.bracket-col-body \{ grid-template-columns: minmax\(0, 1fr\)/.test(css),
+  "상자가 열 폭을 꽉 채워야 머리글과 줄이 맞는다");
+
+ok(/function tournamentStart\(t\)/.test(brHtml) && /sort\(\(a, b\) => tournamentStart\(a\)\.localeCompare\(tournamentStart\(b\)\)\)/.test(brHtml),
+  "대회 목록은 날짜순이어야 함");
+ok(/START_FALLBACK = \{[\s\S]{0,200}worlds2026: "2026-10-16"/.test(brHtml),
+  "경기가 아직 없는 대회는 시작일을 따로 적어 둬야 순서가 맞는다");
+
 console.log(`\nintl-tournaments.test: ${pass} 통과, ${fail} 실패`);
 process.exit(fail ? 1 : 0);
