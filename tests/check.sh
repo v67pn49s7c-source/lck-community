@@ -123,6 +123,39 @@ node -e '
   process.exit(bad);
 ' && okk "각진 모서리 규칙 (크기 3단계 · 모양 3가지)" || bad "각진 모서리 규칙 위반 — 위 줄 참고"
 
+# ── 사이트 저장본 선수 사진 ──────────────────────────────────────
+# 공식 CDN 사진이 옛 팀 유니폼일 때 assets/players/ 에 파일을 받아 덮어쓴다.
+# ① 코드에만 적고 **파일을 안 넣으면** 배포 후에야 얼굴이 사라진 걸 안다.
+# ② 비율이 다르면 대결 화면에서 **그 선수만 크게 나와 머리 높이가 어긋난다**.
+#    공식 컷아웃은 가로/세로 약 1.26 이다 (2026-08-15 에이밍 정사각형 사진 실제 사고).
+node -e '
+  const fs = require("fs");
+  const s = fs.readFileSync("assets/player-photos.js", "utf8");
+  let bad = 0;
+  // WebP(VP8X/VP8L/VP8) · PNG 헤더에서 크기만 읽는다 (외부 라이브러리 없이)
+  const size = f => {
+    const b = fs.readFileSync(f);
+    if (b.slice(0, 4).toString() === "\x89PNG") return [b.readUInt32BE(16), b.readUInt32BE(20)];
+    if (b.slice(8, 12).toString() !== "WEBP") return null;
+    const tag = b.slice(12, 16).toString();
+    if (tag === "VP8X") return [(b.readUIntLE(24, 3) & 0xffffff) + 1, (b.readUIntLE(27, 3) & 0xffffff) + 1];
+    if (tag === "VP8 ") return [b.readUInt16LE(26) & 0x3fff, b.readUInt16LE(28) & 0x3fff];
+    return null;                       // VP8L 등은 검사 생략
+  };
+  for (const m of s.matchAll(/"(assets\/players\/[^"]+)"/g)) {
+    const f = m[1];
+    if (!fs.existsSync(f)) { console.error(`없는 사진 파일: ${f}`); bad = 1; continue; }
+    const wh = size(f);
+    if (!wh) continue;
+    const r = wh[0] / wh[1];
+    if (Math.abs(r - 1.26) > 0.08) {
+      console.error(`${f} 비율 ${r.toFixed(2)} (${wh[0]}x${wh[1]}) — 공식 컷아웃 1.26 과 다르다. 대결 화면에서 혼자 커진다`);
+      bad = 1;
+    }
+  }
+  process.exit(bad);
+' && okk "사이트 저장본 선수 사진 (존재 · 공식 비율)" || bad "assets/players 사진 문제 — 위 줄 참고"
+
 node tests/invariants.test.js || bad "invariants.test 실패"
 node tests/leaguepedia-integrity.test.js || bad "leaguepedia-integrity.test 실패"
 node tests/leaguepedia-atomic-transport.test.js || bad "leaguepedia-atomic-transport.test 실패"

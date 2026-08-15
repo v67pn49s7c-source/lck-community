@@ -40,7 +40,12 @@ const PLAYER_PHOTOS = {
   "hle:kanavi": "http://static.lolesports.com/players/1769089425886_LCK_HLE_Kanavi_F.PNG", // HLE Kanavi
   "hle:zeka": "http://static.lolesports.com/players/1769089430303_LCK_HLE_Zeka_F.PNG", // HLE Zeka
   "hle:zeus": "http://static.lolesports.com/players/1769089435131_LCK_HLE_Zeus_F.PNG", // HLE Zeus
-  "krx:aiming": "http://static.lolesports.com/players/1769088886678_LCK_KT_Aiming_F.PNG", // KRX Aiming
+  // ⚠ 예외 (사장님 지정, 2026-08-15). 2026-07-30 KT ↔ KRX 트레이드 직후라
+  //   라이엇 공식 API·리그피디아 **양쪽 다** 아직 KT 유니폼 사진만 갖고 있다
+  //   (공식 API 가 주는 값이 말 그대로 "LCK_KT_Aiming_F.PNG" 다).
+  //   팀 로고는 KRX 인데 옷은 kt 라 대결 화면이 어색해서, 사이트 저장본으로 덮는다.
+  //   ↺ 라이엇이 KRX 사진으로 갱신하면 이 두 줄을 지우고 공식 URL 로 되돌리면 된다.
+  "krx:aiming": "assets/players/krx-aiming.webp", // KRX Aiming — 사이트 저장본(트레이드 후 유니폼)
   "krx:andil": "http://static.lolesports.com/players/1769090483396_LCK_DRX_Andil_F.PNG", // KRX Andil
   "krx:frog": "http://static.lolesports.com/players/1769088684062_image6-2026-01-22T143101.541.png", // KRX Frog
   "krx:ucal": "http://static.lolesports.com/players/1778842833744_LCK_DRX_Ucal_F.PNG", // KRX Ucal
