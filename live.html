@@ -17,11 +17,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260815u">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260815u">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260815v">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260815v">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260815u">
+  <link rel="stylesheet" href="assets/styles.css?v=20260815v">
 </head>
 <body>
   <main class="page">
@@ -100,14 +100,14 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260815u"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260815u"></script>
-  <script src="assets/invariants.js?v=20260815u"></script>
-  <script src="assets/store.js?v=20260815u"></script>
-  <script src="assets/app.js?v=20260815u"></script>
-  <script src="assets/story.js?v=20260815u"></script>
-  <script src="assets/ddragon.js?v=20260815u"></script>
-  <script src="assets/race.js?v=20260815u"></script>
+  <script src="assets/data.js?v=20260815v"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260815v"></script>
+  <script src="assets/invariants.js?v=20260815v"></script>
+  <script src="assets/store.js?v=20260815v"></script>
+  <script src="assets/app.js?v=20260815v"></script>
+  <script src="assets/story.js?v=20260815v"></script>
+  <script src="assets/ddragon.js?v=20260815v"></script>
+  <script src="assets/race.js?v=20260815v"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -211,28 +211,43 @@
       // MSI 는 치지직 LCK 공식, EWC 는 치지직 EWC 공식 채널에 있다.
       const INTL_TOURS = { msi2026: 1, ewc2026: 1 };
       if (INTL_TOURS[match.tid]) {
-        body.innerHTML = `<div class="replay-pending"><b>다시보기를 찾고 있습니다</b><span>치지직 공식 채널을 확인하는 중…</span></div>`;
-        try {
-          const r = await fetch(`/api/intl-vod?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`
-            + `&at=${encodeURIComponent(match.at)}&tour=${encodeURIComponent(match.tid)}`);
-          const d = r.ok ? await r.json() : null;
-          const ch = document.getElementById("replay-channel");
-          if (ch && d?.channelUrl) ch.href = d.channelUrl;
-          const sets = (d?.sets || []).filter(Boolean);
-          if (d?.full || sets.length) {
-            body.innerHTML = `<div class="replay-full" id="replay-full">
-              <span class="replay-full-lb">${esc(d.source)}</span>
-              ${d.full ? btn("chzzk", "전체 보기", d.full.url, d.channelUrl) : ""}
-              ${sets.map((v, i) => `<a class="replay-btn chzzk" target="_blank" rel="noopener noreferrer"
-                 href="${esc(v.url)}" title="${esc(v.title)}">${i + 1}세트</a>`).join("")}
-            </div>`;
-          } else {
-            body.innerHTML = `<div class="replay-pending"><b>다시보기를 찾지 못했습니다</b>
-              <span>${esc(d?.source || "치지직 공식 채널")}에서 직접 찾아보실 수 있습니다.</span></div>
-              <div class="replay-full">${btn("chzzk", "공식 채널 열기", null, d?.channelUrl || "https://chzzk.naver.com")}</div>`;
-          }
-        } catch {
-          body.innerHTML = `<div class="replay-pending"><b>다시보기 준비 중</b><span>잠시 후 다시 확인해 주세요.</span></div>`;
+        body.innerHTML = `<div class="replay-pending"><b>다시보기를 찾고 있습니다</b><span>공식 채널을 확인하는 중…</span></div>`;
+        const qs = `a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`
+          + `&at=${encodeURIComponent(match.at)}&tour=${encodeURIComponent(match.tid)}`;
+        // 유튜브(매치 하이라이트)와 치지직(세트별 풀 영상)을 **동시에** 물어본다.
+        // 둘은 서로를 기다릴 이유가 없고, 한쪽이 없어도 다른 쪽은 보여야 한다.
+        const [yt, cz] = await Promise.all([
+          fetch(`/api/lck-vod?${qs}`).then(r => r.ok ? r.json() : null).catch(() => null),
+          fetch(`/api/intl-vod?${qs}`).then(r => r.ok ? r.json() : null).catch(() => null),
+        ]);
+        const ch = document.getElementById("replay-channel");
+        if (ch && cz?.channelUrl) ch.href = cz.channelUrl;
+
+        const sets = (cz?.sets || []).filter(Boolean);
+        // 치지직은 페이지 안에서 재생되지 않으므로 새 창으로 연다 (유튜브만 심을 수 있다).
+        const czBar = (sets.length || cz?.full) ? `<div class="replay-full">
+            <span class="replay-full-lb">${esc(cz.source)} · 새 창</span>
+            ${cz.full ? btn("chzzk", "전체 보기", cz.full.url, cz.channelUrl) : ""}
+            ${sets.map((v, i) => `<a class="replay-btn chzzk" target="_blank" rel="noopener noreferrer"
+               href="${esc(v.url)}" title="${esc(v.title)}">${i + 1}세트</a>`).join("")}
+          </div>` : `<div class="replay-full">${btn("chzzk", "공식 채널 열기", null,
+              cz?.channelUrl || "https://chzzk.naver.com")}</div>`;
+
+        if (yt?.status === "ready" && /^[A-Za-z0-9_-]{6,20}$/.test(yt.videoId || "")) {
+          body.innerHTML = `<div class="replay-frame"><iframe
+            src="https://www.youtube-nocookie.com/embed/${esc(yt.videoId)}" title="${esc(yt.title || "매치 다시보기")}"
+            loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
+            <a class="replay-meta" href="${esc(yt.url)}" target="_blank" rel="noopener noreferrer">
+              <b>${esc(yt.title || "매치 다시보기")}</b><span>YouTube에서 보기 ›</span></a>` + czBar;
+        } else if (sets.length || cz?.full) {
+          // 유튜브에 한국어 영상이 없는 대회(EWC)는 치지직 링크만 남는다.
+          body.innerHTML = `<div class="replay-pending"><b>${esc(cz.source)}에서 볼 수 있습니다</b>
+            <span>이 대회는 한국어 영상이 치지직에만 올라와, 페이지 안에서는 재생되지 않습니다.
+            아래 버튼을 누르면 새 창에서 열립니다.</span></div>` + czBar;
+        } else {
+          body.innerHTML = `<div class="replay-pending"><b>다시보기를 찾지 못했습니다</b>
+            <span>공식 채널에서 직접 찾아보실 수 있습니다.</span></div>` + czBar;
         }
         return;
       }

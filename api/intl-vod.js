@@ -14,12 +14,17 @@
 const { ok, fail } = require("./_lib");
 
 const LCK_CHZZK = "9381e7d6816e6d915a44a13c0195b202";              // 치지직 LCK 공식(인증)
-const EWC_CHZZK = "fce7c8735e0646e642007198a8875882";              // 치지직 EWC 공식(인증)
+// ⚠ EWC 는 여러 종목을 동시에 중계해서 공식 채널이 **여럿**이다. LoL 경기도 A·B 두 채널에
+//   나뉘어 올라간다 (같은 8강인데 T1 vs HLE 는 A, GEN vs JDG 는 B). 한 곳만 보면 절반을 놓친다.
+const EWC_CHZZK = ["fce7c8735e0646e642007198a8875882", "2b753bd5325fc34bba16d66659c67aa2"];
 
 // 대회마다 채널과 검색어 꼬리가 다르다. 여기 없는 대회는 이 API 를 쓰지 않는다.
+// ⚠ 검색어의 "리그오브레전드" 는 **띄어쓰기 없이** 써야 한다 — EWC 채널 제목 표기가 그렇다.
 const TOURS = {
-  msi2026: { channelId: LCK_CHZZK, term: "MSI 2026", name: "MSI", channelLabel: "치지직 LCK 공식" },
-  ewc2026: { channelId: EWC_CHZZK, term: "EWC 2026", name: "EWC", channelLabel: "치지직 EWC 공식" },
+  msi2026: { channelIds: [LCK_CHZZK], terms: ["MSI 2026", "게임 VOD MSI 2026"],
+             name: "MSI", channelLabel: "치지직 LCK 공식" },
+  ewc2026: { channelIds: EWC_CHZZK, terms: ["리그오브레전드 EWC 2026", "세트 VOD EWC 2026"],
+             name: "EWC", channelLabel: "치지직 EWC 공식" },
 };
 
 const UA = "Mozilla/5.0 (compatible; TheNexus-LCK-FanSite/2.0)";
@@ -70,9 +75,9 @@ async function searchChzzk(keyword) {
 
 /** 검색 결과에서 이 경기 것만 고른다. 확실하지 않으면 **버린다** —
  *  엉뚱한 경기 영상을 걸어 두는 것이 아무것도 안 거는 것보다 나쁘다. */
-function pick(rows, { a, b, at, channelId }) {
+function pick(rows, { a, b, at, channelIds }) {
   const mine = rows.filter(v =>
-    v.channelId === channelId && hasTeam(v.title, a) && hasTeam(v.title, b) && nearMatch(v.publishDate, at));
+    channelIds.includes(v.channelId) && hasTeam(v.title, a) && hasTeam(v.title, b) && nearMatch(v.publishDate, at));
   const sets = [];
   let full = null;
   mine.forEach(v => {
@@ -101,14 +106,17 @@ async function handler(req, res) {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_MS) return ok(res, hit.value, 1800);
 
-  const channelUrl = `https://chzzk.naver.com/${tour.channelId}/videos`;
+  const channelUrl = `https://chzzk.naver.com/${tour.channelIds[0]}/videos`;
   try {
-    // 검색어를 두 가지로 던진다 — 제목 표기가 대회마다 조금씩 다르다
-    let rows = await searchChzzk(`${a} vs ${b} ${tour.term}`);
-    let got = pick(rows, { a, b, at: q.at, channelId: tour.channelId });
-    if (!got.full && !got.sets.length) {
-      rows = await searchChzzk(`${a} vs ${b} 리그 오브 레전드 ${tour.term}`);
-      got = pick(rows, { a, b, at: q.at, channelId: tour.channelId });
+    // 검색은 한 번에 30개만 돌려준다. 그래서 **검색어를 바꿔 가며 모아** 합친다 —
+    // 한 번만 던지면 5판 경기에서 1세트가 잘려 나간다 (실제로 그랬다).
+    const seen = new Map();
+    let got = { full: null, sets: [] };
+    for (const term of tour.terms) {
+      const rows = await searchChzzk(`${a} vs ${b} ${term}`);
+      rows.forEach(v => seen.set(v.videoNo, v));
+      got = pick([...seen.values()], { a, b, at: q.at, channelIds: tour.channelIds });
+      if (got.sets.length >= 5) break;              // 5판 3선승이 최대다. 더 찾을 것이 없다
     }
     const value = {
       source: tour.channelLabel, tournament: tour.name, channelUrl,

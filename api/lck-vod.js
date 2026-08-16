@@ -152,13 +152,20 @@ const tooEarly = at => {
   return Number.isFinite(m) && Date.now() < m + VOD_WAIT_MS;
 };
 
+// LCK 한국 공식 유튜브에는 **국제 대회 하이라이트도 올라온다** (2026-08-15 확인).
+//   예) "BLG vs HLE | 결승전 매치 하이라이트 | MSI 2026"
+// 그런데 검색어가 "2026 LCK" 로 못 박혀 있어서 MSI 영상은 영영 안 걸렸다.
+// 대회마다 제목 꼬리가 다르므로 여기서 갈라 준다.
+const TOUR_TERM = { msi2026: "MSI 2026", ewc2026: "EWC 2026" };
+
 async function handler(req, res) {
   const query = (req && req.query) || {};
   const a = String(query.a || "").trim();
   const b = String(query.b || "").trim();
+  const tourTerm = TOUR_TERM[String(query.tour || "").trim()] || "2026 LCK";
   if (!a || !b) return fail(res, 400, "두 팀이 필요합니다");
 
-  if (tooEarly(query.at)) {
+  if (!TOUR_TERM[String(query.tour || "").trim()] && tooEarly(query.at)) {
     return ok(res, {
       status: "pending", reason: "too-early",
       source: "LCK 한국 공식 YouTube", channelUrl: LCK_KR_CHANNEL_URL,
@@ -174,7 +181,7 @@ async function handler(req, res) {
     if (!vod) {
       // RSS는 최신 15개뿐이라 클립이 많은 날 풀 VOD가 하루 만에 밀린다.
       // 같은 공식 채널의 내부 검색 결과를 읽어 양 팀의 비하이라이트 영상만 다시 찾는다.
-      const term = `${a} vs ${b} 하이라이트 2026 LCK`;
+      const term = `${a} vs ${b} 하이라이트 ${tourTerm}`;
       const search = await fetch(`https://www.youtube.com/@LCK/search?query=${encodeURIComponent(term)}`, {
         headers: { "user-agent": "Mozilla/5.0 (compatible; TheNexus-LCK-FanSite/2.0)", "accept-language": "ko-KR,ko;q=0.9" },
       });
