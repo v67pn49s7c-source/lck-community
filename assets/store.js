@@ -215,9 +215,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260816c"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260816c"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260816c"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260816d"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260816d"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260816d"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -747,8 +747,12 @@ function getPlayers() { return Cache.players; }
 function getPlayer(id) { return Cache.players.find(p => p.id === id); }
 function teamPlayers(teamId) {
   const order = { "탑": 0, "정글": 1, "미드": 2, "원딜": 3, "서폿": 4 };
+  // ⚠ 같은 포지션에 여러 명이면 **주전이 먼저** 와야 한다. 화면 여러 곳이 포지션마다
+  //   첫 번째 사람을 대표로 집기 때문이다. 예전에는 등록 순서대로여서, 로스터가 바뀌어도
+  //   먼저 등록된 옛 주전이 계속 나왔다 (표식이 서브로 내려간 뒤에도 홈에 표식이 떴다).
   return Cache.players.filter(p => p.team === teamId)
-    .sort((a, b) => (order[a.pos] ?? 9) - (order[b.pos] ?? 9));
+    .sort((a, b) => (order[a.pos] ?? 9) - (order[b.pos] ?? 9)
+      || (a.sub ? 1 : 0) - (b.sub ? 1 : 0));
 }
 function addPlayer(p) {
   Cache.players.push(p);
