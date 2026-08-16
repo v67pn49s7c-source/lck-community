@@ -68,8 +68,12 @@ vm.runInContext(source + "\n;globalThis.__ddTest = { DD, ddInit, ddLookup, ddIte
 
   assert(live.includes('class="dt-dmg"'), "딜량 막대 UI가 있어야 함");
   assert(live.includes('ddChampHTML(p.champ, 46)'), "상세 챔피언 초상화는 큰 크기로 요청해야 함");
-  assert(live.includes('${esc(p.champ || "")}${pos ? ` · ${esc(pos)}` : ""}'),
-    "선수 이름 아래에 챔피언과 포지션을 함께 보여야 함");
+  // 포지션은 **따로 감쌌다**. 좁은 화면에서는 순서가 곧 포지션이라 감추기 때문이다.
+  // 한 덩어리로 두면 챔피언 이름까지 같이 사라진다.
+  assert(live.includes('${esc(p.champ || "")}${pos ? `<i class="dt-pos"> · ${esc(pos)}</i>` : ""}'),
+    "선수 이름 아래에 챔피언과 포지션을 보여야 하고, 포지션은 따로 감쌀 것");
+  assert(/\.dt-pos \{ display: none; \}/.test(css),
+    "좁은 화면에서는 포지션을 감춘다 (위에서부터 탑·정글·미드·원딜·서폿 순서다)");
   assert(css.includes(".dt-face .dd-nm { display: none; }"), "상세 표에서는 챔피언 이름을 숨겨야 함");
   assert(css.includes(".dt-dmg > i > b"), "딜량 막대 채움 스타일이 있어야 함");
   assert(app.includes("function drakeIconHTML") && app.includes("dragon_elder.png"),

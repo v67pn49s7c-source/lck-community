@@ -81,7 +81,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260816a") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260816b") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -2278,7 +2278,7 @@ a.bracket-match:hover { border-color: var(--accent); }
        원래 표로 돌아가므로 그쪽에서는 전부 보인다. */
   .dt-player { order: 1; flex: 1 1 auto; min-width: 0; align-self: center; }
   .dt-kda    { order: 2; flex: 0 0 auto; text-align: right; }
-  table.detail-table td.dt-items { order: 3; flex: 0 0 74px; }
+  table.detail-table td.dt-items { order: 3; flex: 0 0 72px; gap:2px; }
   /* 좁은 화면에서 감추는 숫자들 — 넓은 화면 표에서는 그대로 나온다 */
   /* ⚠ 선택자를 `table.detail-table td.` 로 맞춰야 한다. 위쪽에 있는
      `table.detail-table td { display: block }` 이 더 세서, 그냥 `.dt-dmg` 로 쓰면
@@ -2294,7 +2294,10 @@ a.bracket-match:hover { border-color: var(--accent); }
   .dt-mini .dd-ic { width: 17px; height: 17px; }
   .dt-id b, .dt-id a { font-size: var(--fs-base); }
   .dt-id small { font-size: 12px; }
-  .dt-items .dd-ic { width: 30px; height: 30px; }
+  /* ⚠ 아이콘 크기를 못 박으면 겹친다. 격자 칸이 72/4 = 18px 인데 30px 을 넣고 있었다.
+     기본 규칙(.dt-items .dd-ic)이 이미 칸을 꽉 채우게 돼 있으므로 여기서는 손대지 않는다. */
+  /* 포지션(탑·정글…)은 위에서부터 순서가 곧 포지션이라 좁은 화면에서는 군더더기다 */
+  .dt-pos { display: none; }
 
   /* 팀 게시판은 표 머리를 접고 분류·제목·추천만 카드 한 줄로 다시 배치한다.
      고정 폭 열이 화면을 밀어 제목과 글쓰기 버튼이 잘리던 문제를 막는다. */
