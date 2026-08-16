@@ -91,24 +91,22 @@ vm.runInContext(source + "\n;globalThis.__ddTest = { DD, ddInit, ddLookup, ddIte
     "경기 시간이 있으면 DPM 과 분당 CS 를 보여야 함");
   assert(/lenM \? `<small>DPM/.test(live) && /lenM \? `<small>\$\{\(cs \/ lenM\)/.test(live),
     "경기 시간이 없는 세트에서는 분당 지표를 그리지 않아야 함");
-  // ── 모바일 선수 스탯 표 — "너무 크고 정리가 안 된 느낌" 수정 (2026-08-15) ──
-  // 숫자 칸이 제 내용 폭대로 흐르면 줄마다 다른 자리에서 접혀 지저분해 보인다.
-  // 퍼센트 기준 폭으로 **칸을 고정**해야 모든 선수 줄이 같은 자리에서 끊긴다.
-  assert(/\.dt-kda\s*\{[^}]*flex: 0 0 calc\(55% - 4px\)/.test(css) &&
-         /\.dt-dmg\s*\{[^}]*flex: 0 0 calc\(45% - 4px\)/.test(css),
-    "모바일 첫 숫자 줄은 KDA·딜량 두 칸으로 고정돼야 함");
-  assert(/\.dt-cs\s*\{[^}]*flex: 0 0 calc\(33\.34% - 5px\)/.test(css) &&
-         /\.dt-gold\s*\{[^}]*flex: 0 0 calc\(33\.33% - 5px\)/.test(css) &&
-         /\.dt-vs\s*\{[^}]*flex: 0 0 calc\(33\.33% - 5px\)/.test(css),
-    "모바일 둘째 숫자 줄은 CS·골드·시야 세 칸으로 고정돼야 함");
-  // flex-basis 가 0 이면 브라우저가 "일곱 칸 다 한 줄에 들어간다"고 계산해 줄이 안 나뉜다
-  assert(!/\.dt-(kda|dmg|cs|gold|vs)\s*\{[^}]*flex: \d+ 1 0/.test(css),
-    "숫자 칸에 flex-basis 0 을 쓰면 줄바꿈 기준이 사라진다");
-  // 스코어보드의 .dt-vs 와 이름이 겹쳐 시야 칸이 grid·margin 을 물려받았었다
-  assert(/table\.detail-table td\.dt-vs \{[^}]*margin: 0/.test(css),
-    "표의 시야 칸은 스코어보드 .dt-vs 스타일을 물려받지 않아야 함");
-  assert(/\.dt-dmg::before \{[^}]*content: "딜량/.test(css),
-    "딜량에도 이름표가 있어야 함 (.dt-num 이 아니라 숫자만 떠 있었다)");
+  // ── 모바일 선수 스탯 표 — 한 선수 한 줄 (2026-08-16) ──────────
+  // 숫자를 두 줄 더 깔았더니 한 선수가 138px, 다섯 명이면 690px 이 됐다.
+  // 좁은 화면에 여섯 가지 숫자를 다 넣으려던 것이 원인이었다. 줄바꿈을 막고 눕힌다.
+  assert(/table\.detail-table tr \{[^}]*flex-wrap: nowrap/.test(css),
+    "선수 줄은 줄바꿈하지 않아야 함 (접히는 순간 두 줄이 된다)");
+  assert(/\.dt-player \{ order: 1[\s\S]{0,120}\.dt-kda    \{ order: 2[\s\S]{0,140}td\.dt-items \{ order: 3/.test(css),
+    "한 줄 배치는 [선수] [KDA] [아이템] 순서여야 함");
+  // ⚠ 선택자가 `table.detail-table td.` 여야 한다. 위쪽 `table.detail-table td { display: block }`
+  //   이 더 세서, 그냥 `.dt-dmg` 로 쓰면 딜량 칸만 안 사라진다 (실제로 그랬다).
+  assert(/table\.detail-table td\.dt-dmg, table\.detail-table td\.dt-cs,[\s\S]{0,120}display: none;/.test(css),
+    "좁은 화면에서는 딜량·CS·골드·시야를 감춰야 함 (선택자가 약하면 안 먹는다)");
+  assert(/\.dt-kda small \{ display: block/.test(css),
+    "KDA 비율은 숫자 아래 줄에 와야 함");
+  // 넓은 화면 표에서는 그대로 다 보여야 한다 — 감춘 것은 미디어 블록 안에서만이다
+  assert(!/^\.dt-dmg \{ display: none/m.test(css),
+    "딜량 칸을 전역으로 감추면 데스크톱 표에서도 사라진다");
 
   console.log("✓ 경기 상세 아이콘·딜량 UI 회귀 테스트 통과");
 })().catch(error => {
