@@ -115,14 +115,20 @@ function vodWhen(item) {
   const exact = Date.parse(item.published || "");
   return Number.isFinite(exact) ? exact : agoToMs(item.publishedAgo);
 }
-function vodDateOK(item, at) {
+// ⚠ 검색 결과의 날짜는 "1개월 전" 같은 **어림값**이다. 정규 시즌(어제 경기)에는
+//   ±2일이 맞지만, 끝난 국제 대회는 그 어림값이 며칠씩 어긋나 멀쩡한 영상이 버려진다.
+//   (MSI 결승 하이라이트가 실제로 이렇게 걸러졌다 — 2026-08-15)
+//   대회를 지정하고 검색하면 검색어에 대회 이름이 들어가 이미 구분이 되므로,
+//   그때는 창을 넓게 잡는다.
+function vodDateOK(item, at, windowMs) {
   if (!Number.isFinite(at)) return true;              // 경기 시각을 모르면 판단 보류
   const when = vodWhen(item);
   if (!Number.isFinite(when)) return false;           // 날짜를 모르는 영상은 쓰지 않는다
-  return when >= at - 3 * 60 * 60 * 1000 && when <= at + VOD_WINDOW_MS;
+  const w = windowMs || VOD_WINDOW_MS;
+  return when >= at - 3 * 60 * 60 * 1000 && when <= at + w;
 }
 
-function pickKoreanVod(items, a, b, matchAt) {
+function pickKoreanVod(items, a, b, matchAt, windowMs) {
   const at = Date.parse(matchAt || "");
   // 0 = 매치 하이라이트(우선), 1 = 풀 VOD, 2 = 옛 "A vs B | 라운드" 형식
   const rankOf = t => VOD_HIGHLIGHT.test(t) ? 0 : VOD_FULL.test(t) ? 1 : 2;
@@ -136,7 +142,7 @@ function pickKoreanVod(items, a, b, matchAt) {
     })
     .filter(item => rankOf(item.title) < 2
       || /^\s*[A-Z0-9]+\s+vs\s+[A-Z0-9]+\s*\|/i.test(item.title))
-    .filter(item => vodDateOK(item, at))
+    .filter(item => vodDateOK(item, at, windowMs))
     // 같은 등급이면 **경기 시각에 가장 가까운** 것. 최신순으로 뽑으면 같은 대진의
     // 나중 경기 영상이 이깁니다 — 실제로 그렇게 잘못 걸렸다.
     .sort((x, y) => rankOf(x.title) - rankOf(y.title)
@@ -157,6 +163,7 @@ const tooEarly = at => {
 // 그런데 검색어가 "2026 LCK" 로 못 박혀 있어서 MSI 영상은 영영 안 걸렸다.
 // 대회마다 제목 꼬리가 다르므로 여기서 갈라 준다.
 const TOUR_TERM = { msi2026: "MSI 2026", ewc2026: "EWC 2026" };
+const TOUR_WINDOW_MS = 21 * 24 * 60 * 60 * 1000;   // 어림 날짜를 견디는 넉넉한 창
 
 async function handler(req, res) {
   const query = (req && req.query) || {};
@@ -185,7 +192,9 @@ async function handler(req, res) {
       const search = await fetch(`https://www.youtube.com/@LCK/search?query=${encodeURIComponent(term)}`, {
         headers: { "user-agent": "Mozilla/5.0 (compatible; TheNexus-LCK-FanSite/2.0)", "accept-language": "ko-KR,ko;q=0.9" },
       });
-      if (search.ok) vod = pickKoreanVod(parseSearchPage(await search.text()), a, b, query.at);
+      const isTour = !!TOUR_TERM[String(query.tour || "").trim()];
+      if (search.ok) vod = pickKoreanVod(parseSearchPage(await search.text()), a, b, query.at,
+        isTour ? TOUR_WINDOW_MS : undefined);
     }
     return ok(res, vod ? {
       status: "ready", source: "LCK 한국 공식 YouTube", channelUrl: LCK_KR_CHANNEL_URL,
