@@ -17,11 +17,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260816b">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260816b">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260816c">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260816c">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260816b">
+  <link rel="stylesheet" href="assets/styles.css?v=20260816c">
 </head>
 <body>
   <main class="page">
@@ -100,14 +100,14 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260816b"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260816b"></script>
-  <script src="assets/invariants.js?v=20260816b"></script>
-  <script src="assets/store.js?v=20260816b"></script>
-  <script src="assets/app.js?v=20260816b"></script>
-  <script src="assets/story.js?v=20260816b"></script>
-  <script src="assets/ddragon.js?v=20260816b"></script>
-  <script src="assets/race.js?v=20260816b"></script>
+  <script src="assets/data.js?v=20260816c"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260816c"></script>
+  <script src="assets/invariants.js?v=20260816c"></script>
+  <script src="assets/store.js?v=20260816c"></script>
+  <script src="assets/app.js?v=20260816c"></script>
+  <script src="assets/story.js?v=20260816c"></script>
+  <script src="assets/ddragon.js?v=20260816c"></script>
+  <script src="assets/race.js?v=20260816c"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -440,7 +440,9 @@
       const playersInSet = set.players.filter(p => (p.champ || "").trim());
       const sideOf = setSides(match, playersInSet);
       const aList = [], bList = [];
-      playersInSet.forEach(p => (sideOf[p.pid] === "b" ? bList : aList).push(p));
+      // ⚠ setSides 와 **같은 열쇠**로 꺼내야 한다. pid 로 꺼내면 해외 선수(pid 없음)가 전원
+      //   한쪽에 몰린다. playerKey 가 pid → nick 순으로 봐 준다.
+      playersInSet.forEach(p => (sideOf[playerKey(p)] === "b" ? bList : aList).push(p));
       // 탑 → 정글 → 미드 → 원딜 → 서폿 순으로.
       // 리그피디아는 **선수 이름 알파벳순**으로 주기 때문에, 정렬하지 않으면
       // 탑·미드·서폿·정글·원딜처럼 뒤죽박죽으로 나온다. (2026-08-07)

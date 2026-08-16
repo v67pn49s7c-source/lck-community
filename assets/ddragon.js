@@ -50,18 +50,23 @@ async function ddInit() {
     const ver = vers[0];
     // 같은 패치면 캐시 재사용 (패치가 바뀌면 자동 갱신)
     try {
-      const cached = JSON.parse(localStorage.getItem("nexus_dd_v6") || "null");
+      const cached = JSON.parse(localStorage.getItem("nexus_dd_v7") || "null");
       if (cached && cached.ver === ver) { Object.assign(DD, cached); return true; }
     } catch {}
     const base = `${DD_CDN}/${ver}/data/ko_KR/`;
     const enBase = `${DD_CDN}/${ver}/data/en_US/`;
-    const [item, itemEn, summ, runes, champ, champEn] = await Promise.all([
+    const [item, itemEn, summ, runes, champ, champEn, summEn, runesEn] = await Promise.all([
       fetch(base + "item.json").then(r => r.json()),
       fetch(enBase + "item.json").then(r => r.json()),
       fetch(base + "summoner.json").then(r => r.json()),
       fetch(base + "runesReforged.json").then(r => r.json()),
       fetch(base + "champion.json").then(r => r.json()),
       fetch(enBase + "champion.json").then(r => r.json()),
+      // 국제 대회(MSI·EWC) 기록은 원본이 **영어**다 ("Teleport", "Lethal Tempo").
+      // 아이템·챔피언은 진작 영어까지 받고 있었는데 스펠·룬만 한글만 받아서,
+      // 영문 이름이 아이콘을 못 찾고 글자 그대로 나왔다 (2026-08-16 사장님 화면).
+      fetch(enBase + "summoner.json").then(r => r.json()),
+      fetch(enBase + "runesReforged.json").then(r => r.json()),
     ]);
     DD.ver = ver;
     // ⚠ 장신구(와드·렌즈)는 아이템 칸에서 걸러야 한다. Data Dragon 이 종류를 알려 준다
@@ -102,6 +107,10 @@ async function ddInit() {
       }
       if (classic) DD.spells[sp.name] = sp.image.full;     // 협곡용이면 무조건 이긴다
     });
+    // 영어 이름도 같은 아이콘으로 이어 준다. 한글 이름을 덮어쓰지는 않는다.
+    Object.values(summEn.data || {}).forEach(sp => {
+      if ((sp.modes || []).includes("CLASSIC") && DD.spells[sp.name] == null) DD.spells[sp.name] = sp.image.full;
+    });
     runes.forEach(tree => {
       DD.runes[tree.name] = tree.icon; // 트리 이름 (정밀·지배·마법·결의·영감)
       DD.runeInfo[tree.name] = { text: `${tree.name} 계열` };
@@ -110,6 +119,12 @@ async function ddInit() {
         DD.runeInfo[r.name] = {
           text: String(r.shortDesc || r.longDesc || "").replace(/<br\s*\/?>/gi, " ").replace(/<[^>]+>/g, "").trim().slice(0, 110),
         };
+      }));
+    });
+    (runesEn || []).forEach(tree => {
+      if (DD.runes[tree.name] == null) DD.runes[tree.name] = tree.icon;
+      tree.slots.forEach(sl => sl.runes.forEach(r => {
+        if (DD.runes[r.name] == null) DD.runes[r.name] = r.icon;
       }));
     });
     // 같은 표시 이름을 쓰는 이벤트/아레나 변형(Jade_Alistar 등)이 정식 초상화를
@@ -125,7 +140,8 @@ async function ddInit() {
       localStorage.removeItem("nexus_dd_v3");
       localStorage.removeItem("nexus_dd_v4");
       localStorage.removeItem("nexus_dd_v5");
-      localStorage.setItem("nexus_dd_v6", JSON.stringify(DD));
+      localStorage.removeItem("nexus_dd_v6");   // v7: 스펠·룬 영어 이름 추가
+      localStorage.setItem("nexus_dd_v7", JSON.stringify(DD));
     } catch {}
     return true;
   } catch (e) { console.error("[ddragon]", e); return false; }

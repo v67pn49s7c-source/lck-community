@@ -215,9 +215,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260816b"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260816b"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260816b"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260816c"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260816c"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260816c"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -1256,17 +1256,24 @@ function fanRatingRows(match, setIndex) {
 //   2) 없으면 현재 소속이 그 경기 두 팀 중 하나인 선수부터 배정하고,
 //      남은 선수(=이적자)는 아직 5자리가 안 찬 쪽에 넣는다
 // 돌려주는 값: { 선수id: "a" | "b" }
+/** 기록 속 선수 한 명을 가리키는 열쇠.
+ *  ⚠ pid 만 쓰면 안 된다. 국제 대회(MSI·EWC) 해외 선수는 우리 players 표에 없어서
+ *    pid 가 아예 없다. 그러면 아래 filter 에서 전원이 걸러져 편 가르기 결과가 텅 비고,
+ *    화면은 10명을 **한쪽 팀에 몰아** 그린다 (2026-08-16 사장님 화면이 그랬다). */
+function playerKey(p) { return (p && (p.pid || p.nick)) || ""; }
+
 function setSides(match, setPlayers) {
   const out = {};
-  const list = (setPlayers || []).filter(p => p && p.pid);
+  const list = (setPlayers || []).filter(p => playerKey(p));
   const count = { a: 0, b: 0 };
   const left = [];
   list.forEach(p => {
-    if (p.side === "a" || p.side === "b") { out[p.pid] = p.side; count[p.side]++; return; }
+    const key = playerKey(p);
+    if (p.side === "a" || p.side === "b") { out[key] = p.side; count[p.side]++; return; }
     const t = playedForTeam(p.pid) || (getPlayer(p.pid) || {}).team;
-    if (t === match.a) { out[p.pid] = "a"; count.a++; }
-    else if (t === match.b) { out[p.pid] = "b"; count.b++; }
-    else left.push(p.pid);
+    if (t === match.a) { out[key] = "a"; count.a++; }
+    else if (t === match.b) { out[key] = "b"; count.b++; }
+    else left.push(key);
   });
   left.forEach(pid => {
     const side = count.a <= count.b ? "a" : "b";   // 덜 찬 쪽으로

@@ -64,7 +64,10 @@ vm.runInContext(source + "\n;globalThis.__ddTest = { DD, ddInit, ddLookup, ddIte
     "영문 챔피언명도 챔피언 초상화로 렌더해야 함");
   assert.strictEqual(api.ddLookup(api.DD.champs, "자르반 4세"), "JarvanIV",
     "이벤트 변형 챔피언보다 정식 챔피언 id를 우선해야 함");
-  assert(storage.has("nexus_dd_v6"), "새 다국어 매핑 캐시를 저장해야 함");
+  assert(storage.has("nexus_dd_v7"), "새 다국어 매핑 캐시를 저장해야 함");
+  // 국제 대회 기록은 원본이 영어다. 스펠·룬도 영어 사전을 받아야 아이콘이 뜬다.
+  assert(/fetch\(enBase \+ "summoner\.json"\)/.test(source) && /fetch\(enBase \+ "runesReforged\.json"\)/.test(source),
+    "스펠·룬도 영어 이름을 받아야 함 (예전에는 아이템·챔피언만 받았다)");
 
   assert(live.includes('class="dt-dmg"'), "딜량 막대 UI가 있어야 함");
   assert(live.includes('ddChampHTML(p.champ, 46)'), "상세 챔피언 초상화는 큰 크기로 요청해야 함");
