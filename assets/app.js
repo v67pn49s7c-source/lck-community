@@ -358,9 +358,9 @@ function renderHeader(activeMenu, activeTeamId) {
           stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817g")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817g")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817g")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817h")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817h")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817h")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -395,7 +395,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817g");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817h");
 
   renderTabBar(groupName);
 }
@@ -947,6 +947,9 @@ function renderTabBar(activeMenu) {
 function renderFooter() {
   const f = document.createElement("footer");
   f.className = "site-footer";
+  const homeTrust = document.body.classList.contains("home-redesign")
+    ? `<div class="footer-data-trust home-data-trust" id="home-data-trust"
+          role="status" aria-live="polite"></div>` : "";
   f.innerHTML = `
     <div class="container">
       <p class="foot-disclaimer">
@@ -973,6 +976,7 @@ function renderFooter() {
           / <a href="${SNS_URL}" target="_blank" rel="noopener noreferrer">인스타그램 ${SNS_HANDLE} DM</a>
         · <a href="admin.html">관리자</a>
       </p>
+      ${homeTrust}
     </div>`;
   document.body.appendChild(f);
 }
@@ -2164,7 +2168,7 @@ function renderHomeDataTrust() {
   if (level === "blocked") text = "경기 자료 정합성 확인 중 · 확정·무산 판정 보류";
   else if (level === "warn") text = "경기 데이터 갱신 지연 · 현재 자료 기준";
   else if (trust.updatedAt) text += ` · ${fmtAgo(trust.updatedAt)}`;
-  el.className = `home-data-trust ${level}`;
+  el.className = `footer-data-trust home-data-trust ${level}`;
   el.innerHTML = `<span class="trust-dot" aria-hidden="true"></span><span>${esc(text)}</span>`;
 }
 
@@ -2189,6 +2193,9 @@ async function initHome() {
   // 경기 결과가 방금 들어왔을 때도 이 방문자에게 바로 보여 준다 (새로고침 없이)
   onStoreRefresh(draw);
   renderFooter();
+  // 홈 상단을 실제 콘텐츠부터 시작하게 하고, 자료 상태는 운영·법적 안내가 모인
+  // 푸터 최하단에 둔다. 푸터가 생긴 뒤 최초 상태를 한 번 채워야 한다.
+  renderHomeDataTrust();
 }
 
 // ── 세트 스코어보드 ──────────────────────────────────────────────

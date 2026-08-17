@@ -38,7 +38,7 @@
 - 캘린더 처리는 기존 `api/match.js`에 합쳤다. 별도 함수 파일을 추가하면 Vercel Hobby의
   12개 Serverless Function 제한으로 실제 배포가 거부된다. 회귀 검사는 `tests/growth-features.test.js`.
 - 전체 기능은 기존 `matches` 읽기만 사용하며 **SQL 변경·운영 DB 쓰기가 없다.**
-- 자산 버전 `20260817g`.
+- 자산 버전 `20260817h`.
 
 ## 2026-08-17 — 2차 운영 안정화
 

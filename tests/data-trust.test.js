@@ -63,8 +63,10 @@ ok(!ctx.raceWhyEmpty("r34L").includes("순위가 모두 확정"),
 const home = read("index.html");
 const app = read("assets/app.js");
 const admin = read("admin.html");
-ok(/id="home-data-trust"[^>]*role="status"[^>]*aria-live="polite"/.test(home),
-  "홈 데이터 상태는 보조기기에도 갱신을 알려야 함");
+ok(!/class="home-intro"/.test(home) && !/<h1>LCK 팬 커뮤니티<\/h1>/.test(home),
+  "홈은 소개 문구 없이 실제 콘텐츠부터 시작해야 함");
+ok(/footer-data-trust home-data-trust[^`]+id="home-data-trust"[^`]+role="status"[^`]+aria-live="polite"/.test(app),
+  "홈 데이터 상태는 푸터 최하단에서 보조기기에도 갱신을 알려야 함");
 ok(home.indexOf("assets/invariants.js") < home.indexOf("assets/store.js"),
   "홈은 신뢰 판정을 화면 렌더보다 먼저 읽어야 함");
 ok(/renderHomeDataTrust\(\)/.test(app) && /dataTrustSummary\(getMatches\(\)/.test(app),
