@@ -119,6 +119,12 @@ ok(cleanTitle("제목 - 인벤", "인벤") === "제목" && cleanTitle("제목", 
   const css = fs.readFileSync(path.join(__dirname, "..", "assets/styles.css"), "utf8");
   ok(/class="news-lead\$\{lead\.image \? " has-thumb" : ""\}"/.test(app),
     "사진이 있는 기사만 has-thumb 를 달아야 함");
+  // 머리기사에 사진이 없으면 왼쪽 큰 칸이 통째로 빈다
+  ok(/const leadIdx = Math\.max\(0, items\.findIndex\(x => x\.image\)\)/.test(app),
+    "머리기사는 사진 있는 기사로 골라야 함");
+  // j 를 try 안에서 const 로 선언하면 밖에서 ReferenceError → 뉴스가 통째로 안 뜬다
+  ok(/let items = \[\], j = null;/.test(app),
+    "응답 객체는 try 밖에서도 쓰므로 밖에서 선언해야 함");
   ok(/\.news-lead:not\(\.has-thumb\) \.news-thumb \{ display: none; \}/.test(css) &&
      /\.news-row:not\(\.has-thumb\) \.news-thumb \{ display: none; \}/.test(css),
     "사진 없는 기사는 사진 자리를 접어야 함 (빈 칸이 이 빠진 것처럼 보인다)");

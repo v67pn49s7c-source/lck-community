@@ -358,9 +358,9 @@ function renderHeader(activeMenu, activeTeamId) {
           stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817a")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817a")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817a")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817b")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817b")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817b")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -395,7 +395,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817a");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817b");
 
   renderTabBar(groupName);
 }
@@ -1810,11 +1810,13 @@ async function renderHomeNews() {
   const card = document.getElementById("home-news-card");
   if (!card || newsLoaded) return;
   newsLoaded = true;
-  let items = [];
+  // ⚠ j 는 try 밖에서도 쓴다 (출처 표시). 안에서 const 로 선언하면 밖에서
+  //   ReferenceError 가 나고 **뉴스 카드가 통째로 안 뜬다** (2026-08-17 실제 사고).
+  let items = [], j = null;
   try {
     const r = await fetch("/api/news?limit=6");
     if (!r.ok) return;
-    const j = await r.json();
+    j = await r.json();
     // ⚠ api/_lib.js 의 ok() 는 본문을 **그대로** 보낸다 (data 로 감싸지 않는다).
     //    j.data.items 로 읽으면 늘 비어서 카드가 영영 안 뜬다.
     items = (j && (j.items || (j.data && j.data.items))) || [];
@@ -1832,8 +1834,11 @@ async function renderHomeNews() {
          onerror="this.closest('a').classList.remove('has-thumb')"></span>`
     : "";
   const meta = n => `${n.source ? esc(n.source) : ""}${n.at ? `${n.source ? " · " : ""}${esc(fmtAgo(n.at))}` : ""}`;
-  const lead = items[0];
-  const rest = items.slice(1);
+  // ⚠ 머리기사는 **사진이 있는 것**으로 고른다. 무조건 첫 기사를 크게 쓰면 그 기사에
+  //   사진이 없을 때 왼쪽 큰 칸이 통째로 빈다. 사진 있는 기사가 없으면 첫 기사(글자만).
+  const leadIdx = Math.max(0, items.findIndex(x => x.image));
+  const lead = items[leadIdx];
+  const rest = items.filter((_, i) => i !== leadIdx);
   document.getElementById("home-news-body").innerHTML = `
    <div class="news-stand">
     ${lead ? `<a class="news-lead${lead.image ? " has-thumb" : ""}" href="${esc(lead.url)}"
