@@ -23,7 +23,11 @@ button { color:inherit; font:inherit; }
 .main-nav a { position:relative; display:flex; align-items:center; color:#aeb7c7; font-size:16px; font-weight:800; }
 .main-nav a:hover,.main-nav a.active { color:var(--text); }
 .main-nav a.active:after { content:""; position:absolute; left:0; right:0; bottom:0; height:3px; background:var(--gold); }
-.header-actions { margin-left:auto; display:flex; gap:8px; }
+.header-actions { margin-left:auto; display:flex; align-items:center; gap:8px; }
+/* ⚠ 로그인 영역은 app.js 가 <span> 하나로 넣어 준다. 그 안의 버튼들이 기본 block 이라
+   여기서 가로로 눕히지 않으면 **세로로 쌓이고 헤더 밖으로 넘친다** (사장님 2026-08-17).
+   LCK 헤더 쪽 CSS 에는 이 규칙이 있는데 월즈 쪽에만 없었다. */
+.header-actions > span { display:flex; align-items:center; gap:8px; }
 .header-actions button { min-height:38px; padding:0 14px; border:1px solid var(--line); background:var(--surface); font-weight:800; cursor:pointer; }
 .header-actions a { min-height:38px; padding:0 14px; display:flex; align-items:center; border:1px solid var(--line); background:var(--surface); font-size:12px; font-weight:800; }
 .worlds-nav { border-bottom:1px solid var(--line); background:#0b0f18; }
