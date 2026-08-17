@@ -1,6 +1,6 @@
 const assert = require("assert");
 const fs = require("fs");
-const { _test } = require("../api/calendar");
+const { _calendarTest: _test } = require("../api/match");
 
 const matches = [
   { id: "t1 / gen", at: "2026-08-22T08:00:00Z", a: "t1", b: "gen", status: "upcoming", label: "정규 시즌", stage: "Week 13" },
@@ -32,9 +32,9 @@ const team = fs.readFileSync("team.html", "utf8");
 const board = fs.readFileSync("assets/board.js", "utf8");
 const vercel = JSON.parse(fs.readFileSync("vercel.json", "utf8"));
 
-assert(vercel.rewrites.some(r => r.source === "/calendar/lck.ics" && r.destination === "/api/calendar"),
+assert(vercel.rewrites.some(r => r.source === "/calendar/lck.ics" && r.destination === "/api/match?calendar=lck"),
   "전체 캘린더의 영구 구독 주소가 있어야 함");
-assert(vercel.rewrites.some(r => r.source === "/calendar/:team.ics" && r.destination.includes("team=:team")),
+assert(vercel.rewrites.some(r => r.source === "/calendar/:team.ics" && r.destination.includes("calendar=:team")),
   "팀별 캘린더의 영구 구독 주소가 있어야 함");
 assert(schedule.includes('id="team-filter"') && schedule.includes('id="schedule-calendar"'),
   "전체 일정에서 팀 필터와 캘린더 구독을 함께 제공해야 함");

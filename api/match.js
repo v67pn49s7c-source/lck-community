@@ -42,6 +42,64 @@ const TEAMS = {
 const teamName = id => (TEAMS[id] || {}).name || id || "미정";
 const teamAbbr = id => (TEAMS[id] || {}).abbr || id || "미정";
 
+// ── LCK 경기 캘린더 구독 ──────────────────────────────────
+// Hobby 플랜은 Serverless Function이 12개까지라 별도 api/calendar.js를 만들면
+// 배포가 거부된다. 같은 공개 경기 데이터를 읽는 이 함수에 합쳐 함수 수를 늘리지 않는다.
+const icsText = value => String(value ?? "")
+  .replace(/\\/g, "\\\\").replace(/\r?\n/g, "\\n")
+  .replace(/,/g, "\\,").replace(/;/g, "\\;");
+const icsDate = value => {
+  const d = new Date(value);
+  if (!Number.isFinite(d.getTime())) return "";
+  return d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+};
+function foldLine(line) {
+  const out = [];
+  let rest = String(line), first = true;
+  while (Buffer.byteLength(rest, "utf8") > (first ? 75 : 74)) {
+    const max = first ? 75 : 74;
+    let cut = 0, bytes = 0;
+    for (const ch of rest) {
+      const n = Buffer.byteLength(ch, "utf8");
+      if (bytes + n > max) break;
+      bytes += n; cut += ch.length;
+    }
+    out.push((first ? "" : " ") + rest.slice(0, cut));
+    rest = rest.slice(cut); first = false;
+  }
+  out.push((first ? "" : " ") + rest);
+  return out.join("\r\n");
+}
+function buildCalendar(matches, teamId = "") {
+  const filtered = (matches || []).filter(m => m && m.id && m.at && TEAMS[m.a] && TEAMS[m.b])
+    .filter(m => !teamId || m.a === teamId || m.b === teamId)
+    .sort((a, b) => new Date(a.at) - new Date(b.at));
+  const name = teamId ? `${teamAbbr(teamId)} 경기 — The Nexus` : "LCK 경기 — The Nexus";
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//The Nexus//LCK Calendar//KO",
+    "CALSCALE:GREGORIAN", "METHOD:PUBLISH", `X-WR-CALNAME:${icsText(name)}`,
+    "X-WR-TIMEZONE:Asia/Seoul", "REFRESH-INTERVAL;VALUE=DURATION:PT30M", "X-PUBLISHED-TTL:PT30M"];
+  filtered.forEach(m => {
+    const start = new Date(m.at), end = new Date(start.getTime() + 3 * 60 * 60 * 1000);
+    const done = m.status === "done" && m.score_a != null && m.score_b != null;
+    const score = done ? ` ${m.score_a}:${m.score_b}` : "";
+    const detail = [m.label, m.stage, done ? "경기 종료" : "경기 정보·팬 예측 보기"].filter(Boolean).join(" · ");
+    lines.push("BEGIN:VEVENT", `UID:${icsText(m.id)}@lck-community.vercel.app`,
+      `DTSTAMP:${icsDate(new Date())}`, `DTSTART:${icsDate(start)}`, `DTEND:${icsDate(end)}`,
+      `SUMMARY:${icsText(`LCK | ${teamAbbr(m.a)} vs ${teamAbbr(m.b)}${score}`)}`,
+      `DESCRIPTION:${icsText(detail)}`, `URL:${SITE}/match/${encodeURIComponent(m.id)}`,
+      "STATUS:CONFIRMED", "END:VEVENT");
+  });
+  lines.push("END:VCALENDAR");
+  return lines.map(foldLine).join("\r\n") + "\r\n";
+}
+function calendarResponse(res, body, team) {
+  res.setHeader("content-type", "text/calendar; charset=utf-8");
+  res.setHeader("content-disposition", `inline; filename="the-nexus-${team || "lck"}.ics"`);
+  res.setHeader("cache-control", "public, s-maxage=900, stale-while-revalidate=300");
+  res.setHeader("x-robots-tag", "noindex");
+  return res.status(200).send(body);
+}
+
 function html(res, body, cacheSeconds, status) {
   res.setHeader("content-type", "text/html; charset=utf-8");
   res.setHeader("cache-control",
@@ -163,6 +221,17 @@ location.replace("/live.html?match=${encodeURIComponent(m.id)}" + location.hash)
 }
 
 module.exports = async (req, res) => {
+  const calendar = String((req.query && req.query.calendar) || "").trim().toLowerCase();
+  if (calendar) {
+    const team = calendar === "lck" ? "" : calendar;
+    if (team && !TEAMS[team]) return res.status(404).send("Unknown team");
+    try {
+      const rows = await sb("matches?select=id,at,a,b,status,score_a,score_b,label,stage&order=at.asc&limit=500");
+      return calendarResponse(res, buildCalendar(rows, team), team);
+    } catch {
+      return res.status(500).send("경기 캘린더를 만들지 못했습니다");
+    }
+  }
   const id = String((req.query && req.query.id) || "").trim();
   if (!id) return html(res, notFound("경기를 지정해 주세요"), 60, 404);
 
@@ -185,6 +254,7 @@ module.exports = async (req, res) => {
     return html(res, notFound("경기 정보를 불러오지 못했습니다"), 30, 500);
   }
 };
+module.exports._calendarTest = { icsText, icsDate, foldLine, buildCalendar };
 
 function notFound(msg) {
   return `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">

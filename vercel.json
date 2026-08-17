@@ -27,11 +27,11 @@
     },
     {
       "source": "/calendar/lck.ics",
-      "destination": "/api/calendar"
+      "destination": "/api/match?calendar=lck"
     },
     {
       "source": "/calendar/:team.ics",
-      "destination": "/api/calendar?team=:team"
+      "destination": "/api/match?calendar=:team"
     },
     {
       "source": "/sitemap.xml",
