@@ -81,7 +81,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260817m") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260817n") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -164,6 +164,16 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
 .header-inner { display: flex; align-items: center; gap:24px; height: 52px; }
 .brand { display: flex; align-items: center; flex-shrink: 0; }
 .brand-full { height: 34px; display: block; }
+
+/* 넓은 화면에서는 헤더를 키운다 (사장님 2026-08-18) — 월즈 스킨과 같은 크기.
+   ⚠ 모바일은 그대로 둔다. 좁은 화면에서는 위(헤더)와 아래(탭바)가 함께 화면을
+     잡아먹어서, 헤더를 키우면 정작 볼 내용이 밀린다. 그래서 폭으로 나눈다. */
+@media (min-width: 721px) {
+  .header-inner { height: 78px; gap:42px; }
+  .brand-full { height: 44px; }
+  .main-nav { gap:34px; }
+  .main-nav a { font-size: var(--fs-md); }
+}
 /* 테마별 워드마크: 라이트=원본(검정 글자), 다크=밝은 글자 버전 */
 .brand-full.dark { display: none; }
 :root[data-theme="dark"] .brand-full.light { display: none; }
