@@ -14,6 +14,7 @@ const sync = read("api/schedule-sync.js");
 const store = read("assets/store.js");
 const app = read("assets/app.js");
 const wf = read(".github/workflows/lck-sync.yml");
+const { scheduleProgress } = require("../api/schedule-sync")._test;
 
 let n = 0;
 const ok = (c, m) => { assert.ok(c, m); n++; };
@@ -48,6 +49,16 @@ ok(/num\(prev\.score_a\) !== num\(row\.score_a\)/.test(sync),
   "스코어 비교는 숫자로 (DB가 문자열로 줄 수 있다)");
 ok(/결과변경: changed\.length/.test(sync), "브라우저가 쓸 신호를 돌려줘야 함");
 ok(/간격분: gap/.test(sync), "지금 간격이 얼마인지도 알려 주면 진단이 쉽다");
+assert.deepStrictEqual(scheduleProgress({ status: "done", score_a: 2, score_b: 0 }, false, 0, 0),
+  { status: "done", score_a: 2, score_b: 0 }); n++;
+assert.deepStrictEqual(scheduleProgress({ status: "live", score_a: 1, score_b: 0 }, false, 0, 0),
+  { status: "live", score_a: 1, score_b: 0 }); n++;
+assert.deepStrictEqual(scheduleProgress({ status: "upcoming", score_a: 2, score_b: 0 }, false, 0, 0),
+  { status: "upcoming", score_a: null, score_b: null }); n++;
+assert.deepStrictEqual(scheduleProgress(null, true, "2", "1"),
+  { status: "done", score_a: 2, score_b: 1 }); n++;
+ok(/ok_at: Date\.now\(\)/.test(sync), "잠금 시각과 마지막 성공 시각을 구분해야 함");
+ok(/failed_at: Date\.now\(\)/.test(sync), "실패 시각을 남겨 갱신 성공처럼 보이지 않게 해야 함");
 
 // 잠금은 여전히 Leaguepedia 를 부르기 **전에** 찍혀야 한다 (2026-08-07 사고)
 // ⚠ 함수 **정의**(async function fetchSchedule)가 아니라 **호출부**와 비교해야 한다

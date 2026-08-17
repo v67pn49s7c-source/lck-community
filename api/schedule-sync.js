@@ -74,6 +74,24 @@ function adopt(existing, used, teamA, teamB, atISO) {
     Math.abs(Date.parse(m.at) - t) < ADOPT_HOURS * 3600e3);
 }
 
+/** 일정표 한 행을 우리 경기의 진행 상태로 합친다.
+ *
+ * 상태는 예정 → 진행 중 → 종료 방향으로만 간다. Leaguepedia가 막혀 경기 시작 전에
+ * 받아 둔 저장분(Winner·스코어 없음)을 다시 쓰더라도 이미 끝난 경기를 예정으로
+ * 되돌리면 안 된다. 새 응답이 명시적으로 종료를 증명할 때만 최종 스코어를 갱신한다.
+ */
+function scheduleProgress(prev, finished, scoreA, scoreB) {
+  if (finished) return { status: "done", score_a: Number(scoreA), score_b: Number(scoreB) };
+  if (prev && prev.status === "done") {
+    return { status: "done", score_a: prev.score_a, score_b: prev.score_b };
+  }
+  if (prev && prev.status === "live") {
+    return { status: "live", score_a: prev.score_a, score_b: prev.score_b };
+  }
+  // 예정 경기에 남아 있는 점수는 유령 행의 재료다. 종료 증명이 없으면 비운다.
+  return { status: "upcoming", score_a: null, score_b: null };
+}
+
 async function runSync({ pages, force }) {
   const aliases = JSON.parse((await loadSetting("lp_aliases")) || "{}");
   const teamMap = aliases.teams || {};
@@ -154,6 +172,7 @@ async function runSync({ pages, force }) {
 
       const prev = byLp[lpId] || adopt(existing, used, a, b, at);
       if (prev) used.add(prev.id);
+      const progress = scheduleProgress(prev, finished, s1, s2);
       const row = {
         id: prev ? prev.id : matchIdOf(lpId),
         lp_id: lpId,
@@ -167,10 +186,9 @@ async function runSync({ pages, force }) {
         //   갱신 때마다 조용히 지워졌다 (이제 매일 자동으로 도는 만큼 더 나쁘다). 2026-08-07
         label: prev ? (prev.label || "") : "",
         odds_a: 2, odds_b: 2,
-        // 관리자가 '진행 중'으로 바꿔 둔 경기를 되돌리지 않는다
-        status: finished ? "done" : (prev && prev.status === "live" ? "live" : "upcoming"),
-        score_a: finished ? Number(s1) : (prev ? prev.score_a : null),
-        score_b: finished ? Number(s2) : (prev ? prev.score_b : null),
+        status: progress.status,
+        score_a: progress.score_a,
+        score_b: progress.score_b,
       };
       // 이미 순위에 반영한 경기는 스코어·상태를 건드리지 않는다 (전적이 어긋난다)
       if (prev && prev.counted) {
@@ -207,7 +225,8 @@ async function runSync({ pages, force }) {
   }
 
   await saveSetting("schedule_sync", JSON.stringify({
-    ...state, at: Date.now(), pages: list, saved, seen,
+    ...state, at: Date.now(), ok_at: Date.now(), pages: list, saved, seen,
+    source: [...sources].join(", "), failed_at: 0, last_error: "",
   }));
 
   const fresh = rows.filter(u => !existing.some(m => m.id === u.id));
@@ -250,7 +269,18 @@ module.exports = async (req, res) => {
     const out = await runSync({ pages, force: privileged });
     return ok(res, out);
   } catch (e) {
-    if (e.rate) return ok(res, { skipped: true, 이유: e.message });   // 제한은 오류가 아니다
+    // 잠금 시각(at)과 마지막 성공(ok_at)을 분리해 둔다. 실패했는데도 "방금 갱신"으로
+    // 보이면 운영자와 방문자 모두 문제를 놓친다. 외부 호출 제한은 HTTP 오류로
+    // 취급하지 않더라도 "이번 갱신은 성공하지 못했다"는 사실은 똑같이 남긴다.
+    try {
+      const state = JSON.parse((await loadSetting("schedule_sync")) || "{}");
+      await saveSetting("schedule_sync", JSON.stringify({
+        ...state, failed_at: Date.now(), last_error: String(e.message || e).slice(0, 240),
+      }));
+    } catch {}
+    if (e.rate) return ok(res, { skipped: true, 이유: e.message });   // 제한은 HTTP 오류가 아니다
     return fail(res, 500, e.message || String(e));
   }
 };
+
+module.exports._test = { gapMinutes, scheduleProgress };

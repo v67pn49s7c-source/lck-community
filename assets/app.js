@@ -358,9 +358,9 @@ function renderHeader(activeMenu, activeTeamId) {
           stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817c")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817c")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817c")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817d")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817d")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817d")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -395,7 +395,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817c");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817d");
 
   renderTabBar(groupName);
 }
@@ -1979,6 +1979,25 @@ function renderTodayPoll() {
     m ? { teamA: m.a, teamB: m.b } : {});
 }
 
+// 방문자에게는 내부 오류 대신 "자료를 언제 확인했는지"와 단정 보류 여부만 짧게 알린다.
+// 오류 원문·외부 API 이름은 관리자 화면에서만 보여 준다.
+function renderHomeDataTrust() {
+  const el = document.getElementById("home-data-trust");
+  if (!el || typeof dataTrustSummary !== "function") return;
+  const trust = dataTrustSummary(getMatches(), getSetting("schedule_sync"), Date.now());
+  const raceBad = typeof raceDataHealth === "function"
+    ? Object.keys(typeof RACE_CUTS === "object" ? RACE_CUTS : {}).map(raceDataHealth).filter(x => !x.ok)
+    : [];
+  const level = trust.level === "blocked" || raceBad.some(x => x.code !== "not_ready")
+    ? "blocked" : trust.level;
+  let text = "경기 데이터 확인 완료";
+  if (level === "blocked") text = "경기 자료 정합성 확인 중 · 확정·무산 판정 보류";
+  else if (level === "warn") text = "경기 데이터 갱신 지연 · 현재 자료 기준";
+  else if (trust.updatedAt) text += ` · ${fmtAgo(trust.updatedAt)}`;
+  el.className = `home-data-trust ${level}`;
+  el.innerHTML = `<span class="trust-dot" aria-hidden="true"></span><span>${esc(text)}</span>`;
+}
+
 async function initHome() {
   await storeReady;
   renderHeader("홈", null);
@@ -1992,6 +2011,7 @@ async function initHome() {
     renderHomePulse();
     renderHomeNews();
     setupSidebarStandings();
+    renderHomeDataTrust();
   };
   draw();
   // 스냅샷으로 먼저 그린 뒤 최신 경기·게시글·순위·투표가 오면 한 번 더 갱신한다.

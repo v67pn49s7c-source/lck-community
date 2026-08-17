@@ -367,13 +367,51 @@ const RACE_CUTS = {
 // 경기 카드는 경기마다 결과를 묻는다 — 메모가 없으면 잔여 20경기(0.4초)에서 화면이 멈춘다.
 const _raceMemo = {};
 
-// Cache(store.js)에서 재료를 꺼내 그룹 하나를 계산한다
-function raceFromCache(stageId, opts) {
+/** 경우의 수 계산에 쓸 경기 묶음의 전제가 온전한지 확인한다.
+ *  관리자 화면에서 스테이지 이름만 바뀌어 경기와 연결이 끊기면, 예전 코드는
+ *  "남은 경기 0"으로 받아 전 팀 확정을 만들었다. 모르면 계산하지 않는 게 원칙이다. */
+function raceDataHealth(stageId) {
   const stage = Cache.records.find(s => s.id === stageId);
   const cutDefs = RACE_CUTS[stageId];
-  if (!stage || !cutDefs) return null;
+  if (!stage || !cutDefs) return { ok: false, code: "not_ready", message: "이 그룹은 아직 준비 중입니다" };
   const teams = (stage.records || []).map(r => r.team).filter(t => TEAM_MAP[t]);
-  if (teams.length < 2) return null;
+  if (teams.length < 2 || new Set(teams).size !== teams.length) {
+    return { ok: false, code: "bad_roster", message: "그룹 팀 명단을 확인 중입니다. 확정·무산 판정은 보류합니다." };
+  }
+  const key = x => String(x || "").trim().toLowerCase();
+  const matches = Cache.matches.filter(m => key(m.stage) === key(stage.name));
+  if (!matches.length) {
+    return { ok: false, code: "stage_unlinked", message: "경기와 그룹 연결을 확인 중입니다. 확정·무산 판정은 보류합니다." };
+  }
+  const foreign = matches.find(m => !teams.includes(m.a) || !teams.includes(m.b));
+  if (foreign) {
+    return { ok: false, code: "foreign_team", message: "그룹 밖 팀이 연결되어 경우의 수 판정을 보류합니다." };
+  }
+  const tids = [...new Set(matches.map(m => m.tid).filter(Boolean))];
+  if (tids.length > 1) {
+    return { ok: false, code: "mixed_tournament", message: "서로 다른 대회 경기가 섞여 경우의 수 판정을 보류합니다." };
+  }
+  if (tids.length === 1) {
+    const split = Cache.matches.some(m => m.tid === tids[0] && key(m.stage) !== key(stage.name)
+      && teams.includes(m.a) && teams.includes(m.b));
+    if (split) {
+      return { ok: false, code: "stage_split", message: "같은 그룹 경기가 여러 이름으로 갈려 경우의 수 판정을 보류합니다." };
+    }
+  }
+  const invalid = matches.find(m => typeof scheduleMatchViolations === "function"
+    && scheduleMatchViolations(m).length);
+  if (invalid) {
+    return { ok: false, code: "invalid_match", match: invalid,
+      message: "경기 상태와 스코어가 맞지 않아 확정·무산 판정을 보류합니다." };
+  }
+  return { ok: true, stage, cutDefs, teams, matches, remain: matches.filter(m => !matchWinner(m)) };
+}
+
+// Cache(store.js)에서 재료를 꺼내 그룹 하나를 계산한다
+function raceFromCache(stageId, opts) {
+  const health = raceDataHealth(stageId);
+  if (!health.ok) return null;
+  const { stage, cutDefs, teams, remain } = health;
 
   const base = {};
   cumulativeStandings().forEach(r => { if (teams.includes(r.team)) base[r.team] = r; });
@@ -384,17 +422,6 @@ function raceFromCache(stageId, opts) {
   // ⚠ "아직 안 끝난 경기"의 기준을 전적 집계와 **똑같이** 맞춘다.
   //   전적은 matchWinner(승자를 가릴 수 있는 경기)만 센다. 여기서 status!=="done" 을 쓰면
   //   'done 인데 점수가 비었거나 1:1' 인 경기가 전적에도 잔여에도 안 들어가 증발한다.
-  const unfinished = m => !matchWinner(m);
-  const remain = Cache.matches.filter(m =>
-    unfinished(m) && inTotal(m) && teams.includes(m.a) && teams.includes(m.b));
-
-  // 정합성 게이트 — 전제가 깨졌으면 조용히 틀리는 대신 아무 말도 하지 않는다.
-  // 전수 계산은 "이 5팀의 최종 승수 상한이 잔여 경기로 완전히 정해진다"를 깔고 있다.
-  // 그룹 팀이 낀 미종료 경기가 remain 밖에 하나라도 있으면 그 전제가 깨진다.
-  const touching = Cache.matches.filter(m =>
-    unfinished(m) && inTotal(m) && (teams.includes(m.a) || teams.includes(m.b))).length;
-  if (touching !== remain.length) return null;
-
   // ── 상대 전적 재료 (2026 LCK 규정집 2.7.2.2 / 2.8.5) ──────────────
   // 정규 라운드 최종 순위: 승리 경기 수 → 세트 득실 → **상대 전적**(2팀 동률에만) → 타이브레이커.
   // 맞대결 결과는 이미 계산 안(잔여 조합)에 들어 있으니 그대로 쓸 수 있다.
@@ -673,15 +700,10 @@ function raceCopyText(stageId) {
  *  예전에는 무조건 "아직 계산할 경기가 없습니다" 였는데, 실제로는 잔여 경기가
  *  너무 많아 거부된 경우(라운드 초반)일 수도 있어 사실과 달랐다. */
 function raceWhyEmpty(stageId) {
-  const stage = Cache.records.find(s => s.id === stageId);
-  if (!stage || !RACE_CUTS[stageId]) return "이 그룹은 아직 준비 중입니다";
-  const teams = (stage.records || []).map(r => r.team).filter(t => TEAM_MAP[t]);
-  const key = x => String(x || "").trim().toLowerCase();
-  const names = new Set(Cache.records.filter(stageInTotal).map(s => key(s.name)));
-  const left = Cache.matches.filter(m =>
-    m.status !== "done" && names.has(key(m.stage)) &&
-    teams.includes(m.a) && teams.includes(m.b)).length;
-  if (!left) return "이 그룹은 남은 경기가 없습니다 — 순위가 모두 확정됐습니다";
+  const health = raceDataHealth(stageId);
+  if (!health.ok) return health.message;
+  const left = health.remain.length;
+  if (!left) return "이 그룹의 모든 경기가 끝났습니다 — 최종 결과 기준입니다";
   if (left > 20) return `남은 ${left}경기는 조합이 100만 가지가 넘어 전수 계산을 하지 않습니다. `
     + `경기가 몇 번 더 치러지면 자동으로 나타납니다.`;
   return "아직 계산할 경기가 없습니다";

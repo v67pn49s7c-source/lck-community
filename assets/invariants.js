@@ -70,7 +70,72 @@ function pomPollViolations(poll, winnerAbbr, playedNicks) {
   return v;
 }
 
+// ── 일정·결과 공개 전 신뢰 게이트 ────────────────────────────────
+// 화면마다 각자 "끝난 경기인가"를 추측하면 한쪽은 결과, 다른 쪽은 예정으로
+// 말하는 사고가 생긴다. 여기서는 자동 수정하지 않고, 공개해도 되는지 한 번만 판정한다.
+function scheduleMatchViolations(match) {
+  const v = [];
+  if (!match) return ["경기 자료가 비어 있음"];
+  const status = String(match.status || "");
+  const sa = match.scoreA ?? match.score_a;
+  const sb = match.scoreB ?? match.score_b;
+  const a = sa == null || sa === "" ? null : Number(sa);
+  const b = sb == null || sb === "" ? null : Number(sb);
+  if (!["upcoming", "live", "done"].includes(status)) v.push(`알 수 없는 경기 상태 (${status || "없음"})`);
+  if ((a != null && !Number.isFinite(a)) || (b != null && !Number.isFinite(b))) {
+    v.push("스코어가 숫자가 아님");
+    return v;
+  }
+  if (status === "upcoming" && ((a || 0) + (b || 0) > 0)) {
+    v.push(`예정 경기인데 스코어가 있음 (${a || 0}:${b || 0})`);
+  }
+  if (status === "done") v.push(...finishedMatchViolations(match, []));
+  return v;
+}
+
+/** 마지막 수집 성공과 공개 경기 상태를 함께 본다.
+ *  scheduleState: site_settings.schedule_sync JSON 또는 파싱된 객체
+ *  level: ok | warn | blocked. blocked이면 확정·무산 같은 단정형 콘텐츠를 숨긴다. */
+function dataTrustSummary(matches, scheduleState, now) {
+  const clock = Number(now) || Date.now();
+  let state = scheduleState || {};
+  if (typeof state === "string") {
+    try { state = JSON.parse(state || "{}"); } catch { state = {}; }
+  }
+  const list = Array.isArray(matches) ? matches : [];
+  const violations = [];
+  list.forEach(m => {
+    const problems = scheduleMatchViolations(m);
+    if (problems.length) violations.push({ id: m.id || "", problems });
+  });
+
+  // 옛 저장본에는 ok_at이 없다. 첫 배포 직후에는 at을 성공 시각으로 한 번만 인정한다.
+  const updatedAt = Number(state.ok_at || state.at || 0) || 0;
+  const ageMs = updatedAt ? Math.max(0, clock - updatedAt) : null;
+  const nearGame = list.some(m => {
+    if (m.status === "done" || !m.at) return false;
+    const delta = clock - Date.parse(m.at);
+    return Number.isFinite(delta) && delta >= -2 * 3600e3 && delta <= 10 * 3600e3;
+  });
+  const staleAfter = nearGame ? 35 * 60000 : 6 * 3600e3;
+  const issues = [];
+  if (!updatedAt) issues.push("마지막 일정 수집 성공 시각이 없음");
+  else if (ageMs > staleAfter) issues.push("일정 수집이 평소보다 늦음");
+  if (/오래된 저장분/.test(String(state.source || ""))) issues.push("외부 원본 대신 저장분을 사용함");
+  if (Number(state.failed_at || 0) > 0 && Number(state.failed_at) >= updatedAt) {
+    issues.push("마지막 자동 수집이 실패함");
+  }
+
+  return {
+    level: violations.length ? "blocked" : issues.length ? "warn" : "ok",
+    updatedAt, ageMs, staleAfter, source: String(state.source || ""), issues, violations,
+  };
+}
+
 // Node(수집 API·테스트)에서도 같은 판정을 쓴다
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { finishedMatchViolations, pomPollViolations };
+  module.exports = {
+    finishedMatchViolations, pomPollViolations,
+    scheduleMatchViolations, dataTrustSummary,
+  };
 }

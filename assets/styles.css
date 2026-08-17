@@ -81,7 +81,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260817c") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260817d") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -605,6 +605,15 @@ body.nav-open-lock { overflow: hidden; }
 .home-intro { margin-bottom:18px; }
 .home-intro h1 { font-size: 26px; line-height: 1.2; letter-spacing: -.04em; }
 .home-intro p { margin-top:6px; color: var(--text-sub); font-size: var(--fs-sm); }
+.home-data-trust {
+  display: inline-flex; align-items: center; gap:7px; min-height:20px; margin-top:8px;
+  color: var(--text-dim); font-size: 12px; font-weight: 700;
+}
+.home-data-trust .trust-dot { width:7px; height:7px; border-radius:50%; background:#269868; }
+.home-data-trust.warn { color:#9a6b13; }
+.home-data-trust.warn .trust-dot { background:#d19a32; }
+.home-data-trust.blocked { color:var(--accent); }
+.home-data-trust.blocked .trust-dot { background:var(--accent-solid); }
 .home-layout { display: grid; grid-template-columns: minmax(0, 1fr) 330px; align-items: start; gap:15px; }
 .home-main-column, .home-sidebar { min-width: 0; }
 .home-sidebar { position: static; }

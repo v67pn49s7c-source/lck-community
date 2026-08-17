@@ -13,11 +13,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260817c">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260817c">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260817d">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260817d">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260817c">
+  <link rel="stylesheet" href="assets/styles.css?v=20260817d">
 </head>
 <body>
   <main class="page">
@@ -29,6 +29,7 @@
 
       <div class="admin-shell">
       <nav class="admin-nav" id="admin-nav">
+        <button type="button" data-tab="trust">운영 현황</button>
         <button type="button" data-tab="tournaments">대회</button>
         <button type="button" data-tab="matches">경기</button>
         <button type="button" data-tab="records">순위 전적</button>
@@ -44,6 +45,15 @@
         <button type="button" data-tab="info">안내</button>
       </nav>
       <div class="admin-main">
+
+      <!-- 운영자가 로그인하자마자 봐야 할 것: 수집 성공·모순·경우의 수 게이트 -->
+      <section class="card admin-panel" data-tab="trust">
+        <div class="card-head">
+          <h2 class="card-title">데이터 신뢰 현황 <span class="sub">오늘 먼저 확인할 항목</span></h2>
+          <button class="btn-secondary" id="trust-refresh" type="button">다시 확인</button>
+        </div>
+        <div id="trust-dashboard" class="admin-note" style="border-top:none">확인 중…</div>
+      </section>
 
       <!-- 대회 관리 -->
       <section class="card admin-panel" data-tab="tournaments">
@@ -357,14 +367,15 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260817c"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260817c"></script>
-  <script src="assets/invariants.js?v=20260817c"></script>
-  <script src="assets/store.js?v=20260817c"></script>
-  <script src="assets/app.js?v=20260817c"></script>
-  <script src="assets/story.js?v=20260817c"></script>
-  <script src="assets/ddragon.js?v=20260817c"></script>
-  <script src="assets/brackets.js?v=20260817c"></script>
+  <script src="assets/data.js?v=20260817d"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260817d"></script>
+  <script src="assets/invariants.js?v=20260817d"></script>
+  <script src="assets/store.js?v=20260817d"></script>
+  <script src="assets/app.js?v=20260817d"></script>
+  <script src="assets/race.js?v=20260817d"></script>
+  <script src="assets/story.js?v=20260817d"></script>
+  <script src="assets/ddragon.js?v=20260817d"></script>
+  <script src="assets/brackets.js?v=20260817d"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -1442,7 +1453,7 @@
         const valid = panels.some(p => p.dataset.tab === tab) ? tab : panels[0].dataset.tab;
         panels.forEach(p => p.classList.toggle("active", p.dataset.tab === valid));
         nav.querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.tab === valid));
-        localStorage.setItem("nexus_admin_tab", valid);
+        localStorage.setItem("nexus_admin_tab_v2", valid);
         if (location.hash.slice(1) !== valid) history.replaceState(null, "", "#" + valid);
         window.scrollTo({ top: 0 });
       };
@@ -1451,7 +1462,7 @@
         if (b) show(b.dataset.tab);
       });
       addEventListener("hashchange", () => show(location.hash.slice(1)));
-      show(location.hash.slice(1) || localStorage.getItem("nexus_admin_tab") || "tournaments");
+      show(location.hash.slice(1) || localStorage.getItem("nexus_admin_tab_v2") || "trust");
     }
 
     // ── 수상 관리 (베스트 세레모니 · 펜타킬 · 시즌 수상) ──
@@ -2165,8 +2176,44 @@
         : `모든 종료 경기의 세트 기록이 최종 스코어와 일치합니다 ✓`;
     }
 
+    let trustRun = 0;
+    async function renderTrustDashboard(refresh) {
+      const el = document.getElementById("trust-dashboard");
+      if (!el || typeof dataTrustSummary !== "function") return;
+      const run = ++trustRun;
+      if (refresh) el.textContent = "서버의 최신 상태를 확인 중…";
+      if (refresh) {
+        await Promise.all([reloadSetting("schedule_sync"), reloadSetting("lp_last_run")]).catch(() => {});
+      }
+      if (run !== trustRun) return;
+      const trust = dataTrustSummary(getMatches(), getSetting("schedule_sync"), Date.now());
+      const race = typeof raceDataHealth === "function"
+        ? Object.keys(RACE_CUTS).map(id => ({ id, ...raceDataHealth(id) })) : [];
+      const raceBad = race.filter(x => !x.ok && x.code !== "not_ready");
+      const totalBad = trust.violations.length + raceBad.length;
+      const syncTone = trust.level === "ok" ? "#269868" : "var(--accent)";
+      const syncLabel = trust.updatedAt ? `${fmtAgo(trust.updatedAt)} 성공` : "성공 기록 없음";
+      const issueList = trust.issues.length
+        ? trust.issues.map(x => `<li>${esc(x)}</li>`).join("") : "<li>자동 일정 수집 정상</li>";
+      const raceList = race.length ? race.map(x => `<li><b>${esc(x.id)}</b> — ${x.ok
+        ? `${x.remain.length}경기 남음 · 계산 전제 정상` : esc(x.message)}</li>`).join("")
+        : "<li>경우의 수 그룹 없음</li>";
+      el.innerHTML = `<div style="font-size:18px;font-weight:900;color:${syncTone}">
+          ${totalBad ? `확정형 콘텐츠 ${totalBad}건 보류 중` : "공개 데이터 신뢰 게이트 정상"}
+        </div>
+        <p style="margin:8px 0 4px"><b>일정 수집</b> · ${esc(syncLabel)}</p>
+        <ul style="margin:4px 0 12px;padding-left:20px">${issueList}</ul>
+        <p style="margin:8px 0 4px"><b>경우의 수</b></p>
+        <ul style="margin:4px 0 12px;padding-left:20px">${raceList}</ul>
+        ${trust.violations.length ? `<p style="color:var(--accent)"><b>경기 상태 모순</b> · ${trust.violations.length}건 — 참여 점검의 데이터 검수에서 확인하세요.</p>` : ""}`;
+    }
+
+    const trustRefresh = document.getElementById("trust-refresh");
+    if (trustRefresh) trustRefresh.addEventListener("click", () => renderTrustDashboard(true));
+
     function renderAll() {
       syncFanPulse();
+      renderTrustDashboard(false);
       renderIntegrity();
       renderTournamentList();
       fillMatchForm();
