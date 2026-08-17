@@ -358,9 +358,9 @@ function renderHeader(activeMenu, activeTeamId) {
           stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817e")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817e")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817e")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817f")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817f")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817f")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -395,7 +395,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817e");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817f");
 
   renderTabBar(groupName);
 }
@@ -622,6 +622,74 @@ const SNS_HANDLE = "@thenexus.lolgg";
 const SNS_URL = "https://instagram.com/thenexus.lolgg";
 const CONTACT_EMAIL = "thenexus.lolgg@gmail.com";
 
+// ── 경기 링크 공유 ────────────────────────────────────────
+// live.html 쿼리 주소가 아니라 서버 렌더링되는 /match/:id 를 공유해야
+// 카카오톡·X·메신저에서도 해당 경기의 팀·시간·스코어 미리보기가 나온다.
+function matchShareData(match, origin = location.origin) {
+  if (!match || !match.id) return null;
+  const a = slotName(match.a), b = slotName(match.b);
+  const done = match.status === "done";
+  const score = done ? ` ${match.scoreA ?? 0}:${match.scoreB ?? 0}` : "";
+  return {
+    title: `${a} vs ${b}${score} — The Nexus`,
+    text: done ? `${a} vs ${b} 경기 결과와 팬 반응을 확인해 보세요.`
+      : `${a} vs ${b} 경기 정보와 팬 예측을 확인해 보세요.`,
+    url: new URL(`/match/${encodeURIComponent(match.id)}`, origin).href,
+  };
+}
+
+function showActionToast(message) {
+  document.getElementById("nx-action-toast")?.remove();
+  const el = document.createElement("div");
+  el.id = "nx-action-toast";
+  el.className = "nx-toast";
+  el.setAttribute("role", "status");
+  el.setAttribute("aria-live", "polite");
+  el.innerHTML = `<span></span><button type="button" aria-label="알림 닫기">닫기</button>`;
+  el.querySelector("span").textContent = message;
+  el.querySelector("button").addEventListener("click", () => el.remove());
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const input = document.createElement("textarea");
+  input.value = text;
+  input.setAttribute("readonly", "");
+  input.style.position = "fixed";
+  input.style.opacity = "0";
+  document.body.appendChild(input);
+  input.select();
+  const copied = document.execCommand("copy");
+  input.remove();
+  if (!copied) throw new Error("copy failed");
+}
+
+async function shareMatch(match) {
+  const data = matchShareData(match);
+  if (!data) return false;
+  if (navigator.share) {
+    try {
+      await navigator.share(data);
+      return true;
+    } catch (error) {
+      if (error?.name === "AbortError") return false;
+    }
+  }
+  try {
+    await copyText(data.url);
+    showActionToast("경기 링크를 복사했습니다.");
+    return true;
+  } catch {
+    showActionToast("링크를 복사하지 못했습니다. 주소창의 주소를 복사해 주세요.");
+    return false;
+  }
+}
+
 // ── 예측 공유 카드 ("나는 ○○ 승리를 예측했습니다") ─────────
 // 그리기와 저장을 나눠 둔다 — 미리보기·검증에서 그리기만 따로 쓸 수 있게.
 function drawPredictionCard(match, side) {
@@ -741,14 +809,29 @@ async function renderTeamContent(teamId) {
     const r = await fetch("/api/team-feed?team=" + encodeURIComponent(teamId));
     if (!r.ok) return;
     const j = await r.json();
+    const accounts = Array.isArray(j.accounts) ? j.accounts : [];
     const list = ((j.items && j.items.length) ? j.items : (j.videos || []).map(v => ({ ...v, platform: "youtube" })))
       .slice(0, 18);
-    if (!list.length) return;
+    if (!list.length && !accounts.length) return;
     card.style.display = "";
     let index = 0;
     const prev = document.getElementById("content-prev");
     const next = document.getElementById("content-next");
     const counter = document.getElementById("content-counter");
+    const accountBox = document.getElementById("content-accounts");
+    if (accountBox) accountBox.innerHTML = accounts.map(account => {
+      const platform = CONTENT_PLATFORM_NAME[account.platform] || account.label || "공식 계정";
+      return `<a class="content-account platform-${esc(account.platform)}" href="${esc(account.url)}"
+        target="_blank" rel="noopener noreferrer" aria-label="${esc(platform)} 공식 계정 열기">
+        ${contentPlatformIcon(account.platform)}<span>${esc(platform)}</span>
+      </a>`;
+    }).join("");
+    if (!list.length) {
+      document.querySelector("#content-card .content-nav").style.display = "none";
+      box.innerHTML = `<div class="content-empty">최신 게시물 수집을 준비 중입니다. 위 공식 계정에서 새 소식을 확인하세요.</div>`;
+      return;
+    }
+    document.querySelector("#content-card .content-nav").style.display = "";
     const paint = () => {
       const item = list[index];
       const platform = CONTENT_PLATFORM_NAME[item.platform] || "SNS";

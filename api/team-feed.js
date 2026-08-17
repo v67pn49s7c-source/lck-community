@@ -27,6 +27,22 @@ const DEFAULT_CHANNELS = {
   dns: "UCGW76VChAJKee9kYzvyoycQ",
 };
 
+// 팀 공식 사이트·공식 채널이 안내하는 Instagram 계정. Graph API 토큰이
+// 없어도 팬이 공식 계정으로 바로 이동할 수 있고, 관리자가 site_settings 에
+// 값을 넣으면 아래 기본값보다 운영 설정을 우선한다.
+const DEFAULT_SOCIAL = {
+  t1: { instagram: "t1lol" },
+  gen: { instagram: "gengesports" },
+  hle: { instagram: "hle.official" },
+  dk: { instagram: "dpluskia.lol" },
+  kt: { instagram: "ktrolstagram" },
+  bro: { instagram: "brionesports" },
+  bfx: { instagram: "bnk_fearx" },
+  krx: { instagram: "drxglobal" },
+  ns: { instagram: "ns_redforce" },
+  dns: { instagram: "soopers_lol" },
+};
+
 const xmlText = value => String(value || "")
   .replace(/<!\[CDATA\[|\]\]>/g, "")
   .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
@@ -51,7 +67,27 @@ async function loadConfig() {
   try { social = JSON.parse(values.team_social || "{}"); } catch {}
   const channels = { ...DEFAULT_CHANNELS };
   Object.entries(youtube || {}).forEach(([team, id]) => { if (id) channels[team] = String(id).trim(); });
-  return { channels, social: social || {} };
+  const mergedSocial = {};
+  Object.keys(channels).forEach(team => {
+    mergedSocial[team] = { ...(DEFAULT_SOCIAL[team] || {}), ...((social || {})[team] || {}) };
+  });
+  return { channels, social: mergedSocial };
+}
+
+function accountLinks(channelId, social = {}) {
+  const links = [];
+  if (channelId) links.push({
+    platform: "youtube", label: "YouTube",
+    url: `https://www.youtube.com/channel/${encodeURIComponent(String(channelId).trim())}`,
+  });
+  const instagram = normalizeHandle(social.instagram);
+  if (instagram) links.push({
+    platform: "instagram", label: "Instagram", handle: `@${instagram}`,
+    url: `https://www.instagram.com/${encodeURIComponent(instagram)}/`,
+  });
+  const x = normalizeHandle(social.x);
+  if (x) links.push({ platform: "x", label: "X", handle: `@${x}`, url: `https://x.com/${encodeURIComponent(x)}` });
+  return links;
 }
 
 function parseYouTubeFeed(xml, teamId) {
@@ -162,7 +198,7 @@ async function handler(req, res) {
     const { channels, social } = await loadConfig();
     const want = String((req.query && req.query.team) || "").trim().toLowerCase();
     const teamIds = want ? (channels[want] ? [want] : []) : Object.keys(channels);
-    if (!teamIds.length) return ok(res, { items: [], videos: [], count: 0 }, 300);
+    if (!teamIds.length) return ok(res, { items: [], videos: [], accounts: [], count: 0 }, 300);
 
     const collected = await Promise.all(teamIds.map(team => collectTeam(team, channels[team], social[team] || {})));
     const items = newestFirst(collected.map(result => result.items)).slice(0, want ? 24 : 50);
@@ -171,11 +207,12 @@ async function handler(req, res) {
       team: item.team, videoId: item.id.replace(/^youtube:/, ""), title: item.title,
       published: item.published, thumb: item.thumb, url: item.url,
     }));
-    return ok(res, { items, videos, count: items.length, unavailable: errors }, 600);
+    const accounts = want ? accountLinks(channels[want], social[want] || {}) : [];
+    return ok(res, { items, videos, accounts, count: items.length, unavailable: errors }, 600);
   } catch (error) {
     return fail(res, 500, error.message || String(error));
   }
 }
 
 module.exports = handler;
-module.exports._test = { parseYouTubeFeed, normalizeHandle, newestFirst };
+module.exports._test = { parseYouTubeFeed, normalizeHandle, newestFirst, accountLinks, DEFAULT_SOCIAL };

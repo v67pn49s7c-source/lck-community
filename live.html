@@ -17,11 +17,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260817e">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260817e">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260817f">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260817f">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260817e">
+  <link rel="stylesheet" href="assets/styles.css?v=20260817f">
 </head>
 <body>
   <main class="page">
@@ -30,7 +30,13 @@
         <section class="card">
           <div class="card-head">
             <h1 class="card-title" id="live-title">오늘의 경기</h1>
-            <span class="card-more" id="live-when"></span>
+            <div class="live-head-actions">
+              <span class="card-more" id="live-when"></span>
+              <button class="match-share-btn" id="match-share" type="button" aria-label="이 경기 공유하기">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5"/></svg>
+                공유
+              </button>
+            </div>
           </div>
           <div class="match-switcher" id="match-switcher" style="display:none"></div>
           <div class="live-banner" id="live-banner"></div>
@@ -100,14 +106,14 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260817e"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260817e"></script>
-  <script src="assets/invariants.js?v=20260817e"></script>
-  <script src="assets/store.js?v=20260817e"></script>
-  <script src="assets/app.js?v=20260817e"></script>
-  <script src="assets/story.js?v=20260817e"></script>
-  <script src="assets/ddragon.js?v=20260817e"></script>
-  <script src="assets/race.js?v=20260817e"></script>
+  <script src="assets/data.js?v=20260817f"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260817f"></script>
+  <script src="assets/invariants.js?v=20260817f"></script>
+  <script src="assets/store.js?v=20260817f"></script>
+  <script src="assets/app.js?v=20260817f"></script>
+  <script src="assets/story.js?v=20260817f"></script>
+  <script src="assets/ddragon.js?v=20260817f"></script>
+  <script src="assets/race.js?v=20260817f"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("오늘의 경기", null);
@@ -115,6 +121,7 @@
     // 대상 경기: URL 지정 > LIVE 중 > 다음 경기
     const qid = new URLSearchParams(location.search).get("match");
     let match = getMatches().find(m => m.id === qid) || liveMatch() || nextMatch();
+    document.getElementById("match-share")?.addEventListener("click", () => shareMatch(match));
 
     function renderMatchSwitcher() {
       const el = document.getElementById("match-switcher");
@@ -134,9 +141,11 @@
     function renderBanner() {
       const el = document.getElementById("live-banner");
       if (!match) {
+        document.getElementById("match-share").disabled = true;
         el.innerHTML = `<div class="empty-note">예정된 경기가 없습니다. 관리자 메뉴에서 경기를 추가하세요.</div>`;
         return;
       }
+      document.getElementById("match-share").disabled = false;
       const live = match.status === "live", done = match.status === "done";
       document.getElementById("live-title").textContent =
         live ? "지금 경기 중" : done ? "경기 종료" : "경기 예정";

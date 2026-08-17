@@ -755,8 +755,49 @@ async function initWritePage() {
     const t = TEAM_MAP[preTeam];
     if (t) alert(`${t.name} 게시판은 ${t.abbr} 팬 회원 전용이라 전체 게시판으로 작성됩니다.\n응원팀은 회원가입 시 설정할 수 있어요.`);
   }
-  document.getElementById("write-cat").innerHTML =
-    BOARD_CATS.filter(c => c !== "전체" && c !== "공지").map(c => `<option>${c}</option>`).join("");
+  const teamSelect = document.getElementById("write-team");
+  const catSelect = document.getElementById("write-cat");
+  const noticeHint = document.getElementById("notice-mode-hint");
+  const normalCats = BOARD_CATS.filter(c => c !== "전체" && c !== "공지");
+  catSelect.innerHTML = normalCats.map(c => `<option>${c}</option>`).join("")
+    + (Auth.profile?.is_admin ? `<option value="공지">공지 (전체 고정)</option>` : "");
+
+  // 공지는 서버에서도 관리자만 허용한다. 화면에서는 전 게시판 공지라는 의미가
+  // 흐려지지 않도록 팀을 전체로 고정하고 일반 글 전용 첨부 기능을 함께 잠근다.
+  let teamBeforeNotice = teamSelect.value;
+  const attachmentIds = ["match-attach-wrap", "draft-attach-wrap", "poll-attach-wrap"];
+  const setNoticeMode = () => {
+    const notice = catSelect.value === "공지";
+    if (notice) {
+      teamBeforeNotice = teamSelect.value;
+      teamSelect.value = "";
+    } else if (teamSelect.disabled) {
+      teamSelect.value = [...teamSelect.options].some(o => o.value === teamBeforeNotice) ? teamBeforeNotice : "";
+    }
+    teamSelect.disabled = notice;
+    if (noticeHint) noticeHint.hidden = !notice;
+    attachmentIds.forEach(id => {
+      const wrap = document.getElementById(id);
+      if (!wrap) return;
+      if (notice) {
+        wrap.dataset.noticeDisplay = wrap.style.display;
+        wrap.style.display = "none";
+      } else if (Object.prototype.hasOwnProperty.call(wrap.dataset, "noticeDisplay")) {
+        wrap.style.display = wrap.dataset.noticeDisplay;
+        delete wrap.dataset.noticeDisplay;
+      }
+    });
+    if (notice) {
+      const matchPick = document.getElementById("match-attach");
+      if (matchPick) matchPick.value = "";
+      ["draft-attach", "poll-attach"].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) { input.checked = false; input.dispatchEvent(new Event("change")); }
+      });
+    }
+  };
+  catSelect.addEventListener("change", setNoticeMode);
+  setNoticeMode();
   // 로그인은 했는데 프로필(닉네임)이 없으면 글을 쓸 수 없다
   if (Auth.session && !Auth.profile) {
     document.querySelector(".stack").innerHTML = `
@@ -813,7 +854,9 @@ async function initWritePage() {
     if (!Auth.session && pw.length < 4) { fail("비밀번호를 4자 이상 입력해 주세요. (글 수정·삭제에 씁니다)"); return; }
     if (!Auth.session) sessionStorage.setItem("lck_pw_hint", "1");
 
-    const pid = addPost({ team, cat, title, body, nick, match_id: matchId }, pw);
+    const isNotice = cat === "공지";
+    const pid = addPost({ team: isNotice ? null : team, cat, title, body, nick,
+      match_id: isNotice ? null : matchId }, pw);
     // 저장이 끝난 뒤에만 이동 (이동하면 진행 중인 요청이 끊기는 문제 방지)
     const { error } = await addPost.lastSave;
     if (error) {
@@ -823,11 +866,11 @@ async function initWritePage() {
     }
     // 경기 첨부 (회원) — 글이 저장된 뒤에 따로 건다.
     // create_post 의 인자 목록을 늘리지 않는 이유는 위 store.js 주석과 같다.
-    const refPick = Auth.session ? (document.getElementById("match-attach")?.value || "") : "";
+    const refPick = Auth.session && !isNotice ? (document.getElementById("match-attach")?.value || "") : "";
     if (refPick) await setPostRefMatch(pid, refPick);
 
     // 모의밴픽 첨부 (회원) — 저장 전에 규칙을 한 번 더 훑는다.
-    if (Auth.session && document.getElementById("draft-attach")?.checked && DRAFT) {
+    if (Auth.session && !isNotice && document.getElementById("draft-attach")?.checked && DRAFT) {
       const bad = draftValidate(DRAFT);
       if (bad) alert("모의밴픽은 붙이지 못했습니다: " + bad + "\n(글은 정상 등록됩니다)");
       else await setPostDraft(pid, DRAFT);
@@ -836,7 +879,7 @@ async function initWritePage() {
     // 투표 첨부 (회원) — RPC 로만 만든다. match_id 는 넘기지 않는다:
     // 회원 투표가 경기(match_id)에 걸리면 공식 팬심지수 화면에 끼어들 수 있어
     // 서버가 금지한다 (schema22 · P0-1).
-    if (Auth.session && document.getElementById("poll-attach")?.checked) {
+    if (Auth.session && !isNotice && document.getElementById("poll-attach")?.checked) {
       const options = document.getElementById("poll-options").value
         .split("\n").map(s => s.trim()).filter(Boolean).slice(0, 10);
       if (options.length >= 2) {

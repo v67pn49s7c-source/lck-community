@@ -924,3 +924,38 @@ Roamer 1~2세트 · Loki 3세트인데 둘 다 한 화면에 떠서 한쪽이 �
 - 모든 `*.html` 의 `<link rel="icon" ... nexus-icon.png?v=…>`
 - `assets/styles.css` 의 로딩 마크 `url("brand/nexus-icon.png?v=…")`
 - `assets/app.js` · `assets/store.js` 의 `brandLogoURL(...)` 대체본 경로
+
+## 3차 출시필수 기능 (2026-08-17)
+
+출시 직전 운영자가 SQL Editor 없이 공지를 쓰고, 팬이 경기 페이지를 퍼뜨리고,
+팀 게시판에서 공식 채널로 바로 이동할 수 있도록 아래 세 가지를 연결했다.
+
+### 관리자 공지 작성
+
+- 관리자 프로필(`is_admin`)에만 글쓰기 분류 `공지 (전체 고정)`이 나타난다.
+- 공지를 선택하면 게시판은 전체로 고정되고 경기·투표·모의밴픽 첨부는 숨김/해제된다.
+- 저장 때도 `team=null`, `match_id=null`을 다시 강제한다.
+- 서버 `create_post` RPC의 기존 관리자 검사도 그대로 유지된다. **추가 SQL은 없다.**
+
+### 경기 링크 공유
+
+- `live.html` 경기 머리말에 작은 `공유` 버튼을 추가했다.
+- Web Share API가 있으면 기기 공유창을 열고, 없거나 실패하면 링크를 클립보드에 복사한다.
+- 공유 주소는 `live.html?match=...`가 아니라 `/match/:id`다. 이 주소는 서버에서 경기별
+  title·description·OG 이미지를 만들기 때문에 카카오톡/X/Slack 미리보기가 경기별로 나온다.
+
+### 팀 공식 계정 연결
+
+- 10개 팀 YouTube 채널과 공식 Instagram 계정 기본값을 API에 둔다.
+- `site_settings.team_social`의 운영자 입력값이 기본값보다 우선하므로 계정 변경 때 코드 배포 없이 고칠 수 있다.
+- Instagram Graph API 토큰이 없어 게시물 자동 수집이 비어도 팀 게시판에는 공식 YouTube·Instagram
+  바로가기가 남는다. X는 관리자 화면에 handle을 넣으면 같은 방식으로 링크와 API 수집이 활성화된다.
+- 팀/계정 기본값: T1 `t1lol`, GEN `gengesports`, HLE `hle.official`, DK `dpluskia.lol`,
+  KT `ktrolstagram`, BRO `brionesports`, BFX `bnk_fearx`, KRX `drxglobal`,
+  NS `ns_redforce`, DNS `soopers_lol`.
+
+### 회귀 방지
+
+- `tests/launch-features.test.js`: 관리자 전용 공지·전체 고정·첨부 차단·SSR 경기 공유 주소.
+- `tests/team-content.test.js`: 10팀 기본 계정·공식 계정 링크·콘텐츠가 없을 때의 계정 노출.
+- 자산 버전 `20260817f`.
