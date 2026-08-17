@@ -147,31 +147,60 @@ function sourceOf(link) {
 }
 // 자주 나오는 매체만 한글로. 없으면 도메인을 그대로 쓴다 — 지어내지 않는다.
 const NEWS_SOURCE_KO = {
+  "inven.co.kr": "인벤", "fomos.com": "포모스", "fomos.kr": "포모스",
+  "dailyesports.com": "데일리e스포츠", "gameview.co.kr": "게임뷰",
+  "thisisgame.com": "디스이즈게임", "gamemeca.com": "게임메카",
+  "ruliweb.com": "루리웹", "gamefocus.co.kr": "게임포커스",
   "sports.khan.co.kr": "스포츠경향", "sportsseoul.com": "스포츠서울",
-  "inven.co.kr": "인벤", "fomos.kr": "포모스", "dailyesports.com": "데일리e스포츠",
-  "thisisgame.com": "디스이즈게임", "gameinsight.co.kr": "게임인사이트",
   "stnsports.co.kr": "STN스포츠", "xportsnews.com": "엑스포츠뉴스",
-  "news.tf.co.kr": "더팩트", "osen.mt.co.kr": "OSEN",
+  "osen.mt.co.kr": "OSEN", "interview365.com": "인터뷰365",
 };
+
+// e스포츠 전문 매체 — 같은 날 기사라도 이쪽을 먼저 올린다 (사장님 2026-08-17).
+// 종합지는 LCK 를 가끔 다루지만 전문 매체는 매일 다룬다.
+// ⚠ 여기 없는 매체를 **버리지는 않는다.** 우선순위만 준다 — 좋은 기사가 사라지면 안 된다.
+const ESPORTS_MEDIA = new Set([
+  "inven.co.kr", "fomos.com", "fomos.kr", "dailyesports.com", "gameview.co.kr",
+  "thisisgame.com", "gamemeca.com", "gamefocus.co.kr", "ruliweb.com",
+  "stnsports.co.kr", "interview365.com",
+]);
+const hostOf = link => { try { return new URL(link).hostname.replace(/^www\./, ""); } catch { return ""; } };
+
+// 검색어에 안 걸러지는 딴 이야기 — LCK 는 물류·기업 이름으로도 쓰인다.
+const OFF_TOPIC = /물류|택배|화물|주가|증권|부동산|아파트|채용 공고/;
+
+/** LCK 이야기가 맞는가. 제목이나 요약에 리그·팀·대회 이름이 하나라도 있어야 한다. */
+const LCK_HINT = new RegExp([
+  "LCK", "리그 ?오브 ?레전드", "롤드컵", "MSI", "월즈", "롤 ?챔스",
+  "T1", "젠지", "한화생명", "디플러스", "kt ?롤스터", "브리온", "농심", "피어엑스", "DRX", "수퍼스",
+].join("|"), "i");
 
 async function fetchNaver(limit) {
   const id = process.env.NAVER_API_KEY_ID, key = process.env.NAVER_API_KEY;
   if (!id || !key) return null;                 // 키가 없으면 구글로 넘어간다
   const u = `${NAVER_URL}?query=${encodeURIComponent("LCK 리그오브레전드")}`
-    + `&display=${Math.min(limit * 2, 40)}&sort=date`;
+    + `&display=${Math.min(limit * 5, 100)}&sort=date`;
   const r = await fetch(u, { headers: {
     "X-NCP-APIGW-API-KEY-ID": id, "X-NCP-APIGW-API-KEY": key } });
   if (!r.ok) throw new Error(`네이버 ${r.status}`);
   const body = await r.json();
   return (body.items || []).flatMap(it => {
     const title = stripTags(it.title);
+    const desc = stripTags(it.description);
     const url = it.originallink || it.link;
     if (!title || !url) return [];
+    // LCK 이야기가 아닌 것은 버린다. "LCK" 는 물류·기업 이름으로도 쓰여서 섞여 든다.
+    if (!LCK_HINT.test(title + " " + desc)) return [];
+    if (OFF_TOPIC.test(title)) return [];
     const at = Date.parse(it.pubDate);
-    return [{ title, url, source: sourceOf(url),
+    return [{ title, url, source: sourceOf(url), host: hostOf(url),
       at: Number.isFinite(at) ? new Date(at).toISOString() : null }];
   })
     .filter((x, i, arr) => arr.findIndex(y => y.title === x.title) === i)
+    // e스포츠 전문 매체를 먼저. 같은 급이면 최신순.
+    .sort((a, b) => (ESPORTS_MEDIA.has(b.host) ? 1 : 0) - (ESPORTS_MEDIA.has(a.host) ? 1 : 0)
+      || (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0))
+    .map(({ host, ...rest }) => rest)
     .slice(0, limit);
 }
 
