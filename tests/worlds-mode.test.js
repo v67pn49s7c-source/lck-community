@@ -12,6 +12,7 @@ const html = read("worlds.html");
 const worlds = read("assets/worlds.js");
 const index = read("index.html");
 const lck = read("assets/home-lck.js");
+const worldsCss = read("assets/worlds.css");
 
 const start = store.indexOf('const SITE_EVENT_MODE_KEY = "site_event_mode"');
 const end = store.indexOf("// ── 오늘의 서사", start);
@@ -68,5 +69,8 @@ assert(/schedule\.html\?t=worlds2026/.test(html) && /bracket\.html\?t=worlds2026
   "월즈 일정·대진표 링크가 해당 대회를 직접 선택해야 함");
 assert(/공식 대진과 경기 시간이 등록되면 자동 반영/.test(worlds), "일정 미확정 상태를 정직하게 표시");
 assert(!/64%|1,284|2승 0패/.test(html + worlds), "가짜 승률·참여수·스위스 전적을 배포하지 않음");
+assert(!/\.brand img \{[^}]*display:block/.test(worldsCss)
+  && /\.brand \.brand-full \{ width:146px/.test(worldsCss),
+  "월즈 스킨이 공통 헤더의 모바일 아이콘 표시 여부를 덮어쓰면 안 됨");
 
-console.log("worlds-mode.test: 21 통과");
+console.log("worlds-mode.test: 22 통과");

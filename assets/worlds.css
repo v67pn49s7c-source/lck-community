@@ -18,7 +18,7 @@ button { color:inherit; font:inherit; }
 .preview-switch button.active { color:#0a0d14; background:var(--gold-2); }
 .site-header { border-bottom:1px solid var(--line); background:rgba(8,11,18,.94); }
 .header-inner { height:78px; max-width:var(--max); margin:auto; padding:0 20px; display:flex; align-items:center; gap:42px; }
-.brand img { display:block; width:146px; height:auto; }
+.brand .brand-full { width:146px; height:auto; }
 .main-nav { height:100%; display:flex; align-items:stretch; gap:34px; }
 .main-nav a { position:relative; display:flex; align-items:center; color:#aeb7c7; font-size:16px; font-weight:800; }
 .main-nav a:hover,.main-nav a.active { color:var(--text); }
@@ -174,7 +174,7 @@ body[data-preview-mode="live"] .stage:nth-child(2)>span,body[data-preview-mode="
   .preview-switch { margin-left:auto; }
   .header-inner { height:58px; padding:0 14px; }
   .brand { height:46px; display:flex; align-items:center; }
-  .brand img { width:46px; height:46px; object-fit:contain; content:url("../assets/brand/nexus-mobile.png"); }
+  .brand .brand-icon { width:46px; height:46px; object-fit:contain; }
   .main-nav a:not(.active) { display:none; }
   .main-nav { margin-left:auto; }
   .main-nav a.active { font-size:14px; }

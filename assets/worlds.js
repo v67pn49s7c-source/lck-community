@@ -195,7 +195,7 @@
 
       // worlds.html은 독립 페이지가 아니라 월즈 홈 조각의 원본이기도 하다.
       // 헤더·로그인·푸터는 공통 앱 것을 쓰고, 시즌 고유 영역만 가져와 같은 index에 꽂는다.
-      shellPromise = shellPromise || fetch("worlds.html?v=20260817k").then(async response => {
+      shellPromise = shellPromise || fetch("worlds.html?v=20260817l").then(async response => {
         if (!response.ok) throw new Error("월즈 홈 모듈을 불러오지 못했습니다.");
         const doc = new DOMParser().parseFromString(await response.text(), "text/html");
         return [...doc.querySelectorAll(".worlds-nav, .match-strip, body > main")]
