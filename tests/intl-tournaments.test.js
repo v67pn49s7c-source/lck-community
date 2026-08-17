@@ -77,6 +77,9 @@ ok(/state\.part = null/.test(brHtml), "대회를 바꾸면 단계 선택을 초�
 
 // 압축 — 마디가 14~20개인 국제 대회는 기본 크기로는 화면을 넘어간다
 ok(/\.bracket\.compact \.bm-slot \{[\s\S]{0,160}min-height:26px/.test(css), "압축 시 자리 높이 26px");
+// 대회마다 생김새가 다르면 같은 사이트로 안 보인다 — 전부 같은 모양으로 (2026-08-17)
+ok((br.match(/compact: true/g) || []).length >= 5,
+  "모든 대진표가 같은 모양이어야 함 (Road to MSI·플레이-인·플레이오프 포함)");
 ok(/\.bracket\.compact \.bm-from \{ display: none; \}/.test(css) &&
    /\.bracket\.compact \.bm-slot\.tbd \.bm-from \{/.test(css),
   "끝난 대회에선 자리 라벨을 감추고, 미정 칸에서만 보여야 함");
