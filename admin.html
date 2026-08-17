@@ -13,11 +13,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260817j">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260817j">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260817k">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260817k">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260817j">
+  <link rel="stylesheet" href="assets/styles.css?v=20260817k">
 </head>
 <body>
   <main class="page">
@@ -340,6 +340,28 @@
           </div>
         </div>
         <div class="admin-note">
+          <b>월즈 해외 참가팀</b> — 기본 국제대회 팀은 이미 들어 있습니다. 명단에 없는 팀만 아래에 추가하면
+          월즈 경기 등록·홈·승부예측·경기방에서 같은 팀 정보와 로고를 사용합니다.
+        </div>
+        <div class="admin-form">
+          <div class="row">
+            <label>팀 ID
+              <input id="intl-team-id" placeholder="예: fly" maxlength="32">
+            </label>
+            <label>약칭
+              <input id="intl-team-abbr" placeholder="예: FLY" maxlength="10">
+            </label>
+            <label style="flex:2">팀 이름
+              <input id="intl-team-name" placeholder="예: FlyQuest" maxlength="80">
+            </label>
+            <label style="flex:3">로고 HTTPS 주소
+              <input id="intl-team-logo" type="url" placeholder="https://static.lolesports.com/teams/…">
+            </label>
+            <button class="btn-secondary" id="intl-team-add" type="button" style="align-self:end">해외팀 추가</button>
+          </div>
+        </div>
+        <div class="admin-list" id="intl-team-list"></div>
+        <div class="admin-note">
           <b>자동 모드</b>는 대회 관리의 2026 LCK 플레이오프 대진표에서 <b>GF(결승)</b>에 연결한 경기가
           종료됐을 때만 작동합니다. 참가팀은 공식 확정 후 LCK 1~4시드 순서로 고르세요.
           잘못 전환되면 <b>LCK 홈 강제 유지</b>를 저장하면 즉시 원래 홈으로 돌아옵니다.
@@ -397,15 +419,15 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260817j"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260817j"></script>
-  <script src="assets/invariants.js?v=20260817j"></script>
-  <script src="assets/store.js?v=20260817j"></script>
-  <script src="assets/app.js?v=20260817j"></script>
-  <script src="assets/race.js?v=20260817j"></script>
-  <script src="assets/story.js?v=20260817j"></script>
-  <script src="assets/ddragon.js?v=20260817j"></script>
-  <script src="assets/brackets.js?v=20260817j"></script>
+  <script src="assets/data.js?v=20260817k"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260817k"></script>
+  <script src="assets/invariants.js?v=20260817k"></script>
+  <script src="assets/store.js?v=20260817k"></script>
+  <script src="assets/app.js?v=20260817k"></script>
+  <script src="assets/race.js?v=20260817k"></script>
+  <script src="assets/story.js?v=20260817k"></script>
+  <script src="assets/ddragon.js?v=20260817k"></script>
+  <script src="assets/brackets.js?v=20260817k"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -499,7 +521,7 @@
       const cfg = t.bracket || {};
       const ms = getMatches().filter(m => m.tid === tid)
         .sort((a, b) => new Date(a.at) - new Date(b.at));
-      const teamOpts = sel => `<option value="">— 미정 —</option>` + TEAMS.map(x =>
+      const teamOpts = sel => `<option value="">— 미정 —</option>` + matchTeamsForTournament(tid).map(x =>
         `<option value="${esc(x.id)}" ${x.id === sel ? "selected" : ""}>${esc(x.name)}</option>`).join("");
       const matchOpts = sel => `<option value="">— 자동 —</option>` + ms.map(m => {
         const A = TEAM_MAP[m.a], B = TEAM_MAP[m.b];
@@ -558,26 +580,38 @@
     });
 
     // ── 경기 관리 ──
+    function teamOptionsForTournament(tid, selected, custom) {
+      const lck = TEAMS.map(t => `<option value="${esc(t.id)}" ${t.id === selected ? "selected" : ""}>${esc(t.name)} (${esc(t.abbr)})</option>`).join("");
+      const lckIds = new Set(TEAMS.map(t => t.id));
+      const intl = matchTeamsForTournament(tid).filter(t => !lckIds.has(t.id)).map(t =>
+        `<option value="${esc(t.id)}" ${t.id === selected ? "selected" : ""}>${esc(t.name)} (${esc(t.abbr)})</option>`).join("");
+      return `<optgroup label="LCK">${lck}</optgroup>`
+        + (intl ? `<optgroup label="해외 참가팀">${intl}</optgroup>` : "")
+        + (custom ? `<option value="__custom" ${selected === "__custom" ? "selected" : ""}>미정 (자리 이름 직접 입력)</option>` : "");
+    }
+
     function fillMatchForm() {
       const ts = getTournaments();
       const tidSel = document.getElementById("m-tid");
+      const previousTid = tidSel.value;
       tidSel.innerHTML = ts.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join("");
+      if (ts.some(t => t.id === previousTid)) tidSel.value = previousTid;
       const fillStages = () => {
         const t = ts.find(x => x.id === tidSel.value);
         document.getElementById("m-stage").innerHTML =
           (t ? t.stages : []).map(s => `<option>${esc(s)}</option>`).join("");
       };
-      tidSel.onchange = fillStages;
-      fillStages();
-
-      const teamOpts = TEAMS.map(t => `<option value="${t.id}">${t.name} (${t.abbr})</option>`).join("")
-        + `<option value="__custom">미정 (자리 이름 직접 입력)</option>`;
-      ["a", "b"].forEach(side => {
-        const sel = document.getElementById("m-" + side);
-        const custom = document.getElementById(`m-${side}-custom`);
-        sel.innerHTML = teamOpts;
-        sel.onchange = () => { custom.style.display = sel.value === "__custom" ? "" : "none"; };
-      });
+      const fillTeams = () => ["a", "b"].forEach(side => {
+          const sel = document.getElementById("m-" + side);
+          const custom = document.getElementById(`m-${side}-custom`);
+          const previous = sel.value;
+          sel.innerHTML = teamOptionsForTournament(tidSel.value, previous, true);
+          if (![...sel.options].some(o => o.value === previous)) sel.selectedIndex = 0;
+          sel.onchange = () => { custom.style.display = sel.value === "__custom" ? "" : "none"; };
+          sel.onchange();
+        });
+      tidSel.onchange = () => { fillStages(); fillTeams(); };
+      tidSel.onchange();
     }
 
     function createRowActionGuard(buttons) {
@@ -600,11 +634,11 @@
     function renderMatchList() {
       const el = document.getElementById("match-list");
       const ms = sortedMatches();
-      const slotSel = (cls, v) => {
+      const slotSel = (cls, v, tid) => {
         const isTeam = !!TEAM_MAP[v];
         return `<select class="${cls}">
           ${isTeam ? "" : `<option value="${esc(v)}" selected>미정: ${esc(v)}</option>`}
-          ${TEAMS.map(t => `<option value="${t.id}" ${t.id === v ? "selected" : ""}>${t.abbr}</option>`).join("")}
+          ${teamOptionsForTournament(tid, v, false)}
         </select>`;
       };
       el.innerHTML = ms.map(m => {
@@ -613,7 +647,7 @@
         <div class="admin-item" data-mid="${m.id}">
           <span class="badge-status ${m.status}">${m.status === "upcoming" ? "예정" : m.status === "live" ? "LIVE" : "종료"}</span>
           <span class="grow">
-            ${slotSel("ta", m.a)} <span class="muted">vs</span> ${slotSel("tb", m.b)}
+            ${slotSel("ta", m.a, m.tid)} <span class="muted">vs</span> ${slotSel("tb", m.b, m.tid)}
             ${m.label ? `<span class="cat-chip">${esc(m.label)}</span>` : ""}
             <span class="muted">· ${fmtWhen(m.at)} · ${esc(t ? t.name : "?")} / ${esc(m.stage || "-")}</span>
           </span>
@@ -1462,6 +1496,63 @@
       };
     }
 
+    function renderIntlTeamAdmin() {
+      const list = document.getElementById("intl-team-list");
+      const add = document.getElementById("intl-team-add");
+      if (!list || !add) return;
+      const rows = additionalIntlTeams();
+      list.innerHTML = `<div class="admin-note" style="border-top:none">
+          기본 국제대회 팀 <b>${INTL_TEAMS.length}팀</b> · 직접 추가 <b>${rows.length}팀</b>
+        </div>` + (rows.length ? rows.map(t => `<div class="admin-item">
+          <span class="grow"><b>${esc(t.abbr)} · ${esc(t.name)}</b> <span class="muted">${esc(t.id)}</span></span>
+          <img src="${esc(t.logo)}" width="34" height="34" alt="" style="object-fit:contain">
+          <button class="btn-danger" type="button" data-del-intl="${esc(t.id)}">삭제</button>
+        </div>`).join("") : `<div class="empty-note">추가 등록한 해외팀이 없습니다.</div>`);
+
+      list.querySelectorAll("[data-del-intl]").forEach(button => button.addEventListener("click", async () => {
+        const id = button.dataset.delIntl;
+        if (getMatches().some(m => m.a === id || m.b === id)) {
+          alert("이 팀이 들어간 경기가 있습니다. 경기의 팀을 먼저 바꾼 뒤 삭제해 주세요.");
+          return;
+        }
+        const result = await saveAdditionalIntlTeams(rows.filter(t => t.id !== id));
+        if (result && result.error) { alert("삭제하지 못했습니다: " + result.error.message); return; }
+        renderIntlTeamAdmin();
+        fillMatchForm();
+      }));
+
+      add.onclick = async () => {
+        const team = normalizeIntlTeam({
+          id: document.getElementById("intl-team-id").value,
+          abbr: document.getElementById("intl-team-abbr").value,
+          name: document.getElementById("intl-team-name").value,
+          logo: document.getElementById("intl-team-logo").value,
+        });
+        if (!team) {
+          alert("팀 ID(영문 소문자·숫자·-), 약칭, 이름, HTTPS 로고 주소를 모두 확인해 주세요.");
+          return;
+        }
+        if (allMatchTeams().some(t => t.id === team.id)) {
+          alert("이미 등록된 팀 ID입니다.");
+          return;
+        }
+        add.disabled = true;
+        try {
+          const result = await saveAdditionalIntlTeams([...rows, team]);
+          if (result && result.error) throw result.error;
+          ["intl-team-id", "intl-team-abbr", "intl-team-name", "intl-team-logo"]
+            .forEach(id => { document.getElementById(id).value = ""; });
+          renderIntlTeamAdmin();
+          fillMatchForm();
+          alert("해외팀을 추가했습니다. 월즈 경기 등록에서 바로 선택할 수 있습니다.");
+        } catch (e) {
+          alert("저장하지 못했습니다: " + (e.message || e));
+        } finally {
+          add.disabled = false;
+        }
+      };
+    }
+
     // ── 경기 일정 자동 갱신 (손으로 한 번 돌리기) ──
     document.getElementById("sched-run")?.addEventListener("click", async () => {
       const box = document.getElementById("sched-result");
@@ -2306,6 +2397,7 @@
       renderDetailEditor();
       renderHomeCopyAdmin();
       renderSeasonModeAdmin();
+      renderIntlTeamAdmin();
       renderLogoAdmin();
       renderStreamAdmin();
       renderAwardAdmin();

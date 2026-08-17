@@ -138,9 +138,9 @@ main { max-width:var(--max); margin:auto; padding:26px 20px 70px; }
 .prediction-bar i { display:block; width:64%; height:100%; background:linear-gradient(90deg,#5278e9,var(--gold)); }
 .prediction-meta { padding:0 18px 17px; display:flex; justify-content:space-between; color:#717e92; font-size:10px; }
 .prediction-meta a { color:var(--gold-2); font-weight:900; }
-.schedule-panel>a { min-height:55px; padding:0 15px; display:grid; grid-template-columns:49px 1fr 12px; align-items:center; border-bottom:1px solid var(--line); }
-.schedule-panel>a:last-child { border-bottom:0; }
-.schedule-panel>a:hover { background:#141b27; }
+.schedule-panel #worlds-schedule-list>a { min-height:55px; padding:0 15px; display:grid; grid-template-columns:49px 1fr 12px; align-items:center; border-bottom:1px solid var(--line); }
+.schedule-panel #worlds-schedule-list>a:last-child { border-bottom:0; }
+.schedule-panel #worlds-schedule-list>a:hover { background:#141b27; }
 .schedule-panel time { color:var(--gold); font-size:11px; font-weight:900; }
 .schedule-panel b,.schedule-panel small { display:block; }
 .schedule-panel b { font-size:12px; }

@@ -145,6 +145,25 @@
     document.getElementById("worlds-prediction-copy").textContent = `${a.abbr} vs ${b.abbr} 팬 예측에 참여해 보세요.`;
   }
 
+  function renderSchedule(matches) {
+    const box = document.getElementById("worlds-schedule-list");
+    if (!box) return;
+    const known = matches.filter(knownMatch);
+    if (!known.length) return; // 공식 대진 전에는 개최 일정 안내를 그대로 둔다.
+    const now = Date.now();
+    const upcoming = known.filter(m => m.status === "live" || (m.status !== "done" && new Date(m.at).getTime() >= now));
+    const selected = upcoming.length ? upcoming.slice(0, 4) : known.slice(-4).reverse();
+    box.innerHTML = selected.map(m => {
+      const a = team(m.a), b = team(m.b);
+      const date = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric" })
+        .format(new Date(m.at)).replace(/\s/g, "").replace(/\.$/, "");
+      const state = m.status === "live" ? "LIVE" : m.status === "done" ? `${m.scoreA}:${m.scoreB}` : matchTime(m.at).replace(/^.*?\s/, "");
+      return `<a href="${matchHref(m)}"><time>${escW(date)}</time><span>
+        <b>${escW(a.abbr)} vs ${escW(b.abbr)}</b><small>${escW(m.stage || "2026 월즈")} · ${escW(state)}</small>
+      </span><em>›</em></a>`;
+    }).join("");
+  }
+
   function markStage(matches) {
     const active = matches.find(m => m.status === "live") || matches.find(m => m.status !== "done");
     const name = active ? active.stage : "";
@@ -160,6 +179,7 @@
     renderSwiss(matches);
     renderPosts();
     renderNext(matches);
+    renderSchedule(matches);
     markStage(matches);
   }
 
@@ -175,7 +195,7 @@
 
       // worlds.html은 독립 페이지가 아니라 월즈 홈 조각의 원본이기도 하다.
       // 헤더·로그인·푸터는 공통 앱 것을 쓰고, 시즌 고유 영역만 가져와 같은 index에 꽂는다.
-      shellPromise = shellPromise || fetch("worlds.html?v=20260817j").then(async response => {
+      shellPromise = shellPromise || fetch("worlds.html?v=20260817k").then(async response => {
         if (!response.ok) throw new Error("월즈 홈 모듈을 불러오지 못했습니다.");
         const doc = new DOMParser().parseFromString(await response.text(), "text/html");
         return [...doc.querySelectorAll(".worlds-nav, .match-strip, body > main")]

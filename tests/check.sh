@@ -183,6 +183,7 @@ node tests/fav-and-news.test.js || bad "fav-and-news.test 실패"
 node tests/team-board-private.test.js || bad "team-board-private.test 실패"
 node tests/intl-tournaments.test.js || bad "intl-tournaments.test 실패"
 node tests/worlds-mode.test.js || bad "worlds-mode.test 실패"
+node tests/worlds-match-integration.test.js || bad "worlds-match-integration.test 실패"
 
 # ── ⑥ vercel.json 이 유효한 JSON 인가 (_comment 키가 배포를 깬 전력) ──
 python3 -c "import json; json.load(open('vercel.json'))" || bad "vercel.json 파싱 실패"

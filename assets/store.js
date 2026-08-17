@@ -238,6 +238,7 @@ function snapshotLoad() {
     if (snap.s) Auth.session = snap.s;
     const logos = JSON.parse(localStorage.getItem(LOGO_KEY) || "{}");
     Object.assign(Cache.settings, logos);
+    hydrateIntlTeamMap();
     return true;
   } catch (e) { return false; }
 }
@@ -266,9 +267,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817j"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817j"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817j"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817k"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817k"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817k"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -364,6 +365,7 @@ async function fetchAll() {
   const prevLogos = {};
   Object.entries(Cache.settings || {}).forEach(([k, v]) => { if (k.startsWith("logo_")) prevLogos[k] = v; });
   Cache.settings = { ...prevLogos, ...Object.fromEntries((st.data || []).map(x => [x.key, x.value])) };
+  hydrateIntlTeamMap();
 
   Cache.pom = pm.data || [];
   Cache.awards = aw.data || [];
@@ -2322,8 +2324,63 @@ function streamsForMatch(matchId) {
 
 // ── 사이트 설정 · 로고 ──
 function getSetting(key) { return Cache.settings[key] || ""; }
+
+// ── 국제대회 참가팀 카탈로그 ─────────────────────────────────────
+// LCK 10팀(TEAMS)은 팀 게시판·순위·창립 팬의 범위라 절대 늘리지 않는다.
+// 월즈처럼 참가팀이 매년 바뀌는 대회만 site_settings에 추가 등록하고,
+// 경기 화면이 조회하는 TEAM_MAP에만 합친다. 따라서 기존 팬덤 기능은 그대로다.
+const INTL_TEAM_CATALOG_KEY = "intl_teams_v1";
+let hydratedIntlTeamIds = [];
+
+function normalizeIntlTeam(raw) {
+  const id = String((raw || {}).id || "").trim().toLowerCase();
+  const abbr = String((raw || {}).abbr || "").trim().toUpperCase().slice(0, 10);
+  const name = String((raw || {}).name || "").trim().slice(0, 80);
+  const logo = String((raw || {}).logo || "").trim();
+  if (!/^[a-z0-9][a-z0-9-]{1,31}$/.test(id) || !abbr || !name || !/^https:\/\//i.test(logo)) return null;
+  return { id, abbr, name, logo, color: "#8a93a6", dark: "#1e2024", dynamicIntl: true };
+}
+
+function additionalIntlTeams() {
+  let rows = [];
+  try { rows = JSON.parse(getSetting(INTL_TEAM_CATALOG_KEY) || "[]"); } catch {}
+  if (!Array.isArray(rows)) return [];
+  const reserved = new Set([...TEAMS, ...INTL_TEAMS].map(t => t.id));
+  const seen = new Set();
+  return rows.map(normalizeIntlTeam).filter(t => t && !reserved.has(t.id) && !seen.has(t.id) && seen.add(t.id));
+}
+
+function hydrateIntlTeamMap() {
+  hydratedIntlTeamIds.forEach(id => { if (TEAM_MAP[id] && TEAM_MAP[id].dynamicIntl) delete TEAM_MAP[id]; });
+  const rows = additionalIntlTeams();
+  rows.forEach(t => { TEAM_MAP[t.id] = t; });
+  hydratedIntlTeamIds = rows.map(t => t.id);
+  return rows;
+}
+
+function allMatchTeams() {
+  return [...TEAMS, ...INTL_TEAMS, ...additionalIntlTeams()];
+}
+
+function isInternationalTournament(tid) {
+  if (["msi2026", "ewc2026", "worlds2026"].includes(tid)) return true;
+  const t = Cache.tournaments.find(x => x.id === tid);
+  return !!t && /(?:worlds?|월즈|월드|msi|ewc|international)/i.test(`${t.id} ${t.name}`);
+}
+
+function matchTeamsForTournament(tid) {
+  return isInternationalTournament(tid) ? allMatchTeams() : TEAMS;
+}
+
+function saveAdditionalIntlTeams(teams) {
+  const clean = (Array.isArray(teams) ? teams : []).map(normalizeIntlTeam).filter(Boolean)
+    .map(({ id, abbr, name, logo }) => ({ id, abbr, name, logo }));
+  return setSetting(INTL_TEAM_CATALOG_KEY, JSON.stringify(clean));
+}
+
 function setSetting(key, value) {
   Cache.settings[key] = value;
+  if (key === INTL_TEAM_CATALOG_KEY) hydrateIntlTeamMap();
   return sb.from("site_settings").upsert({ key, value }).then(r => {
     sbErr(r.error, "setSetting");
     return r;
@@ -2394,6 +2451,7 @@ async function setMatchStory(matchId, story) {
 async function reloadSetting(key) {
   const r = await sb.from("site_settings").select("value").eq("key", key).maybeSingle();
   if (!r.error && r.data) Cache.settings[key] = r.data.value || "";
+  if (key === INTL_TEAM_CATALOG_KEY) hydrateIntlTeamMap();
   return getSetting(key);
 }
 // slot: "desktop-light" | "desktop-dark" | "mobile"
