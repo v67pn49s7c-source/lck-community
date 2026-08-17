@@ -17,14 +17,14 @@
   :root:not([data-theme="light"]) {
     --glow-a:.18; --glow-b:.08;
     --bg:#080b12; --surface:#0e131d; --surface-2:#141b28; --line:#273044;
-    --text:#f6f3e9; --sub:#9da8ba; --dim:#69758a; --gold:#d9b25f; --gold-2:#f4da94;
+    --text:#f6f3e9; --sub:#9da8ba; --dim:#8b96a9; --gold:#d9b25f; --gold-2:#f4da94;
     --blue:#477dff; --red:#ff4655; --green:#28c78c;
   }
 }
 :root[data-theme="dark"] {
   --glow-a:.18; --glow-b:.08;
   --bg:#080b12; --surface:#0e131d; --surface-2:#141b28; --line:#273044;
-  --text:#f6f3e9; --sub:#9da8ba; --dim:#69758a; --gold:#d9b25f; --gold-2:#f4da94;
+  --text:#f6f3e9; --sub:#9da8ba; --dim:#8b96a9; --gold:#d9b25f; --gold-2:#f4da94;
   --blue:#477dff; --red:#ff4655; --green:#28c78c;
 }
 * { box-sizing:border-box; }
