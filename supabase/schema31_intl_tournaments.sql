@@ -19,7 +19,7 @@ insert into tournaments (id, name, type, stages, note) values
  '7/15~7/19 · 국제 대회 · 우승 Dplus KIA'),
 ('worlds2026', '2026 월드 챔피언십', '토너먼트',
  '["플레이-인","스위스 스테이지","8강","4강","결승"]',
- '10/16~11/15 · 미국 · 참가팀 확정 전')
+ '현지 10/15~11/14 · 미국 · 참가팀 확정 전 (KST는 경기 시각에 따라 +1일)')
 on conflict (id) do update
   set name = excluded.name, type = excluded.type,
       stages = excluded.stages, note = excluded.note;

@@ -15,10 +15,10 @@
   <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/og-default.png">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260817h">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260817h">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260817i">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260817i">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260817h">
+  <link rel="stylesheet" href="assets/styles.css?v=20260817i">
 </head>
 <body>
   <main class="page">
@@ -49,18 +49,23 @@
       </aside>
     </div>
   </main>
-  <script src="assets/data.js?v=20260817h"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260817h"></script>
-  <script src="assets/store.js?v=20260817h"></script>
-  <script src="assets/app.js?v=20260817h"></script>
-  <script src="assets/story.js?v=20260817h"></script>
-  <script src="assets/race.js?v=20260817h"></script>
+  <script src="assets/data.js?v=20260817i"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260817i"></script>
+  <script src="assets/store.js?v=20260817i"></script>
+  <script src="assets/app.js?v=20260817i"></script>
+  <script src="assets/story.js?v=20260817i"></script>
+  <script src="assets/race.js?v=20260817i"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("경기", null);
     const params = new URLSearchParams(location.search);
     const wantedTeam = params.get("team") || "";
-    const state = { tid: null, stage: "전체", team: TEAM_MAP[wantedTeam] ? wantedTeam : "" };
+    const wantedTournament = params.get("t") || "";
+    const state = {
+      tid: getTournaments().some(t => t.id === wantedTournament) ? wantedTournament : null,
+      stage: "전체",
+      team: TEAM_MAP[wantedTeam] ? wantedTeam : "",
+    };
     function renderTeamFilter() {
       const sel = document.getElementById("team-filter");
       sel.innerHTML = `<option value="">전체 팀</option>` + TEAMS.map(t =>

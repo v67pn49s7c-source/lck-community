@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="2026 월드 챔피언십 일정과 결과, LCK 대표팀, 승부예측과 팬 커뮤니티를 한곳에서 확인하세요.">
+  <link rel="canonical" href="https://lck-community.vercel.app/">
+  <meta property="og:url" content="https://lck-community.vercel.app/">
+  <meta property="og:site_name" content="The Nexus">
+  <meta property="og:locale" content="ko_KR">
+  <meta property="og:title" content="The Nexus — 2026 월드 챔피언십 LCK 팬 커뮤니티">
+  <meta property="og:description" content="2026 월즈 일정·결과와 LCK 대표팀, 팬 예측과 이야기를 한곳에서.">
+  <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/og-default.png">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>The Nexus — 2026 월드 챔피언십</title>
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260817i">
+  <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
+  <link rel="stylesheet" href="assets/worlds.css?v=20260817i">
+</head>
+<body class="worlds-production">
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="index.html" aria-label="The Nexus 홈">
+        <img src="assets/brand/nexus-desktop-dark.png?v=20260817i" alt="The Nexus">
+      </a>
+      <nav class="main-nav" aria-label="주 메뉴">
+        <a href="index.html">홈</a><a href="worlds.html" class="active">월즈</a>
+        <a href="matches.html">경기</a><a href="predict.html">승부예측</a>
+        <a href="community.html">커뮤니티</a><a href="players.html">선수·팀</a>
+      </nav>
+      <div class="header-actions" id="worlds-auth"></div>
+    </div>
+  </header>
+
+  <nav class="worlds-nav" aria-label="월즈 메뉴">
+    <div class="worlds-nav-inner">
+      <a class="active" href="worlds.html">월즈 홈</a>
+      <a href="schedule.html?t=worlds2026">일정·결과</a>
+      <a href="bracket.html?t=worlds2026">대진표</a>
+      <a href="#lck-squad">LCK 대표팀</a>
+      <a href="predict.html">승부예측</a>
+    </div>
+  </nav>
+
+  <section class="match-strip" aria-label="월즈 주요 경기">
+    <div class="match-strip-inner" id="worlds-match-strip"></div>
+  </section>
+
+  <main>
+    <section class="worlds-hero">
+      <div class="hero-grid"></div>
+      <div class="hero-copy">
+        <span class="eyebrow">2026 WORLD CHAMPIONSHIP · NORTH AMERICA</span>
+        <h1>LCK의 세계 정복,<br><em>The Nexus에서 함께.</em></h1>
+        <p>10월 15일 로스앤젤레스에서 시작해 11월 14일 뉴욕에서 끝나는 여정.<br>
+          공식 일정과 LCK 대표팀, 팬 예측과 평점을 한곳에서 봅니다.</p>
+        <div class="hero-actions">
+          <a class="primary" href="schedule.html?t=worlds2026">월즈 전체 일정</a>
+          <a class="secondary" href="bracket.html?t=worlds2026">월즈 대진표</a>
+        </div>
+      </div>
+      <div class="countdown-card">
+        <span>WORLDS 2026</span>
+        <strong id="worlds-countdown">—</strong>
+        <b id="worlds-countdown-label">공식 일정 준비 중</b>
+        <div class="countdown-place"><i></i>LOS ANGELES → ALLEN → NEW YORK</div>
+      </div>
+    </section>
+
+    <section class="stage-rail" aria-label="월즈 진행 단계">
+      <div class="stage" data-stage="플레이-인"><span>01</span><b>플레이-인</b><small>10.15–18 · LA</small></div>
+      <div class="stage" data-stage="스위스 스테이지"><span>02</span><b>스위스</b><small>10.23–31 · ALLEN</small></div>
+      <div class="stage" data-stage="8강"><span>03</span><b>8강</b><small>11.03–06 · ALLEN</small></div>
+      <div class="stage" data-stage="4강"><span>04</span><b>4강</b><small>11.07–08 · ALLEN</small></div>
+      <div class="stage final" data-stage="결승"><span>05</span><b>결승</b><small>11.14 · NEW YORK</small></div>
+    </section>
+
+    <div class="content-layout">
+      <div class="main-column">
+        <section class="panel lck-squad" id="lck-squad">
+          <div class="panel-head">
+            <div><span class="section-kicker">KOREA AT WORLDS</span><h2>LCK 대표팀</h2></div>
+            <a href="players.html">선수·팀 보기 ›</a>
+          </div>
+          <p class="data-note" id="worlds-squad-note">공식 진출팀 확정 후 실제 시드와 팀으로 표시됩니다.</p>
+          <div class="squad-grid" id="worlds-squad-grid"></div>
+        </section>
+
+        <section class="panel swiss-panel" id="worlds-swiss-panel" hidden>
+          <div class="panel-head">
+            <div><span class="section-kicker">SWISS STAGE</span><h2>한국팀 생존 현황</h2></div>
+            <a href="schedule.html?t=worlds2026">전체 경기 ›</a>
+          </div>
+          <div class="swiss-guide"><span class="advance">3승 · 8강 진출</span><span>2승 · 진출까지 1승</span><span>1승 · 탈락 위험</span><span class="out">3패 · 탈락</span></div>
+          <div class="swiss-list" id="worlds-swiss-list"></div>
+        </section>
+
+        <section class="panel community-panel">
+          <div class="panel-head">
+            <div><span class="section-kicker">FAN COMMUNITY</span><h2>팬들의 최신 이야기</h2></div>
+            <a href="community.html">전체 글 ›</a>
+          </div>
+          <div class="post-tabs"><a class="active" href="community.html">전체</a><a href="community.html?cat=경기%20분석">경기 분석</a><a href="community.html?cat=밴픽·메타">밴픽·메타</a></div>
+          <div id="worlds-posts"></div>
+        </section>
+      </div>
+
+      <aside class="side-column">
+        <section class="panel next-panel">
+          <div class="panel-head"><div><span class="section-kicker">NEXT MATCH</span><h2 id="worlds-next-title">다음 월즈 경기</h2></div></div>
+          <div id="worlds-next-match"></div>
+        </section>
+
+        <section class="panel prediction-panel">
+          <div class="panel-head"><div><span class="section-kicker">FAN PREDICTION</span><h2>월즈 승부예측</h2></div></div>
+          <p id="worlds-prediction-copy">공식 대진이 등록되면 경기별 팬 예측이 열립니다.</p>
+          <a class="wide-cta" href="predict.html">승부예측 보기</a>
+        </section>
+
+        <section class="panel schedule-panel">
+          <div class="panel-head"><div><span class="section-kicker">TOURNAMENT</span><h2>월즈 일정</h2></div><a href="schedule.html?t=worlds2026">전체 ›</a></div>
+          <a href="schedule.html?t=worlds2026"><time>10.15</time><span><b>플레이-인 개막</b><small>Los Angeles</small></span><em>›</em></a>
+          <a href="schedule.html?t=worlds2026"><time>10.23</time><span><b>스위스 스테이지</b><small>Allen, Texas</small></span><em>›</em></a>
+          <a href="bracket.html?t=worlds2026"><time>11.03</time><span><b>8강</b><small>Allen, Texas</small></span><em>›</em></a>
+          <a href="bracket.html?t=worlds2026"><time>11.14</time><span><b>월즈 결승</b><small>Brooklyn, New York</small></span><em>›</em></a>
+        </section>
+
+        <section class="sponsor-slot"><span>PARTNERSHIP</span><b>월즈 응원본부 스폰서 영역</b><small>경기 정보보다 아래에 배치</small></section>
+      </aside>
+    </div>
+  </main>
+
+  <footer>
+    THE NEXUS · 독립적으로 운영되는 비공식 팬 커뮤니티 · Riot Games 및 참가 구단과 제휴·후원·승인 관계가 없습니다.
+  </footer>
+  <script src="assets/data.js?v=20260817i"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260817i"></script>
+  <script src="assets/store.js?v=20260817i"></script>
+  <script src="assets/worlds.js?v=20260817i"></script>
+  <script>initWorldsHome();</script>
+</body>
+</html>

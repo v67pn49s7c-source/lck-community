@@ -358,9 +358,9 @@ function renderHeader(activeMenu, activeTeamId) {
           stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817h")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817h")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817h")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817i")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817i")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817i")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -395,7 +395,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817h");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817i");
 
   renderTabBar(groupName);
 }
@@ -2174,6 +2174,18 @@ function renderHomeDataTrust() {
 
 async function initHome() {
   await storeReady;
+  // 모드 스위치는 스냅샷의 옛 값을 믿지 않고 이 한 칸만 먼저 새로 받는다.
+  // 그래야 운영자가 LCK로 긴급 복귀했는데 재방문자만 계속 월즈로 가는 일이 없다.
+  try { await reloadSetting(SITE_EVENT_MODE_KEY); } catch (e) {}
+  const manualMode = String(getSetting(SITE_EVENT_MODE_KEY) || "auto").toLowerCase();
+
+  // 수동 월즈는 최신 설정 한 칸으로 확정할 수 있다. 자동 전환은 GF 경기 상태도
+  // 최신이어야 하므로, 스냅샷 없이 이미 storeFresh를 기다린 경우에만 즉시 판정한다.
+  if (manualMode === "worlds" ||
+      (manualMode !== "lck" && !snapshotUsed && typeof worldsModeActive === "function" && worldsModeActive())) {
+    location.replace("worlds.html");
+    return;
+  }
   renderHeader("홈", null);
   const draw = () => {
     renderFanPickBar(draw);   // 팀을 고르면 내 팀 기준으로 홈을 다시 그린다
@@ -2189,7 +2201,11 @@ async function initHome() {
   };
   draw();
   // 스냅샷으로 먼저 그린 뒤 최신 경기·게시글·순위·투표가 오면 한 번 더 갱신한다.
-  storeFresh.then(draw).catch(() => {});
+  storeFresh.then(() => {
+    // 저장된 LCK 화면을 먼저 그린 재방문자도 최신 GF 종료를 확인한 순간 월즈로 전환한다.
+    if (typeof worldsModeActive === "function" && worldsModeActive()) location.replace("worlds.html");
+    else draw();
+  }).catch(() => {});
   // 경기 결과가 방금 들어왔을 때도 이 방문자에게 바로 보여 준다 (새로고침 없이)
   onStoreRefresh(draw);
   renderFooter();

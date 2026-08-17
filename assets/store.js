@@ -266,9 +266,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817h"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817h"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817h"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817i"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817i"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817i"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -2328,6 +2328,50 @@ function setSetting(key, value) {
     sbErr(r.error, "setSetting");
     return r;
   });
+}
+
+// ── 시즌 홈 전환 ────────────────────────────────────────────────
+// auto  : LCK 플레이오프 대진표의 **GF 칸에 연결된 경기**가 종료되면 월즈 홈으로 전환
+// lck   : 데이터가 잘못 들어왔을 때 운영자가 즉시 LCK 홈으로 되돌리는 안전장치
+// worlds: 결승 직후 운영자가 자동 판정보다 먼저 월즈 홈을 열 수 있는 수동 전환
+//
+// 경기 이름에 "결승"이 들어갔다는 이유만으로 전환하지 않는다. 결승 진출전도 있고,
+// 외부 수집기의 라벨이 바뀔 수 있기 때문이다. 관리자가 대진표 설정에서 GF에 정확히
+// 연결한 경기만 자동 전환의 근거로 삼는다.
+const SITE_EVENT_MODE_KEY = "site_event_mode";
+const WORLDS_LCK_SEEDS_KEY = "worlds2026_lck_seeds";
+
+function lckGrandFinalMatch() {
+  const t = Cache.tournaments.find(x => x.id === "lck2026-playoffs");
+  const id = t && t.bracket && t.bracket.links && t.bracket.links.GF;
+  return id ? Cache.matches.find(m => m.id === id && m.tid === t.id) || null : null;
+}
+
+function siteEventMode() {
+  const manual = String(getSetting(SITE_EVENT_MODE_KEY) || "auto").toLowerCase();
+  if (manual === "lck" || manual === "worlds") return manual;
+  const final = lckGrandFinalMatch();
+  return final && final.status === "done" ? "worlds" : "lck";
+}
+
+function worldsModeActive() { return siteEventMode() === "worlds"; }
+
+function worldsLckSeeds() {
+  const configured = String(getSetting(WORLDS_LCK_SEEDS_KEY) || "")
+    .split(",").map(x => x.trim()).filter(Boolean);
+  const valid = configured.filter((id, i) => TEAM_MAP[id] && TEAMS.some(t => t.id === id)
+    && configured.indexOf(id) === i);
+  if (valid.length) return valid.slice(0, 4);
+
+  // 설정 전에 공식 월즈 경기부터 들어온 경우에만 출전 사실을 근거로 자동 표시한다.
+  // 경기 데이터에도 없는 팀을 순위로 추정해서 "진출팀"이라고 말하지 않는다.
+  const seen = [];
+  Cache.matches.filter(m => m.tid === "worlds2026").forEach(m => {
+    [m.a, m.b].forEach(id => {
+      if (TEAMS.some(t => t.id === id) && !seen.includes(id)) seen.push(id);
+    });
+  });
+  return seen.slice(0, 4);
 }
 // ── 오늘의 서사 (경기별 팬덤 카피) ──
 // 새 테이블 없이 site_settings 한 칸에 {경기id: 서사} 로 모아 둔다.

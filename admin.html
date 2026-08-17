@@ -13,11 +13,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260817h">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260817h">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260817i">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260817i">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260817h">
+  <link rel="stylesheet" href="assets/styles.css?v=20260817i">
 </head>
 <body>
   <main class="page">
@@ -40,6 +40,7 @@
         <a href="cards.html" style="text-decoration:none"><button type="button">카드 스튜디오 ↗</button></a>
         <button type="button" data-tab="streams">중계 링크</button>
         <button type="button" data-tab="home-copy">홈 문구</button>
+        <button type="button" data-tab="season-mode">시즌 전환</button>
         <button type="button" data-tab="logos">로고</button>
         <button type="button" data-tab="audit">참여 점검</button>
         <button type="button" data-tab="info">안내</button>
@@ -316,6 +317,35 @@
         </div>
       </section>
 
+      <!-- LCK 결승 뒤 월즈 홈 전환 -->
+      <section class="card admin-panel" data-tab="season-mode">
+        <div class="card-head">
+          <h2 class="card-title">시즌 전환 <span class="sub">LCK 결승 종료 → 월즈 홈</span></h2>
+          <a class="btn-secondary" href="worlds.html?preview=1" target="_blank" rel="noopener">월즈 홈 미리보기 ↗</a>
+        </div>
+        <div class="admin-form">
+          <div class="row">
+            <label>홈 화면 모드
+              <select id="site-event-mode">
+                <option value="auto">자동 — LCK 결승 종료 후 월즈</option>
+                <option value="lck">LCK 홈 강제 유지</option>
+                <option value="worlds">월즈 홈 즉시 전환</option>
+              </select>
+            </label>
+            <div style="flex:2;align-self:end;padding:0 0 8px" id="site-event-status" class="muted"></div>
+          </div>
+          <div class="row" id="worlds-seed-selects"></div>
+          <div class="row actions">
+            <button class="btn-primary" id="season-mode-save" type="button">시즌 전환 설정 저장</button>
+          </div>
+        </div>
+        <div class="admin-note">
+          <b>자동 모드</b>는 대회 관리의 2026 LCK 플레이오프 대진표에서 <b>GF(결승)</b>에 연결한 경기가
+          종료됐을 때만 작동합니다. 참가팀은 공식 확정 후 LCK 1~4시드 순서로 고르세요.
+          잘못 전환되면 <b>LCK 홈 강제 유지</b>를 저장하면 즉시 원래 홈으로 돌아옵니다.
+        </div>
+      </section>
+
       <!-- 로고 관리 -->
       <section class="card admin-panel" data-tab="logos">
         <div class="card-head">
@@ -367,15 +397,15 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260817h"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260817h"></script>
-  <script src="assets/invariants.js?v=20260817h"></script>
-  <script src="assets/store.js?v=20260817h"></script>
-  <script src="assets/app.js?v=20260817h"></script>
-  <script src="assets/race.js?v=20260817h"></script>
-  <script src="assets/story.js?v=20260817h"></script>
-  <script src="assets/ddragon.js?v=20260817h"></script>
-  <script src="assets/brackets.js?v=20260817h"></script>
+  <script src="assets/data.js?v=20260817i"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260817i"></script>
+  <script src="assets/invariants.js?v=20260817i"></script>
+  <script src="assets/store.js?v=20260817i"></script>
+  <script src="assets/app.js?v=20260817i"></script>
+  <script src="assets/race.js?v=20260817i"></script>
+  <script src="assets/story.js?v=20260817i"></script>
+  <script src="assets/ddragon.js?v=20260817i"></script>
+  <script src="assets/brackets.js?v=20260817i"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -1384,6 +1414,54 @@
       });
     }
 
+    // ── LCK → 월즈 홈 전환 ────────────────────────────────────
+    function renderSeasonModeAdmin() {
+      const mode = String(getSetting(SITE_EVENT_MODE_KEY) || "auto").toLowerCase();
+      const select = document.getElementById("site-event-mode");
+      const status = document.getElementById("site-event-status");
+      const seedBox = document.getElementById("worlds-seed-selects");
+      if (!select || !status || !seedBox) return;
+      select.value = ["auto", "lck", "worlds"].includes(mode) ? mode : "auto";
+
+      const final = lckGrandFinalMatch();
+      const resolved = siteEventMode();
+      status.innerHTML = `<b>현재 공개 홈: ${resolved === "worlds" ? "월즈" : "LCK"}</b><br>`
+        + (final
+          ? `GF 연결 경기 · ${esc(final.id)} · ${final.status === "done" ? "종료" : final.status === "live" ? "진행 중" : "예정"}`
+          : `GF에 연결된 경기가 없습니다. 자동 모드는 LCK 홈을 유지합니다.`);
+
+      const saved = worldsLckSeeds();
+      const opts = (picked, slot) => `<option value="">— ${slot}시드 확정 대기 —</option>`
+        + TEAMS.map(t => `<option value="${esc(t.id)}"${t.id === picked ? " selected" : ""}>${esc(t.abbr)} · ${esc(t.name)}</option>`).join("");
+      seedBox.innerHTML = [0, 1, 2, 3].map(i => `<label>LCK ${i + 1}시드
+        <select class="worlds-seed" data-slot="${i + 1}">${opts(saved[i] || "", i + 1)}</select>
+      </label>`).join("");
+
+      document.getElementById("season-mode-save").onclick = async () => {
+        const seeds = [...seedBox.querySelectorAll(".worlds-seed")].map(x => x.value).filter(Boolean);
+        if (new Set(seeds).size !== seeds.length) {
+          alert("같은 팀을 두 시드에 넣을 수 없습니다.");
+          return;
+        }
+        const button = document.getElementById("season-mode-save");
+        button.disabled = true;
+        try {
+          const results = await Promise.all([
+            setSetting(SITE_EVENT_MODE_KEY, select.value),
+            setSetting(WORLDS_LCK_SEEDS_KEY, seeds.join(",")),
+          ]);
+          const failed = results.find(r => r && r.error);
+          if (failed) throw failed.error;
+          renderSeasonModeAdmin();
+          alert("저장했습니다. 공개 홈 전환과 LCK 대표팀 표시에 바로 반영됩니다.");
+        } catch (e) {
+          alert("저장하지 못했습니다: " + (e.message || e));
+        } finally {
+          button.disabled = false;
+        }
+      };
+    }
+
     // ── 경기 일정 자동 갱신 (손으로 한 번 돌리기) ──
     document.getElementById("sched-run")?.addEventListener("click", async () => {
       const box = document.getElementById("sched-result");
@@ -2227,6 +2305,7 @@
       renderPlayers();
       renderDetailEditor();
       renderHomeCopyAdmin();
+      renderSeasonModeAdmin();
       renderLogoAdmin();
       renderStreamAdmin();
       renderAwardAdmin();
