@@ -81,7 +81,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260817f") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260817g") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -487,6 +487,15 @@ body.nav-open-lock { overflow: hidden; }
 }
 .home-match-cta-short { display: none; }
 .home-match-game:hover .home-match-cta { filter: brightness(1.08); }
+.home-offseason-content { min-width:0; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.home-offseason-result { min-width:0; display:flex; align-items:center; gap:8px; color:var(--text); }
+.home-offseason-result small { color:var(--text-dim); font-size:var(--fs-xs); font-weight:800; }
+.home-offseason-result > strong { padding:4px 8px; background:var(--bg-soft); font-variant-numeric:tabular-nums; }
+.home-offseason-calendar {
+  flex:0 0 auto; padding:7px 10px; background:var(--accent-solid); color:#fff;
+  font-size:var(--fs-xs); font-weight:900; --cut:var(--cut-sm); clip-path:var(--chamfer-br);
+}
+.home-schedule-recap { padding:8px 13px; border-bottom:1px solid var(--line); background:var(--bg-soft); color:var(--text-sub); font-size:var(--fs-xs); font-weight:800; }
 
 .home-redesign-page { padding-top:24px; }
 /* ── 홈 히어로: 오늘의 서사 ────────────────────────────────────
@@ -1103,9 +1112,30 @@ table.standings .pt { font-weight: 800; font-variant-numeric: tabular-nums; }
 
 /* ── 경기 홈·오늘 경기 선택 ── */
 .schedule-cta { display: flex; flex-direction: column; gap:8px; padding:16px 15px; color: var(--text-sub); }
-.schedule-cta b { color: var(--text); font-size: var(--fs-md); }
-.schedule-cta span { font-size: var(--fs-sm); line-height: 1.6; }
-.schedule-cta .btn-primary { align-self: flex-start; margin-top:6px; }
+.schedule-cta > b { color: var(--text); font-size: var(--fs-md); }
+.schedule-cta > span { font-size: var(--fs-sm); line-height: 1.6; }
+.schedule-cta > .btn-primary { align-self: flex-start; margin-top:6px; }
+.schedule-cta .calendar-subscribe { margin:10px -15px -16px; border-top:1px solid var(--line); }
+.schedule-filters { display:flex; align-items:flex-end; justify-content:flex-end; gap:8px; }
+.schedule-filters label { display:flex; flex-direction:column; gap:4px; color:var(--text-dim); font-size:var(--fs-xs); font-weight:700; }
+.schedule-filters select { min-width:120px; }
+.schedule-filters label:last-child select { min-width:200px; }
+.calendar-subscribe {
+  display:flex; align-items:center; justify-content:space-between; gap:14px;
+  padding:11px 14px; border-bottom:1px solid var(--line); background:var(--bg-soft);
+}
+.calendar-subscribe-copy { min-width:0; display:flex; flex-direction:column; gap:2px; }
+.calendar-subscribe-copy b { color:var(--text); font-size:var(--fs-sm); }
+.calendar-subscribe-copy span { color:var(--text-dim); font-size:var(--fs-xs); line-height:1.45; }
+.calendar-subscribe-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px; }
+.calendar-subscribe-actions a, .calendar-subscribe-actions button {
+  padding:6px 9px; border:1px solid var(--line); background:var(--card); color:var(--text-sub);
+  font-size:var(--fs-xs); font-weight:800; white-space:nowrap;
+  --cut:var(--cut-sm); clip-path:var(--chamfer-br);
+}
+.calendar-subscribe-actions a:hover, .calendar-subscribe-actions button:hover { border-color:var(--accent); color:var(--accent); }
+.calendar-subscribe.compact { display:block; padding:12px 14px; border-bottom:0; }
+.calendar-subscribe.compact .calendar-subscribe-actions { justify-content:flex-start; margin-top:9px; }
 .match-overview-card .day-label:first-child { border-top: 0; }
 .match-switcher { display: flex; align-items: center; gap:13px; padding:11px 15px; border-bottom: 1px solid var(--line); background: var(--bg-soft); }
 .match-switcher-label { flex: 0 0 auto; color: var(--text-dim); font-size: var(--fs-xs); font-weight: 800; }
@@ -2235,6 +2265,9 @@ a.bracket-match:hover { border-color: var(--accent); }
   .page-title { flex: 1 0 100%; min-width: 0; }
   .page-title-row > div { flex: 1 1 100%; }
   .page-title-row select { flex: 1 1 auto; min-width: 0 !important; }
+  .schedule-filters { align-items:stretch; }
+  .schedule-filters label { flex:1 1 0; }
+  .calendar-subscribe { align-items:flex-start; }
   .live-layout { grid-template-columns: 1fr; }
   .live-side { position: static; }
 }
@@ -2290,6 +2323,9 @@ a.bracket-match:hover { border-color: var(--accent); }
   .card-head { flex-wrap: wrap; gap:7px 11px; }
   .card-title { flex: 1 0 auto; }
   .card-title .sub { display: none; }
+  .calendar-subscribe { display:block; }
+  .calendar-subscribe-actions { justify-content:flex-start; margin-top:9px; }
+  .calendar-subscribe-actions a, .calendar-subscribe-actions button { flex:1 1 auto; text-align:center; }
   /* 팬심 평점: 좌우 대칭 유지 + 더 압축 */
   .frate-vs { grid-template-columns: minmax(0, 1fr) 26px minmax(0, 1fr); }
   .fv-teamhead { padding:7px 9px; font-size: 13px; gap:4px; }
@@ -3252,6 +3288,7 @@ a.bracket-match:hover .bm-slot { border-color: var(--accent); }
   .home-match-date strong { margin-top:0; font-size: 13px; }
   .home-match-list { grid-template-columns: 1fr; }
   .home-match-bar[data-count="1"] .home-match-game { max-width: none; }
+  .home-offseason-content { min-height:55px; padding:7px 11px; }
   .home-match-game {
     min-height:55px; grid-template-columns: 38px 64px minmax(80px, 1fr) 64px 68px;
     padding:7px 11px; border-left: 0; border-bottom: 1px solid var(--line);
@@ -3287,6 +3324,9 @@ a.bracket-match:hover .bm-slot { border-color: var(--accent); }
   .home-match-team { gap:4px; font-size: var(--fs-sm); }
   .home-match-team .team-logo { width: 22px !important; height: 22px !important; }
   .home-match-game { grid-template-columns: 34px 52px minmax(68px, 1fr) 52px 58px; gap:4px; padding-left:9px; padding-right:9px; }
+  .home-offseason-content { align-items:stretch; flex-direction:column; gap:7px; }
+  .home-offseason-result { justify-content:center; }
+  .home-offseason-calendar { text-align:center; }
   .home-match-cta { min-width: 0; padding:7px 6px; font-size: 12px; }
   /* ⚠ 여기 있던 히어로 규칙들은 **가로 띠 시절**의 것이었다 (얼굴 76px·타일 56px·
      .hero-links 등). 히어로를 사이드바 세로 카드로 바꾼 뒤에도 남아서 새 크기를

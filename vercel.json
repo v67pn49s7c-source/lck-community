@@ -26,6 +26,14 @@
       "destination": "/api/match?id=:id"
     },
     {
+      "source": "/calendar/lck.ics",
+      "destination": "/api/calendar"
+    },
+    {
+      "source": "/calendar/:team.ics",
+      "destination": "/api/calendar?team=:team"
+    },
+    {
       "source": "/sitemap.xml",
       "destination": "/api/sitemap"
     },

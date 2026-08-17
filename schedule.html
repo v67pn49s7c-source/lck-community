@@ -15,10 +15,10 @@
   <meta property="og:image" content="https://lck-community.vercel.app/assets/brand/og-default.png">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260817f">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260817f">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260817g">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260817g">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260817f">
+  <link rel="stylesheet" href="assets/styles.css?v=20260817g">
 </head>
 <body>
   <main class="page">
@@ -26,9 +26,13 @@
       <div class="stack">
         <div class="page-title-row">
           <h1 class="page-title">전체 경기 일정 <span class="sub">일정 · 결과</span></h1>
-          <div><select id="tournament-select" style="min-width:200px"></select></div>
+          <div class="schedule-filters">
+            <label><span>팀</span><select id="team-filter"></select></label>
+            <label><span>대회</span><select id="tournament-select"></select></label>
+          </div>
         </div>
         <section class="card">
+          <div id="schedule-calendar"></div>
           <div class="board-toolbar"><div class="filter-tabs" id="stage-tabs"></div></div>
           <div id="matches-body"></div>
         </section>
@@ -45,16 +49,33 @@
       </aside>
     </div>
   </main>
-  <script src="assets/data.js?v=20260817f"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260817f"></script>
-  <script src="assets/store.js?v=20260817f"></script>
-  <script src="assets/app.js?v=20260817f"></script>
-  <script src="assets/story.js?v=20260817f"></script>
-  <script src="assets/race.js?v=20260817f"></script>
+  <script src="assets/data.js?v=20260817g"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260817g"></script>
+  <script src="assets/store.js?v=20260817g"></script>
+  <script src="assets/app.js?v=20260817g"></script>
+  <script src="assets/story.js?v=20260817g"></script>
+  <script src="assets/race.js?v=20260817g"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("경기", null);
-    const state = { tid: null, stage: "전체" };
+    const params = new URLSearchParams(location.search);
+    const wantedTeam = params.get("team") || "";
+    const state = { tid: null, stage: "전체", team: TEAM_MAP[wantedTeam] ? wantedTeam : "" };
+    function renderTeamFilter() {
+      const sel = document.getElementById("team-filter");
+      sel.innerHTML = `<option value="">전체 팀</option>` + TEAMS.map(t =>
+        `<option value="${esc(t.id)}" ${state.team === t.id ? "selected" : ""}>${esc(t.abbr)}</option>`).join("");
+      sel.onchange = () => {
+        state.team = sel.value;
+        renderMatches(); renderCalendar();
+        const url = new URL(location.href);
+        state.team ? url.searchParams.set("team", state.team) : url.searchParams.delete("team");
+        history.replaceState(null, "", url);
+      };
+    }
+    function renderCalendar() {
+      document.getElementById("schedule-calendar").innerHTML = calendarSubscribeHTML(state.team);
+    }
     function renderTournamentSelect() {
       const ts = getTournaments();
       const sel = document.getElementById("tournament-select");
@@ -80,9 +101,10 @@
     function renderMatches() {
       let ms = sortedMatches().filter(m => m.tid === state.tid);
       if (state.stage !== "전체") ms = ms.filter(m => m.stage === state.stage);
+      if (state.team) ms = ms.filter(m => m.a === state.team || m.b === state.team);
       document.getElementById("matches-body").innerHTML = scheduleHTML(ms, { showStage: true });
     }
-    const draw = () => { renderTournamentSelect(); renderStageTabs(); renderMatches(); };
+    const draw = () => { renderTeamFilter(); renderTournamentSelect(); renderStageTabs(); renderCalendar(); renderMatches(); };
     draw();
     storeFresh.then(draw).catch(() => {});
     onStoreRefresh(draw);           // 방금 들어온 경기 결과를 이 방문자에게 바로

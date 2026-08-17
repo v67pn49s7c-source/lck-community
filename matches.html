@@ -17,10 +17,10 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260817f">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260817f">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260817g">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260817g">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260817f">
+  <link rel="stylesheet" href="assets/styles.css?v=20260817g">
 </head>
 <body>
   <main class="page">
@@ -55,6 +55,7 @@
             <b>대회·라운드별 전체 일정</b>
             <span>지난 결과부터 앞으로의 일정까지 한 화면에서 확인하세요.</span>
             <a class="btn-primary" href="schedule.html">전체 일정 열기</a>
+            <div id="matches-calendar"></div>
           </div>
         </section>
 
@@ -68,12 +69,12 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260817f"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260817f"></script>
-  <script src="assets/store.js?v=20260817f"></script>
-  <script src="assets/app.js?v=20260817f"></script>
-  <script src="assets/story.js?v=20260817f"></script>
-  <script src="assets/race.js?v=20260817f"></script>
+  <script src="assets/data.js?v=20260817g"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260817g"></script>
+  <script src="assets/store.js?v=20260817g"></script>
+  <script src="assets/app.js?v=20260817g"></script>
+  <script src="assets/story.js?v=20260817g"></script>
+  <script src="assets/race.js?v=20260817g"></script>
   <script>
   storeReady.then(async () => {
     renderHeader("경기", null);
@@ -92,6 +93,7 @@
     }
 
     drawOverview();
+    document.getElementById("matches-calendar").innerHTML = calendarSubscribeHTML("", true);
 
     // 저장된 사본으로 먼저 그리고, 서버 자료가 도착하면 **한 번 더** 그린다.
     // 이게 없으면 다시 찾아온 사람은 늘 '지난번 자료'를 본다 — 경기가 끝나도

@@ -931,6 +931,8 @@ async function initTeamPage() {
   });
 
   renderTeamContent(team.id);  // 공식 YouTube · Instagram · X 최신 콘텐츠
+  const calendar = document.getElementById("team-calendar");
+  if (calendar) calendar.innerHTML = calendarSubscribeHTML(team.id, true);
 
   const hero = document.getElementById("team-hero");
   hero.style.background = `linear-gradient(120deg, ${team.dark} 0%, #12141b 70%)`;

@@ -358,9 +358,9 @@ function renderHeader(activeMenu, activeTeamId) {
           stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817f")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817f")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817f")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817g")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817g")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817g")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -395,7 +395,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817f");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817g");
 
   renderTabBar(groupName);
 }
@@ -688,6 +688,46 @@ async function shareMatch(match) {
     showActionToast("링크를 복사하지 못했습니다. 주소창의 주소를 복사해 주세요.");
     return false;
   }
+}
+
+// ── 경기 캘린더 구독 ──────────────────────────────────────
+// 다운로드는 한 번 가져오기이고, Google/Apple 링크는 구독이라 이후 시간 변경도
+// 캘린더 앱이 다시 읽는다. 같은 HTML을 경기·일정·팀 화면에서 재사용한다.
+function calendarSubscriptionLinks(teamId = "", origin = location.origin) {
+  const id = TEAM_MAP[teamId] ? teamId : "lck";
+  const feed = new URL(`/calendar/${id}.ics`, origin).href;
+  const webcal = feed.replace(/^https?:/i, "webcal:");
+  return {
+    feed,
+    // Google은 2025년 이후 cid= 직접 구독이 모바일에서 불안정하다. 공식 안내대로
+    // 'URL로 추가' 화면을 열고 공개 feed 주소를 붙여넣게 한다.
+    google: "https://calendar.google.com/calendar/u/0/r/settings/addbyurl",
+    webcal,
+  };
+}
+
+function copyCalendarFeed(url) {
+  copyText(url).then(() => showActionToast("캘린더 구독 주소를 복사했습니다. URL 입력란에 붙여넣으세요."))
+    .catch(() => showActionToast("구독 주소를 복사하지 못했습니다. ICS 받기를 이용해 주세요."));
+}
+
+function calendarSubscribeHTML(teamId = "", compact = false) {
+  const links = calendarSubscriptionLinks(teamId);
+  const team = TEAM_MAP[teamId];
+  const subject = team ? `${team.abbr} 경기` : "LCK 경기";
+  return `<div class="calendar-subscribe${compact ? " compact" : ""}">
+    <div class="calendar-subscribe-copy">
+      <b>${esc(subject)} 놓치지 않기</b>
+      <span>캘린더에 구독하면 일정 변경도 자동 반영됩니다.</span>
+    </div>
+    <div class="calendar-subscribe-actions">
+      <a href="${esc(links.google)}" target="_blank" rel="noopener noreferrer"
+        data-calendar-feed="${esc(links.feed)}" onclick="copyCalendarFeed(this.dataset.calendarFeed)">Google</a>
+      <a href="${esc(links.webcal)}">Apple·기본 앱</a>
+      <button type="button" onclick="copyCalendarFeed('${esc(links.feed)}')">주소 복사</button>
+      <a href="${esc(links.feed)}" download>ICS 받기</a>
+    </div>
+  </div>`;
 }
 
 // ── 예측 공유 카드 ("나는 ○○ 승리를 예측했습니다") ─────────
@@ -1541,7 +1581,29 @@ function renderHomeFeature() {
   const card = document.getElementById("home-hero");
   if (!card) return;
   const match = homeFeaturedMatch(homeNearestGames());
-  if (!match) { card.style.display = "none"; return; }
+  if (!match) {
+    const latest = sortedMatches().filter(m => knownTeams(m) && m.status === "done").slice(-1)[0];
+    if (!latest) { card.style.display = "none"; return; }
+    const A = TEAM_MAP[latest.a], B = TEAM_MAP[latest.b];
+    const winnerId = typeof matchWinner === "function" ? matchWinner(latest) : null;
+    const winner = TEAM_MAP[winnerId];
+    card.style.display = "";
+    card.className = "card home-hero home-hero-recap";
+    card.innerHTML = `<div class="hero-copy">
+        <p class="hero-eyebrow">최근 경기 돌아보기</p>
+        <h2 class="hero-headline">${winner ? `${esc(winner.abbr)} 승리 · ` : ""}${latest.scoreA ?? 0}:${latest.scoreB ?? 0}</h2>
+        <p class="hero-sub">${esc(A.name)} vs ${esc(B.name)}</p>
+      </div>
+      <div class="hero-stage">
+        ${heroSideHTML(A, null, "a")}<span class="hero-vs" aria-hidden="true">VS</span>${heroSideHTML(B, null, "b")}
+      </div>
+      <div class="hero-actions">
+        <time class="hero-when">${esc(homeDayLabel(latest.at))}</time>
+        <a class="btn-primary" href="/match/${q(latest.id)}">결과·팬 반응 보기</a>
+        <a class="hero-more" href="schedule.html?view=results">지난 경기 전체 ›</a>
+      </div>`;
+    return;
+  }
 
   const A = TEAM_MAP[match.a], B = TEAM_MAP[match.b];
   const story = typeof storyFor === "function" ? storyFor(match) : null;
@@ -1758,7 +1820,26 @@ function renderHomeMatchBar() {
   }
 
   const games = homeNearestGames();
-  if (!games.length) { bar.style.display = "none"; return; }
+  if (!games.length) {
+    const latest = sortedMatches().filter(m => knownTeams(m) && m.status === "done").slice(-1)[0];
+    if (!latest) { bar.style.display = "none"; return; }
+    const A = TEAM_MAP[latest.a], B = TEAM_MAP[latest.b];
+    bar.style.display = "";
+    bar.dataset.count = "offseason";
+    bar.setAttribute("aria-label", "다음 LCK 일정 알림과 최근 결과");
+    bar.innerHTML = `<div class="container home-match-inner home-offseason-inner">
+      <div class="home-match-date"><span>다음 일정 대기</span><strong>새 경기 등록 시 자동 반영</strong></div>
+      <div class="home-offseason-content">
+        <a class="home-offseason-result" href="/match/${q(latest.id)}">
+          <small>최근 결과</small>${teamLogoHTML(A, 24)}<b>${esc(A.abbr)}</b>
+          <strong>${latest.scoreA ?? 0} : ${latest.scoreB ?? 0}</strong>
+          <b>${esc(B.abbr)}</b>${teamLogoHTML(B, 24)}
+        </a>
+        <a class="home-offseason-calendar" href="schedule.html#schedule-calendar">다음 경기 캘린더 구독</a>
+      </div>
+    </div>`;
+    return;
+  }
   const first = games[0];
 
   bar.style.display = "";
@@ -1867,7 +1948,13 @@ function renderHomeUpcomingSchedule() {
   const now = Date.now();
   const games = sortedMatches().filter(m => knownTeams(m) && m.status !== "done" &&
     (m.status === "live" || new Date(m.at).getTime() > now)).slice(0, 4);
-  if (!games.length) { el.innerHTML = `<div class="empty-note">예정된 경기가 없습니다</div>`; return; }
+  if (!games.length) {
+    const recent = sortedMatches().filter(m => knownTeams(m) && m.status === "done").slice(-3);
+    el.innerHTML = recent.length
+      ? `<div class="home-schedule-recap">최근 경기 결과</div>${scheduleHTML(recent, { showStage: false })}`
+      : `<div class="empty-note">새 경기 일정을 준비하고 있습니다</div>`;
+    return;
+  }
 
   let day = "";
   el.innerHTML = games.map(m => {
