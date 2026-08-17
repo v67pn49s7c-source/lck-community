@@ -358,9 +358,9 @@ function renderHeader(activeMenu, activeTeamId) {
           stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260816d")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260816d")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260816d")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260816e")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260816e")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260816e")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -395,7 +395,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260816d");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260816e");
 
   renderTabBar(groupName);
 }
@@ -1822,11 +1822,33 @@ async function renderHomeNews() {
   if (!items.length) return;
 
   card.style.display = "";
-  document.getElementById("home-news-body").innerHTML = items.map(n => `
-    <a class="news-row" href="${esc(n.url)}" target="_blank" rel="noopener noreferrer">
-      <span class="news-title">${esc(n.title)}</span>
-      <span class="news-meta">${n.source ? esc(n.source) : ""}${n.at ? ` · ${esc(fmtAgo(n.at))}` : ""}</span>
-    </a>`).join("");
+  // 뉴스 가판대 — 첫 기사는 크게, 나머지는 작은 썸네일 줄로.
+  // ⚠ 썸네일은 **있으면 좋은 것**이지 조건이 아니다. 구글이 못 주는 기사도 있으므로
+  //   없으면 글자만으로도 줄이 성립해야 한다 (has-thumb 로 갈린다).
+  const thumb = n => n.image
+    ? `<span class="news-thumb"><img src="${esc(n.image)}" alt="" loading="lazy" decoding="async"
+         onerror="this.closest('a').classList.remove('has-thumb')"></span>`
+    : "";
+  const meta = n => `${n.source ? esc(n.source) : ""}${n.at ? `${n.source ? " · " : ""}${esc(fmtAgo(n.at))}` : ""}`;
+  const lead = items[0];
+  const rest = items.slice(1);
+  document.getElementById("home-news-body").innerHTML = `
+    ${lead ? `<a class="news-lead${lead.image ? " has-thumb" : ""}" href="${esc(lead.url)}"
+        target="_blank" rel="noopener noreferrer">
+        ${thumb(lead)}
+        <span class="news-lead-txt">
+          <b>${esc(lead.title)}</b>
+          <span class="news-meta">${meta(lead)}</span>
+        </span>
+      </a>` : ""}
+    ${rest.map(n => `
+      <a class="news-row${n.image ? " has-thumb" : ""}" href="${esc(n.url)}" target="_blank" rel="noopener noreferrer">
+        ${thumb(n)}
+        <span class="news-row-txt">
+          <span class="news-title">${esc(n.title)}</span>
+          <span class="news-meta">${meta(n)}</span>
+        </span>
+      </a>`).join("")}`;
 }
 
 function renderHomePulse() {

@@ -86,4 +86,37 @@ ok(parsed[0].at === "2026-08-14T12:16:00.000Z", "발행 시각을 ISO 로");
 ok(cleanTitle("제목 - 인벤", "인벤") === "제목" && cleanTitle("제목", "") === "제목",
   "매체가 없을 때도 안전");
 
+// ── 뉴스 썸네일 (2026-08-16) ──────────────────────────────────
+// 구글 뉴스 RSS 에는 이미지가 없다. 링크가 가리키는 구글 중계 페이지의 og:image 가
+// 곧 그 기사 썸네일이라, 그것만 꺼내 쓴다.
+{
+  const news = require("../api/news.js");
+  const t = news._test || {};
+  ok(typeof t.thumbOf === "function" && typeof t.withThumbs === "function",
+    "썸네일 함수가 있어야 함");
+  // 구글 썸네일 주소 끝의 크기를 바꿔 받는다
+  ok(t.sizeThumb("https://lh3.googleusercontent.com/A=s0-w300-rw", 400)
+       === "https://lh3.googleusercontent.com/A=s0-w400-rw",
+    "썸네일 크기를 화면에 맞게 바꿔야 함");
+  ok(t.sizeThumb("https://x/y.jpg", 400) === "https://x/y.jpg",
+    "크기가 안 붙은 주소는 건드리지 않아야 함");
+  const src = fs.readFileSync(path.join(__dirname, "..", "api/news.js"), "utf8");
+  // ⚠ 썸네일 때문에 기사까지 늦거나 빠지면 안 된다 — 예산과 개수 제한이 있어야 한다
+  ok(/THUMB_BUDGET_MS/.test(src) && /THUMB_MAX/.test(src),
+    "썸네일에 시간 예산과 건수 제한이 있어야 함 (뉴스가 본체다)");
+  ok(/catch \{ return null; \}/.test(src),
+    "썸네일 실패는 조용히 넘어가야 함");
+}
+{
+  const app = fs.readFileSync(path.join(__dirname, "..", "assets/app.js"), "utf8");
+  const css = fs.readFileSync(path.join(__dirname, "..", "assets/styles.css"), "utf8");
+  ok(/class="news-lead\$\{lead\.image \? " has-thumb" : ""\}"/.test(app),
+    "사진이 있는 기사만 has-thumb 를 달아야 함");
+  ok(/\.news-lead:not\(\.has-thumb\) \.news-thumb \{ display: none; \}/.test(css) &&
+     /\.news-row:not\(\.has-thumb\) \.news-thumb \{ display: none; \}/.test(css),
+    "사진 없는 기사는 사진 자리를 접어야 함 (빈 칸이 이 빠진 것처럼 보인다)");
+  ok(/onerror="this\.closest\('a'\)\.classList\.remove\('has-thumb'\)"/.test(app),
+    "사진이 깨지면 그 줄만 글자 배치로 되돌아가야 함");
+}
+
 console.log(`\nfav-and-news.test: ${n} 통과, 0 실패`);
