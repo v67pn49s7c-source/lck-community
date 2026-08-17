@@ -118,6 +118,10 @@ async function thumbOf(url, deadline) {
 }
 
 /** 앞의 몇 건에 썸네일을 붙인다. 실패해도 기사 목록은 그대로 돌려준다. */
+// 서버에서 기사 페이지를 못 여는 매체가 있다 — 포모스는 Cloudflare 가 우리 서버를
+// 막는다(403 "Just a moment"). 내 컴퓨터에서는 되고 서버에서만 안 되므로 눈치채기 어렵다.
+// 이런 매체는 **사진을 못 구할 뿐 기사는 멀쩡하다.** 그래서 버리지 않고, 대신
+// 사진이 필요한 자리(머리기사)에는 다른 매체가 오도록 화면 쪽에서 고른다.
 async function withThumbs(items) {
   const deadline = Date.now() + THUMB_BUDGET_MS;
   const head = items.slice(0, THUMB_MAX);
@@ -188,7 +192,7 @@ async function fetchNaver(limit) {
     "X-NCP-APIGW-API-KEY-ID": id, "X-NCP-APIGW-API-KEY": key } });
   if (!r.ok) throw new Error(`네이버 ${r.status}`);
   const body = await r.json();
-  return (body.items || []).flatMap(it => {
+  const ranked = (body.items || []).flatMap(it => {
     const title = stripTags(it.title);
     const desc = stripTags(it.description);
     const url = it.originallink || it.link;
@@ -203,9 +207,26 @@ async function fetchNaver(limit) {
     .filter((x, i, arr) => arr.findIndex(y => y.title === x.title) === i)
     // e스포츠 전문 매체를 먼저. 같은 급이면 최신순.
     .sort((a, b) => (ESPORTS_MEDIA.has(b.host) ? 1 : 0) - (ESPORTS_MEDIA.has(a.host) ? 1 : 0)
-      || (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0))
-    .map(({ host, ...rest }) => rest)
-    .slice(0, limit);
+      || (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0));
+
+  // ⚠ 한 매체가 목록을 독점하면 안 된다. 포모스가 하루에 열 건을 쓰면 목록이 전부
+  //   포모스가 되는데, 하필 포모스는 서버에서 사진을 못 가져오는 매체라 사진이
+  //   통째로 사라진다. 매체당 2건까지만 — 다양성이 곧 사진 확률이다.
+  const perHost = {}, picked = [];
+  for (const it of ranked) {
+    perHost[it.host] = (perHost[it.host] || 0) + 1;
+    if (perHost[it.host] <= 2) picked.push(it);
+    if (picked.length >= limit) break;
+  }
+  // 그래도 모자라면 남은 것으로 채운다 (뉴스가 비는 것이 가장 나쁘다)
+  if (picked.length < limit) {
+    for (const it of ranked) {
+      if (picked.includes(it)) continue;
+      picked.push(it);
+      if (picked.length >= limit) break;
+    }
+  }
+  return picked.map(({ host, ...rest }) => rest);
 }
 
 module.exports = async (req, res) => {
