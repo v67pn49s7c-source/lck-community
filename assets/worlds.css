@@ -1,13 +1,39 @@
-:root {
+/* ── 월즈 색 ────────────────────────────────────────────────────
+   ⚠ 예전에는 여기 :root 하나에 **어두운 값만** 박아 뒀다. 그런데 공용 styles.css 의
+     `:root[data-theme="light"]` 가 이것보다 **선택자가 세서**, 라이트로 바꾸면
+     공용 이름(--text 등)만 밝은 값으로 바뀌고 월즈 전용 이름(--surface 등)은
+     어두운 채로 남았다. 그 결과 **어두운 카드 위에 어두운 글자**가 얹혀 제목이
+     통째로 사라졌다 (2026-08-18 사장님 화면).
+   그래서 세 상태를 **같은 세기로** 모두 적어 준다: 기본(라이트) · 시스템 다크 · 강제 지정.
+   ⚠ 금색(--gold)과 팀 색은 테마가 아니라 **브랜드**다. 두 모드에서 같은 계열을 쓰되
+     라이트에서는 흰 바탕에 묻히지 않게 한 단계 짙게만 간다. */
+:root, :root[data-theme="light"] {
+  --bg:#f4f1e8; --surface:#ffffff; --surface-2:#f0ece0; --line:#ddd6c4;
+  --text:#171a21; --sub:#4d566a; --dim:#6d7689;
+  --gold:#8a6a1f; --gold-2:#a8842d;
+  --blue:#2a54c8; --red:#c8323f; --green:#1a8c62; --max:1256px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --glow-a:.18; --glow-b:.08;
+    --bg:#080b12; --surface:#0e131d; --surface-2:#141b28; --line:#273044;
+    --text:#f6f3e9; --sub:#9da8ba; --dim:#69758a; --gold:#d9b25f; --gold-2:#f4da94;
+    --blue:#477dff; --red:#ff4655; --green:#28c78c;
+  }
+}
+:root[data-theme="dark"] {
+  --glow-a:.18; --glow-b:.08;
   --bg:#080b12; --surface:#0e131d; --surface-2:#141b28; --line:#273044;
   --text:#f6f3e9; --sub:#9da8ba; --dim:#69758a; --gold:#d9b25f; --gold-2:#f4da94;
-  --blue:#477dff; --red:#ff4655; --green:#28c78c; --max:1420px;
+  --blue:#477dff; --red:#ff4655; --green:#28c78c;
 }
 * { box-sizing:border-box; }
 html { background:var(--bg); color:var(--text); font-family:"Pretendard","Pretendard Variable",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+/* 방사형 번짐은 어두운 배경에서만 '조명'처럼 보인다. 흰 바탕에서는 얼룩이 된다.
+   그래서 세기를 토큰으로 빼서 라이트에서는 거의 0 으로 둔다. */
 body { margin:0; min-width:320px; background:
-  radial-gradient(circle at 85% 12%,rgba(58,98,176,.18),transparent 29rem),
-  radial-gradient(circle at 12% 30%,rgba(217,178,95,.08),transparent 24rem),var(--bg); }
+  radial-gradient(circle at 85% 12%,rgba(58,98,176,var(--glow-a,.03)),transparent 29rem),
+  radial-gradient(circle at 12% 30%,rgba(217,178,95,var(--glow-b,.02)),transparent 24rem),var(--bg); }
 a { color:inherit; text-decoration:none; }
 button { color:inherit; font:inherit; }
 [hidden] { display:none !important; }
