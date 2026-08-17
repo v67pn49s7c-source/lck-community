@@ -151,8 +151,7 @@
     document.querySelectorAll(".stage-rail .stage").forEach(el => el.classList.toggle("active", el.dataset.stage === name));
   }
 
-  window.initWorldsHome = async function () {
-    await storeReady;
+  function drawWorldsHome() {
     renderAuth();
     const matches = worldsMatches();
     renderCountdown(matches);
@@ -162,10 +161,39 @@
     renderPosts();
     renderNext(matches);
     markStage(matches);
+  }
+
+  window.HOME_MODULES = window.HOME_MODULES || {};
+  let shellPromise = null;
+  HOME_MODULES.worlds = {
+    async mount(root) {
+      const theme = document.getElementById("worlds-theme");
+      if (theme) theme.disabled = false;
+      document.body.classList.remove("home-redesign");
+      document.body.classList.add("worlds-production");
+      document.title = "The Nexus — 2026 월드 챔피언십";
+
+      // worlds.html은 독립 페이지가 아니라 월즈 홈 조각의 원본이기도 하다.
+      // 헤더·로그인·푸터는 공통 앱 것을 쓰고, 시즌 고유 영역만 가져와 같은 index에 꽂는다.
+      shellPromise = shellPromise || fetch("worlds.html?v=20260817j").then(async response => {
+        if (!response.ok) throw new Error("월즈 홈 모듈을 불러오지 못했습니다.");
+        const doc = new DOMParser().parseFromString(await response.text(), "text/html");
+        return [...doc.querySelectorAll(".worlds-nav, .match-strip, body > main")]
+          .map(node => node.outerHTML).join("");
+      });
+      root.innerHTML = await shellPromise;
+      renderHeader("월즈", "__worlds");
+      renderFooter();
+    },
+    draw: drawWorldsHome,
+  };
+
+  // 예전 미리보기 주소도 계속 열리게 하는 독립 실행 호환 경로.
+  window.initWorldsHome = async function () {
+    await storeReady;
+    drawWorldsHome();
     storeFresh.then(() => {
-      const fresh = worldsMatches();
-      renderAuth(); renderCountdown(fresh); renderStrip(fresh); renderSquads();
-      renderSwiss(fresh); renderPosts(); renderNext(fresh); markStage(fresh);
+      drawWorldsHome();
     }).catch(() => {});
   };
 })();

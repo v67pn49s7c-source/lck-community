@@ -1,7 +1,8 @@
 const assert = require("assert");
 const fs = require("fs");
 
-const html = fs.readFileSync("index.html", "utf8");
+const index = fs.readFileSync("index.html", "utf8");
+const html = fs.readFileSync("assets/home-lck.js", "utf8");
 const app = fs.readFileSync("assets/app.js", "utf8");
 const css = fs.readFileSync("assets/styles.css", "utf8");
 
@@ -64,5 +65,7 @@ assert(css.includes("background: transparent; border: 0; clip-path: none") &&
   "실제 팀 로고에는 배경 타일·테두리·각진 잘라내기를 사용하지 않아야 함");
 assert(/@media \(max-width: 720px\)[\s\S]*?\.main-nav \{ display: none; \}/.test(css),
   "모바일에서는 중복되는 상단 주 메뉴를 숨겨야 함");
+assert(index.includes('id="home-module-root"') && index.includes("assets/home-lck.js") && index.includes("assets/worlds.js"),
+  "index는 시즌별 본문을 직접 품지 않고 홈 모듈을 꽂는 공통 껍데기여야 함");
 
 console.log("✓ 홈 정보 우선순위·일자별 경기 바·모바일 단일 메뉴 회귀 테스트 통과");

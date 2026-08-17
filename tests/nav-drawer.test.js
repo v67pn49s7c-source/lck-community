@@ -17,9 +17,9 @@ const ok = (c, m) => { assert.ok(c, m); n++; };
 // ── 서랍 ────────────────────────────────────────────────
 ok(/<button class="btn-icon nav-open" id="nav-open"/.test(app), "헤더 왼쪽에 햄버거 버튼");
 ok(/aria-expanded="false" aria-controls="nav-drawer"/.test(app), "열림 상태를 보조기기에 알려야 함");
-ok(/function navDrawerHTML\(groupName, activeTeamId\)/.test(app), "서랍 마크업 함수");
+ok(/function navDrawerHTML\(groupName, activeTeamId, navGroups\)/.test(app), "서랍 마크업 함수");
 ok(/function bindNavDrawer\(root\)/.test(app), "서랍 동작 함수");
-ok(/NAV_GROUPS\.map\(g =>[\s\S]{0,400}g\.subs \|\| \[\]/.test(app),
+ok(/\(navGroups \|\| NAV_GROUPS\)\.map\(g =>[\s\S]{0,400}g\.subs \|\| \[\]/.test(app),
   "묶음과 그 안의 갈래를 한 번에 펼쳐야 함 (두 번 눌러 들어가게 하지 않는다)");
 ok(/item\("my\.html", "MY · 팬 여권"/.test(app), "MY 도 서랍에 있어야 함");
 ok(/TEAMS\.map\(t => `[\s\S]{0,200}team\.html\?team=\$\{t\.id\}/.test(app), "10개 팀 게시판이 서랍에");

@@ -12,6 +12,7 @@ const story = read("assets/story.js");
 const app = read("assets/app.js");
 const store = read("assets/store.js");
 const html = read("index.html");
+const homeLck = read("assets/home-lck.js");
 const admin = read("admin.html");
 const css = read("assets/styles.css");
 const race = read("assets/race.js");
@@ -161,7 +162,7 @@ ok(!/응원하러 가기/.test(my.slice(my.indexOf("myteam-row subs"))),
   "관심팀·선수 줄에는 응원 동선을 주지 않는다 (권리 차등이 눈에도 보여야 한다)");
 ok(/오늘 출전/.test(my) && /fmtDayKey\(x\.at\) === todayKey/.test(my),
   "최애선수는 **오늘 경기가 있을 때만** 보여 준다");
-ok(/renderHomeMyTeam\(\);/.test(app.slice(app.indexOf("async function initHome"))),
+ok(/renderHomeMyTeam\(\);/.test(homeLck),
   "홈을 그릴 때 같이 그려야 함");
 ok(/\.myteam-row \+ \.myteam-row \{[^}]*border-top/.test(css),
   "최애팀·관심팀·선수 줄은 선으로 나뉘어야 함 (한 덩어리로 뭉치면 뭐가 뭔지 안 읽힌다)");

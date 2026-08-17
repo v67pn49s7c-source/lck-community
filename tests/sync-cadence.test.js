@@ -79,7 +79,7 @@ ok(/showRefreshToast\(\);/.test(ping), "다시 그리는 법을 모르는 화면
 ok(/function onStoreRefresh\(fn\)/.test(store), "페이지가 다시 그리는 법을 등록하는 창구");
 
 // 결과가 보이는 화면들은 전부 등록돼 있어야 한다
-ok(/onStoreRefresh\(draw\)/.test(app), "홈");
+ok(/onStoreRefresh\([\s\S]{0,100}refreshModule/.test(app), "홈");
 ["matches.html", "schedule.html", "standings.html", "live.html"].forEach(f =>
   ok(/onStoreRefresh\(/.test(read(f)), `${f} 도 다시 그려야 함`));
 

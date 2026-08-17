@@ -15,7 +15,7 @@ const css = read("assets/styles.css");
 const players = read("players.html");
 const player = read("player.html");
 const news = read("api/news.js");
-const home = read("index.html");
+const home = read("assets/home-lck.js");
 
 let n = 0;
 const ok = (c, m) => { assert.ok(c, m); n++; };

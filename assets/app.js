@@ -282,7 +282,7 @@ function teamStripHTML(activeTeamId) {
 
 /** 전체 메뉴 서랍 — 하단 탭바·상단 가로 메뉴에 다 못 들어간 곳으로 가는 통로.
  *  묶음과 그 안의 갈래를 한 번에 펼쳐 둔다 (두 번 눌러 들어가게 하지 않는다). */
-function navDrawerHTML(groupName, activeTeamId) {
+function navDrawerHTML(groupName, activeTeamId, navGroups) {
   const item = (href, label, on) =>
     `<a href="${href}" class="nd-item${on ? " on" : ""}">${esc(label)}</a>`;
   return `
@@ -294,7 +294,7 @@ function navDrawerHTML(groupName, activeTeamId) {
         <button type="button" class="btn-icon" data-close aria-label="닫기">✕</button>
       </div>
       <div class="nd-groups">
-        ${NAV_GROUPS.map(g => `
+        ${(navGroups || NAV_GROUPS).map(g => `
           <div class="nd-group">
             ${item(g.href, g.menu, g.menu === groupName)}
             ${(g.subs || []).length > 1
@@ -334,8 +334,12 @@ function renderHeader(activeMenu, activeTeamId) {
   window.__readyMs = Math.round(performance.now()); // 로딩 체감 측정용
 
   const here = navHere();
-  const groupName = here ? here.group.menu : (NAV_ALIAS[activeMenu] || activeMenu);
-  const group = NAV_GROUPS.find(g => g.menu === groupName);
+  // 월즈는 별도 페이지가 아니라 같은 홈에 꽂히는 시즌 모듈이다. 주소는 index.html이라
+  // navHere()는 홈이라고 답하지만, 월즈 스킨에서는 첫 메뉴 이름과 활성 상태도 월즈여야 한다.
+  const groupName = activeMenu === "월즈" ? "월즈" : (here ? here.group.menu : (NAV_ALIAS[activeMenu] || activeMenu));
+  const navGroups = groupName === "월즈"
+    ? [{ menu: "월즈", href: "index.html" }, ...NAV_GROUPS.slice(1)] : NAV_GROUPS;
+  const group = navGroups.find(g => g.menu === groupName);
   const subNavHTML = group && group.subs ? `
   <nav class="sub-nav" aria-label="${esc(group.menu)} 하위 메뉴">
     <div class="container sub-nav-inner">
@@ -346,6 +350,7 @@ function renderHeader(activeMenu, activeTeamId) {
   </nav>` : "";
 
   const header = document.createElement("div");
+  header.className = "site-chrome";
   header.innerHTML = `
   <header class="site-header">
     <div class="container header-inner">
@@ -358,12 +363,12 @@ function renderHeader(activeMenu, activeTeamId) {
           stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817i")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817i")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817i")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817j")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817j")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817j")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
-        ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
+        ${navGroups.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
       </nav>
       <div class="header-actions">
         <button class="btn-icon" id="theme-toggle"></button>
@@ -373,7 +378,7 @@ function renderHeader(activeMenu, activeTeamId) {
   </header>
   ${subNavHTML}
   ${teamStripHTML(activeTeamId)}
-  ${navDrawerHTML(groupName, activeTeamId)}`;
+  ${navDrawerHTML(groupName, activeTeamId, navGroups)}`;
   document.body.prepend(header);
   bindNavDrawer(header);
 
@@ -395,7 +400,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817i");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817j");
 
   renderTabBar(groupName);
 }
@@ -2177,41 +2182,34 @@ async function initHome() {
   // 모드 스위치는 스냅샷의 옛 값을 믿지 않고 이 한 칸만 먼저 새로 받는다.
   // 그래야 운영자가 LCK로 긴급 복귀했는데 재방문자만 계속 월즈로 가는 일이 없다.
   try { await reloadSetting(SITE_EVENT_MODE_KEY); } catch (e) {}
-  const manualMode = String(getSetting(SITE_EVENT_MODE_KEY) || "auto").toLowerCase();
+  const forcedWorlds = new URLSearchParams(location.search).get("home") === "worlds-preview";
+  const resolveMode = () => forcedWorlds || (typeof worldsModeActive === "function" && worldsModeActive())
+    ? "worlds" : "lck";
+  let activeMode = null;
 
-  // 수동 월즈는 최신 설정 한 칸으로 확정할 수 있다. 자동 전환은 GF 경기 상태도
-  // 최신이어야 하므로, 스냅샷 없이 이미 storeFresh를 기다린 경우에만 즉시 판정한다.
-  if (manualMode === "worlds" ||
-      (manualMode !== "lck" && !snapshotUsed && typeof worldsModeActive === "function" && worldsModeActive())) {
-    location.replace("worlds.html");
-    return;
+  async function mount(mode) {
+    const module = window.HOME_MODULES && HOME_MODULES[mode];
+    const root = document.getElementById("home-module-root");
+    if (!module || !root) throw new Error(`홈 모듈을 찾지 못했습니다: ${mode}`);
+    document.querySelector(".site-chrome")?.remove();
+    document.querySelector(".site-footer")?.remove();
+    document.getElementById("tab-bar")?.remove();
+    document.body.classList.remove("has-tab-bar", "app-ready");
+    await module.mount(root);
+    activeMode = mode;
+    module.draw();
   }
-  renderHeader("홈", null);
-  const draw = () => {
-    renderFanPickBar(draw);   // 팀을 고르면 내 팀 기준으로 홈을 다시 그린다
-    renderHomeMatchBar();
-    renderHomeFeature();
-    renderHomeMyTeam();
-    renderHotPosts();
-    renderHomeUpcomingSchedule();
-    renderHomePulse();
-    renderHomeNews();
-    setupSidebarStandings();
-    renderHomeDataTrust();
+
+  await mount(resolveMode());
+
+  const refreshModule = async () => {
+    const next = resolveMode();
+    if (next !== activeMode) await mount(next);   // 같은 URL·같은 앱에서 시즌 스킨만 교체
+    else HOME_MODULES[activeMode].draw();
   };
-  draw();
-  // 스냅샷으로 먼저 그린 뒤 최신 경기·게시글·순위·투표가 오면 한 번 더 갱신한다.
-  storeFresh.then(() => {
-    // 저장된 LCK 화면을 먼저 그린 재방문자도 최신 GF 종료를 확인한 순간 월즈로 전환한다.
-    if (typeof worldsModeActive === "function" && worldsModeActive()) location.replace("worlds.html");
-    else draw();
-  }).catch(() => {});
-  // 경기 결과가 방금 들어왔을 때도 이 방문자에게 바로 보여 준다 (새로고침 없이)
-  onStoreRefresh(draw);
-  renderFooter();
-  // 홈 상단을 실제 콘텐츠부터 시작하게 하고, 자료 상태는 운영·법적 안내가 모인
-  // 푸터 최하단에 둔다. 푸터가 생긴 뒤 최초 상태를 한 번 채워야 한다.
-  renderHomeDataTrust();
+  // 스냅샷 뒤 최신 GF 결과가 들어오면 페이지 이동 없이 LCK → 월즈 모듈을 갈아 끼운다.
+  storeFresh.then(refreshModule).catch(() => {});
+  onStoreRefresh(() => { refreshModule().catch(() => {}); });
 }
 
 // ── 세트 스코어보드 ──────────────────────────────────────────────
