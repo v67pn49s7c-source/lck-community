@@ -79,6 +79,17 @@ const THUMB_MAX = 12;                         // 이 개수까지만 시도
 /** 구글 썸네일 주소는 끝에 크기가 붙는다 (=s0-w300-rw). 화면에 맞는 크기로 바꿔 받는다. */
 const sizeThumb = (src, w) => String(src || "").replace(/=s0-w\d+(-rw)?$/, `=s0-w${w}-rw`);
 
+// ⚠ 구글은 **봇 UA 에게 다른 페이지를 준다.** 우리 기본 UA(TheNexus/1.0)로 부르면
+//   기사 썸네일 대신 구글 뉴스 **앱 아이콘**이 og:image 로 들어온다 (2026-08-16 실제로
+//   기사 6개가 전부 구글 로고로 나왔다). 썸네일을 받을 때만 브라우저 UA 를 쓴다.
+const THUMB_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+  + "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+
+/** 기사 사진이 맞는가. 구글 자체 브랜딩 이미지는 기사와 무관하므로 버린다.
+ *  진짜 기사 썸네일은 lh3.googleusercontent.com 에 크기 접미사(=s0-w300-rw)가 붙어 온다. */
+const isArticleThumb = src => /^https:\/\/lh3\.googleusercontent\.com\//.test(src || "")
+  && /=s\d+(-w\d+)?(-rw)?$/.test(src || "");
+
 async function thumbOf(url, deadline) {
   const hit = thumbCache.get(url);
   if (hit && Date.now() - hit.at < THUMB_TTL_MS) return hit.src;
@@ -87,12 +98,13 @@ async function thumbOf(url, deadline) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), Math.min(left, 3500));
   try {
-    const r = await fetch(url, { headers: { "user-agent": UA }, redirect: "follow", signal: controller.signal });
+    const r = await fetch(url, { headers: { "user-agent": THUMB_UA, "accept-language": "ko-KR,ko;q=0.9" },
+      redirect: "follow", signal: controller.signal });
     if (!r.ok) return null;
     const html = await r.text();
     const m = html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i)
            || html.match(/<meta[^>]+content="([^"]+)"[^>]+property="og:image"/i);
-    const src = m && /^https:\/\//.test(m[1]) ? sizeThumb(m[1], 400) : null;
+    const src = m && isArticleThumb(m[1]) ? sizeThumb(m[1], 400) : null;
     thumbCache.set(url, { at: Date.now(), src });
     return src;
   } catch { return null; }                    // 느리거나 막히면 그냥 썸네일 없이 간다
@@ -104,7 +116,11 @@ async function withThumbs(items) {
   const deadline = Date.now() + THUMB_BUDGET_MS;
   const head = items.slice(0, THUMB_MAX);
   const got = await Promise.all(head.map(n => thumbOf(n.url, deadline).catch(() => null)));
-  head.forEach((n, i) => { if (got[i]) n.image = got[i]; });
+  // 여러 기사가 **같은 사진**이면 그건 기사 사진이 아니라 공용 이미지다 (로고·기본 이미지).
+  // 하나뿐인 사진만 남긴다 — 같은 그림이 줄줄이 걸리는 것보다 없는 편이 낫다.
+  const seen = {};
+  got.forEach(src => { if (src) seen[src] = (seen[src] || 0) + 1; });
+  head.forEach((n, i) => { if (got[i] && seen[got[i]] === 1) n.image = got[i]; });
   return items;
 }
 

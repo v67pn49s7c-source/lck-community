@@ -81,7 +81,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260816e") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260816f") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -650,6 +650,17 @@ body.nav-open-lock { overflow: hidden; }
    ⚠ 썸네일은 **있으면 좋은 것**이다. 구글이 못 주는 기사도 있으므로 없을 때도
      줄이 성립해야 한다 — 그래서 자리를 grid 로 못 박지 않고 has-thumb 로 나눈다.
      (사진 자리를 늘 비워 두면 글자만 있는 줄이 이가 빠진 것처럼 보인다) */
+/* 네이버 뉴스스탠드 배치 — **왼쪽에 머리기사 하나 크게, 오른쪽에 목록**.
+   위아래로 쌓으면 머리기사가 화면을 다 먹고 나머지는 스크롤 밖으로 밀린다. */
+.news-stand { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); }
+.news-stand > .news-lead { border-right: 1px solid var(--line); border-bottom: 0; }
+.news-list { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+@media (max-width: 720px) {
+  /* 좁은 화면에서는 두 칸이 다 좁아져 아무것도 안 읽힌다 — 위아래로 되돌린다 */
+  .news-stand { grid-template-columns: 1fr; }
+  .news-stand > .news-lead { border-right: 0; border-bottom: 1px solid var(--line); }
+}
+
 .news-lead { display: block; border-bottom: 1px solid var(--line); }
 .news-lead:hover { background: var(--card-hover); }
 .news-lead .news-thumb {

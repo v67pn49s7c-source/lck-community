@@ -358,9 +358,9 @@ function renderHeader(activeMenu, activeTeamId) {
           stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260816e")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260816e")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260816e")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260816f")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260816f")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260816f")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${NAV_GROUPS.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -395,7 +395,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260816e");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260816f");
 
   renderTabBar(groupName);
 }
@@ -1833,6 +1833,7 @@ async function renderHomeNews() {
   const lead = items[0];
   const rest = items.slice(1);
   document.getElementById("home-news-body").innerHTML = `
+   <div class="news-stand">
     ${lead ? `<a class="news-lead${lead.image ? " has-thumb" : ""}" href="${esc(lead.url)}"
         target="_blank" rel="noopener noreferrer">
         ${thumb(lead)}
@@ -1841,6 +1842,7 @@ async function renderHomeNews() {
           <span class="news-meta">${meta(lead)}</span>
         </span>
       </a>` : ""}
+    <div class="news-list">
     ${rest.map(n => `
       <a class="news-row${n.image ? " has-thumb" : ""}" href="${esc(n.url)}" target="_blank" rel="noopener noreferrer">
         ${thumb(n)}
@@ -1848,7 +1850,9 @@ async function renderHomeNews() {
           <span class="news-title">${esc(n.title)}</span>
           <span class="news-meta">${meta(n)}</span>
         </span>
-      </a>`).join("")}`;
+      </a>`).join("")}
+    </div>
+   </div>`;
 }
 
 function renderHomePulse() {
