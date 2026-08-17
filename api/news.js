@@ -73,7 +73,10 @@ function parseFeed(xml, limit) {
 //     기사까지 빠지면 안 된다 — 뉴스가 본체고 썸네일은 곁들이다.
 const thumbCache = new Map();                 // url → { at, src }
 const THUMB_TTL_MS = 60 * 60 * 1000;          // 기사 썸네일은 바뀌지 않는다
-const THUMB_BUDGET_MS = 6000;                 // 전체 예산
+// 예산을 늘렸다. 6초로는 포모스처럼 무거운 기사 페이지(74KB·리다이렉트 1회)가
+// 못 들어와서, 사진이 있는데도 6건 중 4건이 빈손으로 돌아왔다 (2026-08-17).
+// 서버 함수 한도(10초)를 넘기면 뉴스 자체가 안 뜨므로 그보다는 확실히 낮게 둔다.
+const THUMB_BUDGET_MS = 8000;                 // 전체 예산
 const THUMB_MAX = 12;                         // 이 개수까지만 시도
 
 /** 구글 썸네일 주소는 끝에 크기가 붙는다 (=s0-w300-rw). 화면에 맞는 크기로 바꿔 받는다. */
@@ -92,12 +95,13 @@ async function thumbOf(url, deadline) {
   const left = deadline - Date.now();
   if (left < 800) return null;                // 남은 시간이 없으면 시도조차 하지 않는다
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), Math.min(left, 3500));
+  const timer = setTimeout(() => controller.abort(), Math.min(left, 6000));
   try {
     const r = await fetch(url, { headers: { "user-agent": THUMB_UA, "accept-language": "ko-KR,ko;q=0.9" },
       redirect: "follow", signal: controller.signal });
     if (!r.ok) return null;
-    const html = await r.text();
+    // og:image 는 <head> 에 있다. 본문까지 다 읽으면 무거운 기사에서 시간을 버린다.
+    const html = (await r.text()).slice(0, 120000);
     // 매체마다 속성 순서가 다르다. og:image 를 두 순서로 보고, 없으면 twitter:image.
     const pats = [
       /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)/i,
