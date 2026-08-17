@@ -139,7 +139,10 @@ async function withThumbs(items) {
 // 구글은 원문 주소를 암호로 감춰서(복호화 불가) 사진을 구할 길이 아예 없었다.
 // 네이버는 originallink 를 그대로 주므로, 그 페이지의 og:image = **진짜 기사 사진**이다.
 // ⚠ 네이버 응답 자체에는 이미지 칸이 없다 (title·originallink·link·description·pubDate 뿐).
-const NAVER_URL = "https://naverapihub.apigw.ntruss.com/search/v1/news";
+const NAVER_NEWS = "https://naverapihub.apigw.ntruss.com/search/v1/news";
+// 웹문서 검색 — 인벤·포모스처럼 **언론사로 등록 안 된 곳의 기사**가 여기 걸린다.
+// 뉴스 검색은 네이버가 제휴한 매체만 나와서 정작 e스포츠 전문지가 빠지는 일이 있다.
+const NAVER_WEB = "https://naverapihub.apigw.ntruss.com/search/v1/webkr";
 
 const stripTags = v => String(v || "")
   .replace(/<[^>]+>/g, "")
@@ -186,13 +189,20 @@ const LCK_HINT = new RegExp([
 async function fetchNaver(limit) {
   const id = process.env.NAVER_API_KEY_ID, key = process.env.NAVER_API_KEY;
   if (!id || !key) return null;                 // 키가 없으면 구글로 넘어간다
-  const u = `${NAVER_URL}?query=${encodeURIComponent("LCK 리그오브레전드")}`
-    + `&display=${Math.min(limit * 5, 100)}&sort=date`;
-  const r = await fetch(u, { headers: {
-    "X-NCP-APIGW-API-KEY-ID": id, "X-NCP-APIGW-API-KEY": key } });
-  if (!r.ok) throw new Error(`네이버 ${r.status}`);
-  const body = await r.json();
-  const ranked = (body.items || []).flatMap(it => {
+  const H = { "X-NCP-APIGW-API-KEY-ID": id, "X-NCP-APIGW-API-KEY": key };
+  const grab = async (base, q, sort) => {
+    const u = `${base}?query=${encodeURIComponent(q)}&display=50${sort ? `&sort=${sort}` : ""}`;
+    const r = await fetch(u, { headers: H });
+    if (!r.ok) return [];                       // 한쪽이 죽어도 나머지로 채운다
+    return ((await r.json()).items) || [];
+  };
+  // 뉴스 + 웹문서를 함께 긁는다. 웹문서에는 언론사 등록이 안 된 전문지 기사가 걸린다.
+  const raw = (await Promise.all([
+    grab(NAVER_NEWS, "LCK 리그오브레전드", "date"),
+    grab(NAVER_NEWS, "LCK 경기 젠지 T1 한화생명", "date"),
+    grab(NAVER_WEB, "LCK 리그오브레전드 인벤 포모스", null),
+  ])).flat();
+  const ranked = raw.flatMap(it => {
     const title = stripTags(it.title);
     const desc = stripTags(it.description);
     const url = it.originallink || it.link;
@@ -200,7 +210,7 @@ async function fetchNaver(limit) {
     // LCK 이야기가 아닌 것은 버린다. "LCK" 는 물류·기업 이름으로도 쓰여서 섞여 든다.
     if (!LCK_HINT.test(title + " " + desc)) return [];
     if (OFF_TOPIC.test(title)) return [];
-    const at = Date.parse(it.pubDate);
+    const at = Date.parse(it.pubDate || "");
     return [{ title, url, source: sourceOf(url), host: hostOf(url),
       at: Number.isFinite(at) ? new Date(at).toISOString() : null }];
   })
@@ -229,18 +239,67 @@ async function fetchNaver(limit) {
   return picked.map(({ host, ...rest }) => rest);
 }
 
+/** 구글 뉴스 RSS. 원문 주소를 안 줘서 사진은 못 붙지만, 네이버가 놓친 매체를 메운다. */
+async function fetchGoogle(limit) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 7000);
+  try {
+    const r = await fetch(FEED, { headers: { "user-agent": UA }, signal: controller.signal });
+    if (!r.ok) return [];
+    return parseFeed(await r.text(), limit)
+      .filter(x => LCK_HINT.test(x.title) && !OFF_TOPIC.test(x.title));
+  } finally { clearTimeout(timer); }
+}
+
+/** 두 검색 결과를 합친다.
+ *  ⚠ 같은 사건을 두 곳이 다 물어 오므로 **제목이 거의 같으면 하나로 본다.**
+ *    구두점·공백만 다른 경우가 많아서, 비교 전에 글자만 남긴다.
+ *  ⚠ 남길 때는 **원문 주소가 있는 쪽(네이버)** 을 고른다 — 그래야 사진을 붙일 수 있다.
+ *    구글 링크는 중계 주소라 사진을 못 구한다. */
+function mergeNews(all, limit) {
+  const key = t => String(t || "").replace(/[^가-힣a-zA-Z0-9]/g, "").slice(0, 28);
+  const best = new Map();
+  all.forEach(it => {
+    const k = key(it.title);
+    if (!k) return;
+    const cur = best.get(k);
+    const isNaver = !/news\.google\.com/.test(it.url);
+    if (!cur || (isNaver && /news\.google\.com/.test(cur.url))) best.set(k, it);
+  });
+  const list = [...best.values()];
+  const host = u => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
+  // 전문 매체 먼저 · 같은 급이면 최신순 · 한 매체가 목록을 독점하지 못하게 2건까지
+  list.sort((a, b) => (ESPORTS_MEDIA.has(host(b.url)) ? 1 : 0) - (ESPORTS_MEDIA.has(host(a.url)) ? 1 : 0)
+    || (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0));
+  const per = {}, out = [];
+  for (const it of list) {
+    const h = host(it.url);
+    per[h] = (per[h] || 0) + 1;
+    if (per[h] <= 2) out.push(it);
+    if (out.length >= limit) break;
+  }
+  for (const it of list) {
+    if (out.length >= limit) break;
+    if (!out.includes(it)) out.push(it);
+  }
+  return out;
+}
+
 module.exports = async (req, res) => {
   const limit = Math.min(Math.max(parseInt(req.query?.limit, 10) || 20, 1), 40);
   try {
-    // 네이버가 되면 네이버를 쓴다 — 국내 매체를 잘 잡고, 무엇보다 **원문 주소**를 준다.
-    // 실패하면 조용히 구글로 내려간다 (뉴스가 아예 안 뜨는 것이 가장 나쁘다).
-    try {
-      const nv = await fetchNaver(limit);
-      if (nv && nv.length) {
-        const withPics = await withThumbs(nv);
-        return ok(res, { items: withPics, source: "네이버 뉴스" }, CACHE_SEC);
-      }
-    } catch (e) { console.warn("[뉴스] 네이버 실패 → 구글로:", e && e.message); }
+    // ── 네이버 + 구글을 **함께** 긁는다 (사장님 2026-08-17) ───────────
+    // 한쪽만 쓰면 그 검색이 놓친 매체가 통째로 안 보인다. 둘을 합치고 겹치는 것만 뺀다.
+    // 한쪽이 죽어도 나머지로 채워진다 — 뉴스가 아예 안 뜨는 것이 가장 나쁘다.
+    const [nv, gg] = await Promise.all([
+      fetchNaver(limit * 3).catch(e => { console.warn("[뉴스] 네이버 실패:", e && e.message); return []; }),
+      fetchGoogle(limit * 3).catch(e => { console.warn("[뉴스] 구글 실패:", e && e.message); return []; }),
+    ]);
+    const merged = mergeNews([...(nv || []), ...(gg || [])], limit);
+    if (merged.length) {
+      const withPics = await withThumbs(merged);
+      return ok(res, { items: withPics, source: "네이버 · 구글" }, CACHE_SEC);
+    }
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 9000);

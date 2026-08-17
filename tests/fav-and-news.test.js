@@ -109,8 +109,18 @@ ok(cleanTitle("제목 - 인벤", "인벤") === "제목" && cleanTitle("제목", 
     "썸네일에 시간 예산과 건수 제한이 있어야 함 (뉴스가 본체다)");
   ok(/catch \{ return null; \}/.test(src),
     "썸네일 실패는 조용히 넘어가야 함");
-  // 네이버가 죽어도 뉴스는 떠야 한다 — 아예 안 뜨는 것이 가장 나쁘다
-  ok(/네이버 실패 → 구글로/.test(src), "네이버가 실패하면 구글로 내려가야 함");
+  // 네이버·구글을 **함께** 긁는다. 한쪽만 쓰면 그 검색이 놓친 매체가 통째로 안 보인다.
+  ok(/typeof fetchGoogle === "function" \|\| /.test(src) || /async function fetchGoogle/.test(src),
+    "구글 경로도 함수로 있어야 함");
+  ok(/function mergeNews/.test(src), "두 결과를 합치는 함수가 있어야 함");
+  // 한쪽이 죽어도 나머지로 채워져야 한다
+  ok(/\.catch\(e => \{ console\.warn\("\[뉴스\] 네이버 실패:/.test(src) &&
+     /\.catch\(e => \{ console\.warn\("\[뉴스\] 구글 실패:/.test(src),
+    "한쪽이 실패해도 나머지로 채워야 함");
+  // 겹치는 기사는 **원문 주소가 있는 쪽**을 남겨야 사진을 붙일 수 있다
+  ok(/isNaver && \/news\\\.google\\\.com\/\.test\(cur\.url\)/.test(src),
+    "같은 기사면 원문 주소가 있는 쪽을 남겨야 함 (구글 링크로는 사진을 못 구한다)");
+  ok(/const NAVER_WEB/.test(src), "웹문서 검색도 함께 써야 함 (전문지가 뉴스 검색에서 빠진다)");
   ok(/name=\["'\]twitter:image/.test(src),
     "매체마다 태그가 달라 twitter:image 까지 봐야 함");
 }
