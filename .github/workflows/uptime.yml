@@ -1,0 +1,29 @@
+# 무료 운영 감시: 정적 홈페이지와 Vercel→Supabase 연결을 함께 확인한다.
+# 실패하면 GitHub Actions에 빨간 실행 기록이 남는다.
+# ⚠ GitHub은 저장소 활동이 60일 없으면 예약 실행을 끌 수 있다.
+
+name: 사이트 상태 점검
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: nexus-uptime
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: 홈페이지와 데이터베이스 연결 확인
+        env:
+          SITE: https://lck-community.vercel.app
+        run: |
+          curl --fail --silent --show-error --max-time 20 "$SITE/" -o home.html
+          grep -q "<title>The Nexus" home.html
+          curl --fail --silent --show-error --max-time 20 "$SITE/api/uptime" -o health.json
+          grep -q '"ok":true' health.json
+          cat health.json

@@ -13,11 +13,11 @@
   <meta property="og:image:height" content="630">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260817d">
-  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260817d">
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260817e">
+  <link rel="apple-touch-icon" href="/assets/brand/nexus-mobile.png?v=20260817e">
   <link rel="preconnect" href="https://ckbxvhdvhczpxtgkpbsv.supabase.co" crossorigin>
   <link rel="preconnect" href="https://ddragon.leagueoflegends.com" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20260817d">
+  <link rel="stylesheet" href="assets/styles.css?v=20260817e">
 </head>
 <body>
   <main class="page">
@@ -367,15 +367,15 @@
     </div>
   </main>
 
-  <script src="assets/data.js?v=20260817d"></script>
-  <script src="assets/vendor/supabase.min.js?v=20260817d"></script>
-  <script src="assets/invariants.js?v=20260817d"></script>
-  <script src="assets/store.js?v=20260817d"></script>
-  <script src="assets/app.js?v=20260817d"></script>
-  <script src="assets/race.js?v=20260817d"></script>
-  <script src="assets/story.js?v=20260817d"></script>
-  <script src="assets/ddragon.js?v=20260817d"></script>
-  <script src="assets/brackets.js?v=20260817d"></script>
+  <script src="assets/data.js?v=20260817e"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260817e"></script>
+  <script src="assets/invariants.js?v=20260817e"></script>
+  <script src="assets/store.js?v=20260817e"></script>
+  <script src="assets/app.js?v=20260817e"></script>
+  <script src="assets/race.js?v=20260817e"></script>
+  <script src="assets/story.js?v=20260817e"></script>
+  <script src="assets/ddragon.js?v=20260817e"></script>
+  <script src="assets/brackets.js?v=20260817e"></script>
   <script>
   storeFresh.then(async () => {
     renderHeader(null, null);
@@ -2193,6 +2193,10 @@
       const totalBad = trust.violations.length + raceBad.length;
       const syncTone = trust.level === "ok" ? "#269868" : "var(--accent)";
       const syncLabel = trust.updatedAt ? `${fmtAgo(trust.updatedAt)} 성공` : "성공 기록 없음";
+      const snap = typeof snapshotDiagnostics === "function" ? snapshotDiagnostics() : null;
+      const snapLabel = !snap || !snap.at ? "아직 저장 전"
+        : snap.ok ? `${snap.mode === "full" ? "전체" : "경량"} 저장 · ${Math.round(snap.bytes / 1024)}KB`
+        : snap.reason;
       const issueList = trust.issues.length
         ? trust.issues.map(x => `<li>${esc(x)}</li>`).join("") : "<li>자동 일정 수집 정상</li>";
       const raceList = race.length ? race.map(x => `<li><b>${esc(x.id)}</b> — ${x.ok
@@ -2203,6 +2207,7 @@
         </div>
         <p style="margin:8px 0 4px"><b>일정 수집</b> · ${esc(syncLabel)}</p>
         <ul style="margin:4px 0 12px;padding-left:20px">${issueList}</ul>
+        <p style="margin:8px 0 12px"><b>재방문 캐시</b> · ${esc(snapLabel)}</p>
         <p style="margin:8px 0 4px"><b>경우의 수</b></p>
         <ul style="margin:4px 0 12px;padding-left:20px">${raceList}</ul>
         ${trust.violations.length ? `<p style="color:var(--accent)"><b>경기 상태 모순</b> · ${trust.violations.length}건 — 참여 점검의 데이터 검수에서 확인하세요.</p>` : ""}`;

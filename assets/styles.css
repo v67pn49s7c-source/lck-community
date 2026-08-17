@@ -81,7 +81,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260817d") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260817e") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -96,6 +96,19 @@ body:not(.app-ready)::after {
 @media (prefers-reduced-motion: reduce) {
   body:not(.app-ready)::before { animation: none; opacity: .85; }
 }
+.nx-load-failure {
+  position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center;
+  padding: 24px; background: var(--bg);
+}
+.nx-load-failure-inner {
+  width: min(420px, 100%); padding: 28px; text-align: center; background: var(--card);
+  border: 1px solid var(--line); border-left: 4px solid var(--accent-solid);
+  --cut: var(--cut-lg); clip-path: var(--chamfer-br);
+}
+.nx-load-failure-inner b { display:block; margin-bottom:8px; font-size:21px; }
+.nx-load-failure-inner span { display:block; color:var(--text-sub); }
+.nx-load-failure-inner button { margin-top:18px; padding:10px 18px; color:#fff; background:var(--accent-solid); font-weight:800; }
+.nx-load-warning { border-left:3px solid #d19a32; }
 html { -webkit-text-size-adjust: 100%; }
 
 body {

@@ -143,6 +143,10 @@ function isMissingFunction(e) {
 // v4 = 본문(body)을 목록에서 받지 않게 됐다(schema26). v3 스냅샷에는 팀 게시판 본문이
 // 남아 있어, 응원팀을 바꾼 뒤에도 그 기기에서만 옛 본문이 보일 수 있으므로 버린다.
 const SNAP_KEY = "nexus_snap_v4";
+const SNAP_DIAG_KEY = "nexus_snap_diag_v1";
+// localStorage의 보편적 5MB 한도에 인증 세션·환경설정도 함께 들어간다. 스냅샷 혼자
+// 한도를 다 쓰지 않도록 약 1.7MB(UTF-16 기준)부터 가벼운 판으로 저장한다.
+const SNAP_MAX_BYTES = 1700000;
 // 이름 뒤 번호를 올리면 모든 방문자가 로고를 한 번 다시 받는다 —
 // 업로드본을 지우거나 로고를 바꿨는데 캐시(하루) 때문에 옛것이 남을 때 쓴다.
 const LOGO_KEY = "nexus_logos_v2";
@@ -150,10 +154,11 @@ try { localStorage.removeItem("nexus_snap_v1"); } catch (e) {}
 try { localStorage.removeItem("nexus_snap_v2"); } catch (e) {}
 try { localStorage.removeItem("nexus_snap_v3"); } catch (e) {}
 let snapshotUsed = false;
+let snapshotDiagMemory = { ok: false, mode: "none", bytes: 0, at: 0, reason: "아직 저장 전" };
 
-function snapshotSave() {
-  try {
-    const { settings, idx, myVoter, ...rest } = Cache;
+function snapshotPayload(mode) {
+    const { settings, idx, myVoter, ...cacheRest } = Cache;
+    const rest = { ...cacheRest };
     // idx는 다시 만들면 되고, myVoter(신원)는 저장하면 안 된다 —
     // 지난 방문의 신원이 지금 로그인 상태를 이겨 표가 엉뚱한 계정으로 들어간다.
     // 서버가 아직 받았다고 확인해 주지 않은 표(_p)는 스냅샷에 넣지 않는다.
@@ -161,17 +166,63 @@ function snapshotSave() {
     const mine = {};
     Object.entries(rest.mine || {}).forEach(([k, arr]) => { mine[k] = (arr || []).filter(x => !x._p); });
     rest.mine = mine;
+    if (mode === "compact" || mode === "minimal") {
+      rest.details = {};                         // 가장 큰 경기 상세는 필요한 화면에서 다시 받는다
+      rest.posts = (rest.posts || []).slice(0, mode === "compact" ? 120 : 50).map(p => ({
+        ...p, body: "", bodyLoaded: false,
+        comments: mode === "compact" ? (p.comments || []).slice(-12).map(c => ({
+          ...c, body: String(c.body || "").slice(0, 500),
+        })) : [],
+      }));
+      if (mode === "minimal") {
+        // 첫 화면에 필요한 경기·순위·글 목록은 살리고, 큰 참여 집계는 서버가 곧 채운다.
+        rest.stats = { pred: [], rating: [], ratingVoters: [], pollChoice: [], pollVoters: [],
+          reaction: [], commentLike: [], fandom: [], ranking: [] };
+      }
+    }
     // 로고(데이터 URL, 수십 KB)는 따로 보관해 스냅샷을 가볍게 유지
     const light = {};
     Object.entries(settings).forEach(([k, v]) => { if (!k.startsWith("logo_")) light[k] = v; });
-    localStorage.setItem(SNAP_KEY, JSON.stringify({
+    return {
       t: Date.now(), c: { ...rest, settings: light },
       a: Auth.profile ? { id: Auth.profile.id, nick: Auth.profile.nick, fav_team: Auth.profile.fav_team,
         is_admin: !!Auth.profile.is_admin,
         sub_teams: Auth.profile.sub_teams || [], fav_players: Auth.profile.fav_players || [] } : null,
       s: Auth.session ? { user: { id: Auth.session.user.id, email: Auth.session.user.email } } : null,
-    }));
-  } catch (e) { /* 용량 초과 등은 무시 — 스냅샷은 있으면 좋은 것 */ }
+      snapshot_mode: mode,
+    };
+}
+
+function setSnapshotDiag(diag) {
+  snapshotDiagMemory = diag;
+  try { sessionStorage.setItem(SNAP_DIAG_KEY, JSON.stringify(diag)); } catch {}
+}
+
+function snapshotDiagnostics() {
+  try { return JSON.parse(sessionStorage.getItem(SNAP_DIAG_KEY) || "null") || snapshotDiagMemory; }
+  catch { return snapshotDiagMemory; }
+}
+
+function snapshotSave() {
+  let lastError = null;
+  for (const mode of ["full", "compact", "minimal"]) {
+    try {
+      const raw = JSON.stringify(snapshotPayload(mode));
+      const bytes = raw.length * 2;              // localStorage는 UTF-16 문자열 저장소
+      if (mode === "full" && bytes > SNAP_MAX_BYTES) continue;
+      localStorage.setItem(SNAP_KEY, raw);
+      setSnapshotDiag({ ok: true, mode, bytes, at: Date.now(),
+        reason: mode === "full" ? "" : "용량을 줄여 저장" });
+      return true;
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  const reason = lastError && lastError.name === "QuotaExceededError"
+    ? "브라우저 저장 공간 부족" : "스냅샷 저장 실패";
+  setSnapshotDiag({ ok: false, mode: "none", bytes: 0, at: Date.now(), reason });
+  console.warn("[snapshot]", reason, lastError || "");
+  return false;
 }
 
 function snapshotLoad() {
@@ -215,9 +266,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817d"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817d"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817d"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817e"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817e"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817e"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -347,6 +398,12 @@ async function fetchAll() {
       .order("created_at", { ascending: false });
     po.data = retry.data; po.error = retry.error;
   }
+
+  // 경기·순위·선수·글 목록은 사이트의 뼈대다. 요청 오류를 빈 배열로 바꾸면
+  // 방문자는 "아무 경기/글도 없는 사이트"를 보게 되고 운영자는 장애를 모른다.
+  const critical = [[t, "대회"], [m, "경기"], [r, "순위"], [pl, "선수"], [po, "게시글"]]
+    .filter(([res]) => res && res.error).map(([, name]) => name);
+  if (critical.length) throw new Error(`핵심 데이터(${critical.join("·")})를 불러오지 못했습니다`);
 
   const commentsByPost = {};
   (co.data || []).forEach(c => {
@@ -2400,6 +2457,24 @@ async function completeProfile(nick, favTeam, agreed) {
 // storeFresh : 서버에서 받은 최신 데이터가 반영된 시점 (로그인 판정처럼 정확해야 할 때)
 snapshotUsed = snapshotLoad();
 
+function showStoreLoadFailure(error, hasSnapshot) {
+  const put = () => {
+    if (document.getElementById("nx-load-failure")) return;
+    const el = document.createElement("div");
+    el.id = "nx-load-failure";
+    el.className = hasSnapshot ? "nx-toast nx-load-warning" : "nx-load-failure";
+    el.innerHTML = hasSnapshot
+      ? `<span>최신 자료 연결이 늦어 저장된 화면을 보여 드립니다.</span><button type="button">다시 시도</button>`
+      : `<div class="nx-load-failure-inner"><b>자료를 불러오지 못했습니다</b>
+         <span>잠시 뒤 다시 시도해 주세요.</span><button type="button">다시 시도</button></div>`;
+    el.querySelector("button").addEventListener("click", () => location.reload());
+    document.body.appendChild(el);
+    if (!hasSnapshot) document.body.classList.add("app-ready", "app-load-failed");
+  };
+  if (document.body) put(); else addEventListener("DOMContentLoaded", put, { once: true });
+  console.error("[store] initial load", error);
+}
+
 const storeFresh = (async () => {
   const before = snapshotUsed ? cacheFingerprint() : null;
   await fetchAll();
@@ -2408,7 +2483,10 @@ const storeFresh = (async () => {
   // 나중에 받은 상세도 스냅샷에 담아 둔다 (다음 방문에 즉시 보이도록)
   loadDetailsLater().then(() => snapshotSave()).catch(() => {});
   if (snapshotUsed && before !== cacheFingerprint()) showRefreshToast();
-})();
+})().catch(error => {
+  showStoreLoadFailure(error, snapshotUsed);
+  throw error;
+});
 
 const storeReady = snapshotUsed ? Promise.resolve() : storeFresh;
 
