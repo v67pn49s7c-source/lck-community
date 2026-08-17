@@ -85,10 +85,6 @@ const sizeThumb = (src, w) => String(src || "").replace(/=s0-w\d+(-rw)?$/, `=s0-
 const THUMB_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
   + "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
-/** 기사 사진이 맞는가. 구글 자체 브랜딩 이미지는 기사와 무관하므로 버린다.
- *  진짜 기사 썸네일은 lh3.googleusercontent.com 에 크기 접미사(=s0-w300-rw)가 붙어 온다. */
-const isArticleThumb = src => /^https:\/\/lh3\.googleusercontent\.com\//.test(src || "")
-  && /=s\d+(-w\d+)?(-rw)?$/.test(src || "");
 
 async function thumbOf(url, deadline) {
   const hit = thumbCache.get(url);
@@ -102,9 +98,15 @@ async function thumbOf(url, deadline) {
       redirect: "follow", signal: controller.signal });
     if (!r.ok) return null;
     const html = await r.text();
-    const m = html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i)
-           || html.match(/<meta[^>]+content="([^"]+)"[^>]+property="og:image"/i);
-    const src = m && isArticleThumb(m[1]) ? sizeThumb(m[1], 400) : null;
+    // 매체마다 속성 순서가 다르다. og:image 를 두 순서로 보고, 없으면 twitter:image.
+    const pats = [
+      /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)/i,
+      /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i,
+      /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)/i,
+    ];
+    let found = null;
+    for (const p of pats) { const m = html.match(p); if (m && /^https?:\/\//.test(m[1])) { found = m[1]; break; } }
+    const src = found ? sizeThumb(found, 400) : null;
     thumbCache.set(url, { at: Date.now(), src });
     return src;
   } catch { return null; }                    // 느리거나 막히면 그냥 썸네일 없이 간다
@@ -124,9 +126,68 @@ async function withThumbs(items) {
   return items;
 }
 
+// ── 네이버 뉴스 검색 (NAVER API HUB) ────────────────────────────
+// 구글 뉴스보다 나은 점이 딱 하나 있는데 그게 결정적이다: **기사 원문 주소**를 준다.
+// 구글은 원문 주소를 암호로 감춰서(복호화 불가) 사진을 구할 길이 아예 없었다.
+// 네이버는 originallink 를 그대로 주므로, 그 페이지의 og:image = **진짜 기사 사진**이다.
+// ⚠ 네이버 응답 자체에는 이미지 칸이 없다 (title·originallink·link·description·pubDate 뿐).
+const NAVER_URL = "https://naverapihub.apigw.ntruss.com/search/v1/news";
+
+const stripTags = v => String(v || "")
+  .replace(/<[^>]+>/g, "")
+  .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+  .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/\s+/g, " ").trim();
+
+/** 매체 이름은 응답에 없다. 원문 주소의 도메인에서 만든다 (www. 와 꼬리는 뗀다). */
+function sourceOf(link) {
+  try {
+    const h = new URL(link).hostname.replace(/^www\./, "");
+    return NEWS_SOURCE_KO[h] || h;
+  } catch { return ""; }
+}
+// 자주 나오는 매체만 한글로. 없으면 도메인을 그대로 쓴다 — 지어내지 않는다.
+const NEWS_SOURCE_KO = {
+  "sports.khan.co.kr": "스포츠경향", "sportsseoul.com": "스포츠서울",
+  "inven.co.kr": "인벤", "fomos.kr": "포모스", "dailyesports.com": "데일리e스포츠",
+  "thisisgame.com": "디스이즈게임", "gameinsight.co.kr": "게임인사이트",
+  "stnsports.co.kr": "STN스포츠", "xportsnews.com": "엑스포츠뉴스",
+  "news.tf.co.kr": "더팩트", "osen.mt.co.kr": "OSEN",
+};
+
+async function fetchNaver(limit) {
+  const id = process.env.NAVER_API_KEY_ID, key = process.env.NAVER_API_KEY;
+  if (!id || !key) return null;                 // 키가 없으면 구글로 넘어간다
+  const u = `${NAVER_URL}?query=${encodeURIComponent("LCK 리그오브레전드")}`
+    + `&display=${Math.min(limit * 2, 40)}&sort=date`;
+  const r = await fetch(u, { headers: {
+    "X-NCP-APIGW-API-KEY-ID": id, "X-NCP-APIGW-API-KEY": key } });
+  if (!r.ok) throw new Error(`네이버 ${r.status}`);
+  const body = await r.json();
+  return (body.items || []).flatMap(it => {
+    const title = stripTags(it.title);
+    const url = it.originallink || it.link;
+    if (!title || !url) return [];
+    const at = Date.parse(it.pubDate);
+    return [{ title, url, source: sourceOf(url),
+      at: Number.isFinite(at) ? new Date(at).toISOString() : null }];
+  })
+    .filter((x, i, arr) => arr.findIndex(y => y.title === x.title) === i)
+    .slice(0, limit);
+}
+
 module.exports = async (req, res) => {
   const limit = Math.min(Math.max(parseInt(req.query?.limit, 10) || 20, 1), 40);
   try {
+    // 네이버가 되면 네이버를 쓴다 — 국내 매체를 잘 잡고, 무엇보다 **원문 주소**를 준다.
+    // 실패하면 조용히 구글로 내려간다 (뉴스가 아예 안 뜨는 것이 가장 나쁘다).
+    try {
+      const nv = await fetchNaver(limit);
+      if (nv && nv.length) {
+        const withPics = await withThumbs(nv);
+        return ok(res, { items: withPics, source: "네이버 뉴스" }, CACHE_SEC);
+      }
+    } catch (e) { console.warn("[뉴스] 네이버 실패 → 구글로:", e && e.message); }
+
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 9000);
     let xml;
@@ -146,4 +207,4 @@ module.exports = async (req, res) => {
 
 module.exports.parseFeed = parseFeed;
 module.exports.cleanTitle = cleanTitle;
-module.exports._test = { sizeThumb, withThumbs, thumbOf };
+module.exports._test = { sizeThumb, withThumbs, thumbOf, sourceOf, stripTags, fetchNaver };

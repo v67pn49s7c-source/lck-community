@@ -95,17 +95,24 @@ ok(cleanTitle("제목 - 인벤", "인벤") === "제목" && cleanTitle("제목", 
   ok(typeof t.thumbOf === "function" && typeof t.withThumbs === "function",
     "썸네일 함수가 있어야 함");
   // 구글 썸네일 주소 끝의 크기를 바꿔 받는다
-  ok(t.sizeThumb("https://lh3.googleusercontent.com/A=s0-w300-rw", 400)
-       === "https://lh3.googleusercontent.com/A=s0-w400-rw",
-    "썸네일 크기를 화면에 맞게 바꿔야 함");
-  ok(t.sizeThumb("https://x/y.jpg", 400) === "https://x/y.jpg",
-    "크기가 안 붙은 주소는 건드리지 않아야 함");
+  // 네이버는 **기사 원문 주소**를 준다 — 그 페이지의 og:image 가 진짜 기사 사진이다.
+  // (구글은 원문 주소를 암호로 감춰서 사진을 구할 길이 아예 없었다)
+  ok(typeof t.fetchNaver === "function", "네이버 뉴스 검색 경로가 있어야 함");
+  ok(t.sourceOf("https://sports.khan.co.kr/article/1") === "스포츠경향",
+    "매체 이름은 원문 도메인에서 만든다");
+  ok(t.sourceOf("https://unknown-media.co.kr/a") === "unknown-media.co.kr",
+    "모르는 매체는 도메인 그대로 — 이름을 지어내지 않는다");
+
   const src = fs.readFileSync(path.join(__dirname, "..", "api/news.js"), "utf8");
   // ⚠ 썸네일 때문에 기사까지 늦거나 빠지면 안 된다 — 예산과 개수 제한이 있어야 한다
   ok(/THUMB_BUDGET_MS/.test(src) && /THUMB_MAX/.test(src),
     "썸네일에 시간 예산과 건수 제한이 있어야 함 (뉴스가 본체다)");
   ok(/catch \{ return null; \}/.test(src),
     "썸네일 실패는 조용히 넘어가야 함");
+  // 네이버가 죽어도 뉴스는 떠야 한다 — 아예 안 뜨는 것이 가장 나쁘다
+  ok(/네이버 실패 → 구글로/.test(src), "네이버가 실패하면 구글로 내려가야 함");
+  ok(/name=\["'\]twitter:image/.test(src),
+    "매체마다 태그가 달라 twitter:image 까지 봐야 함");
 }
 {
   const app = fs.readFileSync(path.join(__dirname, "..", "assets/app.js"), "utf8");
