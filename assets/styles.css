@@ -81,7 +81,7 @@ body:not(.app-ready)::before {
   content: "";
   position: fixed; top: 42%; left: 50%; margin-left:-35px;
   width: 64px; height: 64px; z-index: 100;
-  background: url("brand/nexus-icon.png?v=20260817n") center / contain no-repeat;
+  background: url("brand/nexus-icon.png?v=20260817o") center / contain no-repeat;
   animation: logo-pulse 1.4s ease-in-out infinite;
 }
 body:not(.app-ready)::after {
@@ -170,7 +170,9 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--t
      잡아먹어서, 헤더를 키우면 정작 볼 내용이 밀린다. 그래서 폭으로 나눈다. */
 @media (min-width: 721px) {
   .header-inner { height: 78px; gap:42px; }
-  .brand-full { height: 44px; }
+  /* 로고는 월즈 스킨과 **같은 기준**으로 잡는다 (폭 146px). 높이로 맞추면 두 스킨의
+     로고 비율이 달라 크기가 미묘하게 어긋나 보인다 (사장님 2026-08-18). */
+  .brand-full { width: 146px; height: auto; }
   .main-nav { gap:34px; }
   .main-nav a { font-size: var(--fs-md); }
 }

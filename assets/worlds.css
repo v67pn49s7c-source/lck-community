@@ -154,7 +154,14 @@ main { max-width:var(--max); margin:auto; padding:26px 20px 70px; }
 .sponsor-slot span { color:#66738a; font-size:9px; font-weight:900; letter-spacing:.13em; }
 .sponsor-slot b { margin-top:7px; color:#9ca8ba; font-size:13px; }
 .sponsor-slot small { margin-top:4px; color:#5d697d; font-size:9px; }
-footer { padding:30px 20px; color:#5e6b7f; border-top:1px solid var(--line); text-align:center; font-size:10px; letter-spacing:.08em; }
+/* 하단 고지 — 기본 스킨과 같은 모양으로 맞춘다 (사장님 2026-08-18).
+   가운데 정렬 + 10px + 자간 넓힘은 **읽으라고 쓴 글이 아니라 장식처럼** 보였다.
+   고지는 실제로 읽히라고 있는 문장이므로 왼쪽 정렬 · 본문 크기 · 넉넉한 줄간격으로. */
+footer {
+  padding:26px 20px 40px; color:#5e6b7f; border-top:1px solid var(--line);
+  text-align:left; font-size:13px; letter-spacing:0; line-height:1.8;
+}
+footer > * { max-width:var(--max); margin-left:auto; margin-right:auto; }
 
 body[data-preview-mode="live"] .countdown-card>strong { font-size:48px; margin:18px 0 4px; }
 body[data-preview-mode="live"] .countdown-card { border-color:rgba(255,70,85,.65); }
