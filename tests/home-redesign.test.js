@@ -68,4 +68,9 @@ assert(/@media \(max-width: 720px\)[\s\S]*?\.main-nav \{ display: none; \}/.test
 assert(index.includes('id="home-module-root"') && index.includes("assets/home-lck.js"),
   "index는 시즌별 본문을 직접 품지 않고 홈 모듈을 꽂는 공통 껍데기여야 함");
 
+// 폐기한 스킨의 잔재가 남아 홈이 "불러오는 중"에서 멈춘 적이 있다 (2026-08-18).
+// 파일을 지울 때는 그 파일을 **쓰는 쪽**도 같이 봐야 한다.
+assert(!/worlds-theme|worlds-production/.test(html),
+  "지운 월즈 스킨을 참조하는 코드가 남아 있으면 안 됨");
+
 console.log("✓ 홈 정보 우선순위·일자별 경기 바·모바일 단일 메뉴 회귀 테스트 통과");

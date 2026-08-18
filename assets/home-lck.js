@@ -48,8 +48,9 @@
 
   HOME_MODULES.lck = {
     async mount(root) {
-      document.getElementById("worlds-theme").disabled = true;
-      document.body.classList.remove("worlds-production");
+      // ⚠ 월즈 스킨을 폐기하면서 이 두 줄이 남아 있었다. 없는 요소에 값을 넣으려다
+      //   오류가 나면서 **홈이 "불러오는 중"에서 멈췄다** (2026-08-18 실제 사고).
+      //   파일을 지울 때는 그 파일을 **쓰는 쪽**도 같이 봐야 한다.
       document.body.classList.add("home-redesign");
       document.title = "The Nexus — LCK 팬 커뮤니티 | 경기 일정·승부예측·팬심지수";
       root.innerHTML = template;
