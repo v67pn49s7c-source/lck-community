@@ -363,9 +363,9 @@ function renderHeader(activeMenu, activeTeamId) {
           stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <a class="brand" href="index.html" title="The Nexus">
-        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817t")}" alt="The Nexus">
-        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817t")}" alt="The Nexus">
-        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817t")}" alt="The Nexus">
+        <img class="brand-full light" src="${brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817u")}" alt="The Nexus">
+        <img class="brand-full dark" src="${brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817u")}" alt="The Nexus">
+        <img class="brand-icon" src="${brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817u")}" alt="The Nexus">
       </a>
       <nav class="main-nav">
         ${navGroups.map(g => `<a href="${g.href}" class="${g.menu === groupName ? "active" : ""}">${g.menu}</a>`).join("")}
@@ -400,7 +400,7 @@ function renderHeader(activeMenu, activeTeamId) {
 
   // 파비콘도 업로드된 모바일 로고를 따라감
   const fav = document.querySelector('link[rel="icon"]');
-  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817t");
+  if (fav) fav.href = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817u");
 
   renderTabBar(groupName);
 }
@@ -2182,9 +2182,10 @@ async function initHome() {
   // 모드 스위치는 스냅샷의 옛 값을 믿지 않고 이 한 칸만 먼저 새로 받는다.
   // 그래야 운영자가 LCK로 긴급 복귀했는데 재방문자만 계속 월즈로 가는 일이 없다.
   try { await reloadSetting(SITE_EVENT_MODE_KEY); } catch (e) {}
-  const forcedWorlds = new URLSearchParams(location.search).get("home") === "worlds-preview";
-  const resolveMode = () => forcedWorlds || (typeof worldsModeActive === "function" && worldsModeActive())
-    ? "worlds" : "lck";
+  // 월즈 스킨은 폐기했다 (2026-08-18 사장님). 홈은 언제나 LCK 모듈이다.
+  // ⚠ 모듈 갈아 끼우는 구조 자체는 남겨 둔다 — 나중에 월즈를 다시 만들 때
+  //   여기에 한 줄만 되돌리면 되고, 지금 지우면 그때 index.html 부터 다시 짜야 한다.
+  const resolveMode = () => "lck";
   let activeMode = null;
 
   async function mount(mode) {

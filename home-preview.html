@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>메인 화면 개편 시안 — The Nexus</title>
+  <script>document.documentElement.dataset.theme = localStorage.getItem("lck_theme") || "light";</script>
+  <link rel="icon" type="image/png" href="assets/brand/nexus-icon.png?v=20260811f">
+  <link rel="stylesheet" href="assets/styles.css?v=20260811f">
+  <link rel="stylesheet" href="assets/home-preview.css">
+</head>
+<body class="home-preview-page">
+  <main class="page preview-home">
+    <div class="container">
+      <div class="preview-intro">
+        <div>
+          <span class="preview-label">HOME REDESIGN · PREVIEW</span>
+          <h1>LCK 팬 커뮤니티</h1>
+          <p>다음 경기, 순위, 팬들의 이야기를 가장 빠르게 확인하세요.</p>
+        </div>
+        <span class="preview-note">운영 페이지에는 아직 반영되지 않은 시안입니다</span>
+      </div>
+
+      <div class="preview-layout">
+        <div class="stack preview-main-column">
+          <section class="card preview-board-card">
+            <div class="card-head">
+              <h2 class="card-title">전체 게시판 <span class="sub">최신 글 5개</span></h2>
+              <a class="card-more" href="community.html">전체 글 보기 ›</a>
+            </div>
+            <div class="preview-board-tabs" aria-label="게시판 분류">
+              <button type="button" class="active">전체</button>
+              <button type="button">자유</button>
+              <button type="button">경기 분석</button>
+              <button type="button">밴픽·메타</button>
+              <button type="button">영상·짤</button>
+            </div>
+            <a class="preview-post-row" href="post.html?id=p6">
+              <span class="preview-board-name all">전체</span>
+              <span class="preview-post-copy"><strong>The Nexus 이용 안내 — 비방·혐오 없이 응원해 주세요</strong><small>운영팀 · 12분 전</small></span>
+              <span class="preview-post-stats"><b>▲ 42</b><span>댓글 8</span></span>
+            </a>
+            <a class="preview-post-row" href="community.html">
+              <span class="preview-board-name kt">KT</span>
+              <span class="preview-post-copy"><strong>KT vs DK, 오늘 밴픽에서 가장 중요한 포인트</strong><small>롤잘알 · 24분 전</small></span>
+              <span class="preview-post-stats"><b>▲ 31</b><span>댓글 14</span></span>
+            </a>
+            <a class="preview-post-row" href="community.html">
+              <span class="preview-board-name dk">DK</span>
+              <span class="preview-post-copy"><strong>쇼메이커 최근 폼, 숫자로 보면 더 놀랍다</strong><small>블루사이드 · 37분 전</small></span>
+              <span class="preview-post-stats"><b>▲ 26</b><span>댓글 11</span></span>
+            </a>
+            <a class="preview-post-row" href="community.html">
+              <span class="preview-board-name t1">T1</span>
+              <span class="preview-post-copy"><strong>플레이오프 경우의 수 한 장으로 정리</strong><small>대상혁 · 1시간 전</small></span>
+              <span class="preview-post-stats"><b>▲ 19</b><span>댓글 7</span></span>
+            </a>
+            <a class="preview-post-row" href="community.html">
+              <span class="preview-board-name hle">HLE</span>
+              <span class="preview-post-copy"><strong>이번 주 최고의 한타 장면은 이거 아닌가요?</strong><small>오렌지팬 · 1시간 전</small></span>
+              <span class="preview-post-stats"><b>▲ 17</b><span>댓글 9</span></span>
+            </a>
+            <div class="preview-board-cta">
+              <span>응원팀 이야기부터 경기 분석까지</span>
+              <a href="write.html">새 글 쓰기</a>
+            </div>
+          </section>
+
+          <section class="card preview-pulse-card">
+            <div class="preview-pulse-copy">
+              <span class="preview-pulse-kicker">지금 팬들이 고른 승부처</span>
+              <strong>KT vs DK — 1세트 첫 드래곤을 가져갈 팀은?</strong>
+            </div>
+            <div class="preview-pulse-votes">
+              <span><b>KT</b> 46%</span>
+              <span><b>DK</b> 54%</span>
+            </div>
+            <a href="predict.html">투표 참여 ›</a>
+          </section>
+        </div>
+
+        <aside class="stack preview-sidebar">
+          <section class="card">
+            <div class="card-head">
+              <h2 class="card-title">LCK 순위 <span class="sub">시즌 누적</span></h2>
+              <a class="card-more" href="standings.html">자세히 ›</a>
+            </div>
+            <table class="standings preview-standings">
+              <thead><tr><th>순위</th><th>팀</th><th>승–패</th><th>포인트</th></tr></thead>
+              <tbody>
+                <tr><td class="rank">1</td><td class="team-cell"><img src="assets/logos/t1.svg" alt="">T1</td><td class="wl"><b>16W</b> 6L</td><td class="pt">21</td></tr>
+                <tr><td class="rank">2</td><td class="team-cell"><img src="assets/logos/hle.svg" alt="">HLE</td><td class="wl"><b>16W</b> 6L</td><td class="pt">19</td></tr>
+                <tr><td class="rank">3</td><td class="team-cell"><img src="assets/logos/gen.svg" alt="">GEN</td><td class="wl"><b>16W</b> 6L</td><td class="pt">18</td></tr>
+                <tr><td class="rank">4</td><td class="team-cell"><img src="assets/logos/kt.svg" alt="">KT</td><td class="wl"><b>15W</b> 7L</td><td class="pt">11</td></tr>
+                <tr><td class="rank">5</td><td class="team-cell"><img src="assets/logos/dk.svg" alt="">DK</td><td class="wl"><b>14W</b> 8L</td><td class="pt">8</td></tr>
+                <tr><td class="rank">6</td><td class="team-cell"><img src="assets/logos/bro.svg" alt="">BRO</td><td class="wl"><b>8W</b> 14L</td><td class="pt">−7</td></tr>
+                <tr><td class="rank">7</td><td class="team-cell"><img src="assets/logos/bfx.svg" alt="">BFX</td><td class="wl"><b>8W</b> 14L</td><td class="pt">−10</td></tr>
+                <tr><td class="rank">8</td><td class="team-cell"><img src="assets/logos/krx.svg" alt="">KRX</td><td class="wl"><b>7W</b> 15L</td><td class="pt">−13</td></tr>
+                <tr><td class="rank">9</td><td class="team-cell"><img src="assets/logos/ns.svg" alt="">NS</td><td class="wl"><b>7W</b> 15L</td><td class="pt">−15</td></tr>
+                <tr class="my-team"><td class="rank">10</td><td class="team-cell"><img src="assets/logos/dns.svg" alt="">DNS</td><td class="wl"><b>3W</b> 19L</td><td class="pt">−32</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="card preview-schedule-card">
+            <div class="card-head">
+              <h2 class="card-title">이후 경기 일정</h2>
+              <a class="card-more" href="matches.html">전체 일정 ›</a>
+            </div>
+            <div class="preview-schedule-day">8. 12. 수</div>
+            <a class="preview-schedule-row" href="matches.html"><time>17:00</time><span><img src="assets/logos/dns.svg" alt="">DNS</span><b>VS</b><span><img src="assets/logos/ns.svg" alt="">NS</span></a>
+            <a class="preview-schedule-row" href="matches.html"><time>19:00</time><span><img src="assets/logos/kt.svg" alt="">KT</span><b>VS</b><span><img src="assets/logos/dk.svg" alt="">DK</span></a>
+            <div class="preview-schedule-day">8. 13. 목</div>
+            <a class="preview-schedule-row" href="matches.html"><time>17:00</time><span><img src="assets/logos/krx.svg" alt="">KRX</span><b>VS</b><span><img src="assets/logos/bfx.svg" alt="">BFX</span></a>
+            <a class="preview-schedule-row" href="matches.html"><time>19:00</time><span><img src="assets/logos/gen.svg" alt="">GEN</span><b>VS</b><span><img src="assets/logos/hle.svg" alt="">HLE</span></a>
+          </section>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <script src="assets/data.js?v=20260811f"></script>
+  <script src="assets/vendor/supabase.min.js?v=20260811f"></script>
+  <script src="assets/store.js?v=20260811f"></script>
+  <script src="assets/app.js?v=20260811f"></script>
+  <script src="assets/home-preview.js"></script>
+</body>
+</html>

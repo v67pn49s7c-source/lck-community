@@ -267,9 +267,9 @@ async function loadLogosLater() {
     localStorage.setItem(LOGO_KEY + "_at", String(Date.now()));
   } catch {}
   // 이미 그려진 헤더·파비콘의 로고를 조용히 바꿔 끼운다
-  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817t"); });
-  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817t"); });
-  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817t"); });
+  document.querySelectorAll("img.brand-full.light").forEach(i => { i.src = brandLogoURL("desktop-light", "assets/brand/nexus-desktop.png?v=20260817u"); });
+  document.querySelectorAll("img.brand-full.dark").forEach(i => { i.src = brandLogoURL("desktop-dark", "assets/brand/nexus-desktop-dark.png?v=20260817u"); });
+  document.querySelectorAll("img.brand-icon").forEach(i => { i.src = brandLogoURL("mobile", "assets/brand/nexus-icon.png?v=20260817u"); });
 }
 
 // match_details 는 첫 화면에서 가장 큰·가장 느린 요청이다 (57KB · 1.5초).
@@ -2411,6 +2411,9 @@ function siteEventMode() {
   return final && final.status === "done" ? "worlds" : "lck";
 }
 
+// ⚠ 월즈 스킨은 폐기했다 (2026-08-18 사장님: "디자인이 구리다, 나중에 다시 만들자").
+//   함수는 **남겨 둔다** — site_settings 에 "worlds" 값이 저장돼 있을 수 있고,
+//   지우면 그 값을 읽는 곳에서 조용히 오류가 난다. 지금은 아무도 이 답을 쓰지 않는다.
 function worldsModeActive() { return siteEventMode() === "worlds"; }
 
 function worldsLckSeeds() {
